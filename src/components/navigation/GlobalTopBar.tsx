@@ -1,5 +1,6 @@
 import React from 'react';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
+import { DrawerActions } from '@react-navigation/native';
 import { ActivityIndicator, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, HelpCircle, LogOut, Search, X } from 'lucide-react-native';
@@ -14,6 +15,7 @@ export function GlobalTopBar() {
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation();
   const { searchQuery, setSearchQuery, triggerCreateModal } = useGlobalUi();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [showNotificaciones, setShowNotificaciones] = React.useState(false);
@@ -28,11 +30,19 @@ export function GlobalTopBar() {
     router.replace('/');
   };
 
+  const openMenu = () => {
+    try {
+      navigation.dispatch(DrawerActions.openDrawer());
+    } catch (e) {
+      console.log('Open drawer:', e);
+    }
+  };
+
   return (
     <View style={[styles.topBar, isDesktop && styles.topBarDesktop]}>
       <View style={styles.topBarLeft}>
         {!isDesktop && (
-          <TouchableOpacity style={styles.iconBtn} onPress={() => {}}>
+          <TouchableOpacity style={styles.iconBtn} onPress={openMenu}>
             <Image source={require('../../../assets/images/logo-metricall-negative.png')} style={{ width: 44, height: 44, marginLeft: -8 }} resizeMode="contain" />
           </TouchableOpacity>
         )}
@@ -96,10 +106,26 @@ export function GlobalTopBar() {
         </TouchableOpacity>
       </View>
 
-      {/* MODAL DE NOTIFICACIONES */}
-      <Modal visible={showNotificaciones} transparent animationType="fade">
+      {/* MODAL DE NOTIFICACIONES ADAPTATIVO */}
+      <Modal visible={showNotificaciones} transparent animationType="fade" onRequestClose={() => setShowNotificaciones(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowNotificaciones(false)}>
-          <TouchableOpacity activeOpacity={1} style={[styles.notifContainer, { width: isDesktop ? 400 : '100%', marginTop: isDesktop ? 60 : insets.top + 50, marginRight: isDesktop ? 20 : 0 }]}>
+          <TouchableOpacity 
+            activeOpacity={1} 
+            style={[
+              styles.notifContainer, 
+              isDesktop ? {
+                width: 400,
+                marginTop: 56,
+                marginRight: 20,
+                alignSelf: 'flex-end',
+              } : {
+                width: '92%',
+                maxWidth: 420,
+                marginTop: Platform.OS === 'web' ? 65 : (insets.top > 0 ? insets.top + 10 : 35),
+                alignSelf: 'center',
+              }
+            ]}
+          >
             <View style={styles.notifHeader}>
               <Text style={styles.notifTitle}>Notificaciones</Text>
               {unreadCount > 0 && (

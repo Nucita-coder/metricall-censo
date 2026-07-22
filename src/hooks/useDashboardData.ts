@@ -27,6 +27,7 @@ export function useDashboardData() {
   const [refreshing, setRefreshing] = useState(false);
   const [liderNombre, setLiderNombre] = useState('');
   const [empresaNombre, setEmpresaNombre] = useState('');
+  const [empresaLogo, setEmpresaLogo] = useState<string | null>(null);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
 
   const fetchDashboardData = useCallback(
@@ -47,7 +48,7 @@ export function useDashboardData() {
 
         const { data: empresaData, error: empresaError } = await supabase
           .from('empresas')
-          .select('nombre')
+          .select('nombre, logo_url')
           .eq('id', empresaId)
           .single();
 
@@ -58,6 +59,7 @@ export function useDashboardData() {
           await supabase.from('empresas').update({ nombre: 'Fibex Telecom' }).eq('id', empresaId);
         }
         setEmpresaNombre(finalNombre);
+        setEmpresaLogo(empresaData.logo_url || null);
 
         const { data: sucursalesData, error: sucursalesError } = await supabase
           .from('sucursales')
@@ -114,6 +116,7 @@ export function useDashboardData() {
     refreshing,
     liderNombre,
     empresaNombre,
+    empresaLogo,
     sucursales,
     setSucursales,
     fetchDashboardData,

@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { ArrowLeftRight, Building2, MoreVertical, Plus, Search, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
 import { useGlobalUi } from '../../../context/GlobalUiContext';
 import { supabase } from '../../../lib/supabase';
@@ -21,6 +21,7 @@ export default function DashboardScreen() {
     refreshing,
     liderNombre,
     empresaNombre,
+    empresaLogo,
     sucursales,
     setSucursales,
     fetchDashboardData,
@@ -197,9 +198,25 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#B6C2CF" />}>
         <View style={[styles.webContainer, isDesktop && { maxWidth: '100%', paddingHorizontal: 32 }]}>
-          <View style={{ marginBottom: 32, marginTop: 16, paddingHorizontal: isDesktop ? 0 : 24 }}>
-            <Text style={styles.companyName}>{empresaNombre}</Text>
-            <Text style={styles.greeting}>Hola, {liderNombre.split(' ')[0]}</Text>
+          <View style={{ 
+            marginBottom: 32, 
+            marginTop: 16, 
+            paddingHorizontal: isDesktop ? 0 : 24,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <View style={{ flex: 1, marginRight: 16 }}>
+              <Text style={styles.companyName}>{empresaNombre}</Text>
+              <Text style={styles.greeting}>Hola, {liderNombre.split(' ')[0]}</Text>
+            </View>
+            {empresaLogo ? (
+              <Image 
+                source={{ uri: empresaLogo }} 
+                style={{ width: isDesktop ? 160 : 110, height: isDesktop ? 60 : 45, borderRadius: 8 }} 
+                resizeMode="contain" 
+              />
+            ) : null}
           </View>
 
           {!isDesktop && sucursales.length > 0 && (

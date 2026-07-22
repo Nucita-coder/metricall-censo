@@ -73,7 +73,7 @@ export default function EsperaScreen() {
       const { data: empresa, error: empresaError } = await supabase
         .from('empresas')
         .select('id, nombre')
-        .eq('codigo_invitacion', codigo.trim())
+        .ilike('codigo_invitacion', codigo.trim())
         .single();
 
       if (empresaError || !empresa) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, FlatList, Platform } from 'react-native';
 import { supabase } from '../../../lib/supabase';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
@@ -150,29 +150,60 @@ export default function EquipoScreen() {
     }
   };
 
-  const handleRechazar = async (id: string) => {
-    Alert.alert('¿Rechazar?', 'La solicitud será eliminada.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Rechazar', style: 'destructive', onPress: async () => {
-        await supabase.from('solicitudes_acceso').delete().eq('id', id);
-        fetchData();
-      }}
-    ]);
+  const confirmAction = (title: string, message: string, onConfirm: () => void) => {
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n\n${message}`)) {
+        onConfirm();
+      }
+    } else {
+      Alert.alert(title, message, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Confirmar', style: 'destructive', onPress: onConfirm }
+      ]);
+    }
   };
 
-  const handleBloquear = async (id: string) => {
-    Alert.alert('¿Bloquear?', 'Este usuario no podrá volver a solicitar acceso a tu empresa.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Bloquear', style: 'destructive', onPress: async () => {
-        await supabase.from('solicitudes_acceso').update({ estado: 'bloqueado' }).eq('id', id);
-        fetchData();
-      }}
-    ]);
+  const handleRechazar = (id: string) => {
+    confirmAction(
+      '¿Rechazar Solicitud?',
+      'La solicitud de este usuario será eliminada.',
+      async () => {
+        try {
+          const { error: rpcErr } = await supabase.rpc('rechazar_solicitud_acceso', { p_solicitud_id: id });
+          if (rpcErr) {
+            const { error: delErr } = await supabase.from('solicitudes_acceso').delete().eq('id', id);
+            if (delErr) throw delErr;
+          }
+          fetchData();
+        } catch (e: any) {
+          Alert.alert('Error', e.message || 'No se pudo rechazar la solicitud.');
+        }
+      }
+    );
+  };
+
+  const handleBloquear = (id: string) => {
+    confirmAction(
+      '¿Bloquear Usuario?',
+      'Este usuario no podrá volver a solicitar acceso a tu empresa.',
+      async () => {
+        try {
+          const { error: rpcErr } = await supabase.rpc('bloquear_solicitud_acceso', { p_solicitud_id: id });
+          if (rpcErr) {
+            const { error: upErr } = await supabase.from('solicitudes_acceso').update({ estado: 'bloqueado' }).eq('id', id);
+            if (upErr) throw upErr;
+          }
+          fetchData();
+        } catch (e: any) {
+          Alert.alert('Error', e.message || 'No se pudo bloquear la solicitud.');
+        }
+      }
+    );
   };
 
   const toggleTablero = (id: string) => {
     if (selectedTableros.includes(id)) {
-      setSelectedTableros(selectedTableros.filter(t => t !== id));
+      setSelectedTableros(selectedTableros.filter((t: string) => t !== id));
     } else {
       setSelectedTableros([...selectedTableros, id]);
     }

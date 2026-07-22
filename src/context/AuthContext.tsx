@@ -48,8 +48,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single();
         
       if (!error && data) {
-        setUserRol(data.rol);
-        setEmpresaId(data.empresa_id);
+        setUserRol(data.rol || '');
+        setEmpresaId(data.empresa_id || null);
         setNombreCompleto(data.nombre_completo || '');
         const empresaData: any = data.empresas;
         const nombreEmpresa = Array.isArray(empresaData) ? empresaData[0]?.nombre : empresaData?.nombre;
@@ -62,52 +62,76 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const initSession = async () => {
-    setIsLoading(true);
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    setSession(currentSession);
-    if (currentSession?.user) {
-      await fetchProfile(currentSession.user.id);
-    }
-    setIsLoading(false);
-  };
-
   useEffect(() => {
-    initSession();
+    let isMounted = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      setSession(currentSession);
-      if (event === 'SIGNED_IN' && currentSession?.user) {
-        const newUserId = currentSession.user.id;
-        const lastUserId = await AsyncStorage.getItem('@last_session_user_id');
-        
-        if (lastUserId && lastUserId !== newUserId) {
-          const keys = await AsyncStorage.getAllKeys();
-          const oldCacheKeys = keys.filter(k => k.startsWith('@cache_tablero_'));
-          if (oldCacheKeys.length > 0) {
-            await AsyncStorage.multiRemove(oldCacheKeys);
+    const processSession = async (currentSession: Session | null) => {
+      try {
+        setIsLoading(true);
+        setSession(currentSession);
+
+        if (currentSession?.user) {
+          const newUserId = currentSession.user.id;
+          try {
+            const lastUserId = await AsyncStorage.getItem('@last_session_user_id');
+            if (lastUserId && lastUserId !== newUserId) {
+              const keys = await AsyncStorage.getAllKeys();
+              const oldCacheKeys = keys.filter(k => k.startsWith('@cache_tablero_'));
+              if (oldCacheKeys.length > 0) {
+                await AsyncStorage.multiRemove(oldCacheKeys);
+              }
+            }
+            await AsyncStorage.setItem('@last_session_user_id', newUserId);
+          } catch (e) {
+            console.warn("AuthContext - Cache cleanup error:", e);
+          }
+
+          // Cargar perfil completo antes de dar por terminada la carga de sesión
+          await fetchProfile(currentSession.user.id);
+        } else {
+          setUserRol('');
+          setEmpresaId(null);
+          setNombreCompleto('');
+          setEmpresaNombre('');
+          setPermisosEspeciales({});
+          setEtiquetas([]);
+
+          try {
+            const keys = await AsyncStorage.getAllKeys();
+            const oldCacheKeys = keys.filter(k => k.startsWith('@cache_tablero_'));
+            if (oldCacheKeys.length > 0) {
+              await AsyncStorage.multiRemove(oldCacheKeys);
+            }
+            await AsyncStorage.removeItem('@last_session_user_id');
+          } catch (e) {
+            console.warn("AuthContext - Signout cache cleanup error:", e);
           }
         }
-        await AsyncStorage.setItem('@last_session_user_id', newUserId);
-
-        await fetchProfile(currentSession.user.id);
-      } else if (event === 'SIGNED_OUT') {
-        setUserRol('');
-        setEmpresaId(null);
-        setPermisosEspeciales({});
-
-        const keys = await AsyncStorage.getAllKeys();
-        const oldCacheKeys = keys.filter(k => k.startsWith('@cache_tablero_'));
-        if (oldCacheKeys.length > 0) {
-          await AsyncStorage.multiRemove(oldCacheKeys);
+      } catch (err) {
+        console.warn("AuthContext - Error processing session:", err);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
         }
-        await AsyncStorage.removeItem('@last_session_user_id');
       }
-      // Si cambia de estado y es inicializado, lo actualizamos rápido
-      setIsLoading(false);
+    };
+
+    // Obtenemos sesión inicial
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      processSession(initialSession);
+    }).catch(err => {
+      console.warn("AuthContext - Error getting session:", err);
+      if (isMounted) setIsLoading(false);
+    });
+
+    // Escuchamos cambios de estado de auth
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      if (event === 'INITIAL_SESSION') return; // Ya se procesa con getSession()
+      processSession(currentSession);
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -128,3 +152,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+

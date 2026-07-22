@@ -1,0 +1,24 @@
+{
+    "output": {
+        "filePath": "repomix-output.xml",
+        "style": "xml"
+    },
+    "ignore": {
+        "customPatterns": [
+            "node_modules/**",
+            ".expo/**",
+            "android/**",
+            "ios/**",
+            "*.env*",
+            ".supabase/**",
+            "supabase/.temp/**",
+            "babel.config.js",
+            "metro.config.js",
+            "package-lock.json",
+            "yarn.lock",
+            "*.png",
+            "*.jpg",
+            "*.jpeg"
+        ]
+    }
+}

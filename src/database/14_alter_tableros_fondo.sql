@@ -1,0 +1,1 @@
+ALTER TABLE tableros ADD COLUMN IF NOT EXISTS fondo_url TEXT;

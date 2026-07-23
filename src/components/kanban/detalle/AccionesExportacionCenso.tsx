@@ -51,29 +51,42 @@ export function AccionesExportacionCenso({ tarjetaSeleccionada, isSaving }: Acci
       reporte += `\n*Ubicación GPS Casa:*\nhttps://www.google.com/maps/search/?api=1&query=${data.geo_casa.lat},${data.geo_casa.lng}\n`;
     }
 
-    let evidenciasText = '';
+    // Escáner dinámico recursivo para extraer todas las fotos, LCH, GeoFotos y adjuntos de datos_valores
+    const urlMap = new Map<string, string>(); // url -> label
 
-    if (data.lch_imagen && typeof data.lch_imagen === 'string') {
-      evidenciasText += `*Foto LCH:* ${data.lch_imagen}\n`;
-    }
+    const scanForUrls = (obj: any, currentLabel = '') => {
+      if (!obj) return;
+      if (typeof obj === 'string') {
+        if (obj.startsWith('http://') || obj.startsWith('https://')) {
+          if (!obj.includes('google.com/maps')) {
+            if (!urlMap.has(obj)) {
+              urlMap.set(obj, currentLabel || 'Evidencia');
+            }
+          }
+        }
+      } else if (Array.isArray(obj)) {
+        obj.forEach((item, idx) => scanForUrls(item, `${currentLabel} ${idx + 1}`));
+      } else if (typeof obj === 'object') {
+        if (obj.url && typeof obj.url === 'string') {
+          scanForUrls(obj.url, currentLabel || obj.nombre || 'Evidencia');
+        } else if (obj.uri && typeof obj.uri === 'string') {
+          scanForUrls(obj.uri, currentLabel || obj.nombre || 'Evidencia');
+        } else {
+          for (const [k, v] of Object.entries(obj)) {
+            if (['historial_auditoria', 'comentarios'].includes(k)) continue;
+            scanForUrls(v, currentLabel ? `${currentLabel} - ${formatKeyName(k)}` : formatKeyName(k));
+          }
+        }
+      }
+    };
 
-    if (data.geofotos) {
-      const fotosArr = Array.isArray(data.geofotos) ? data.geofotos : [data.geofotos];
-      fotosArr.forEach((foto: any, idx: number) => {
-        const url = typeof foto === 'string' ? foto : foto?.url || foto?.uri;
-        if (url) evidenciasText += `*GeoFoto ${idx + 1}:* ${url}\n`;
+    scanForUrls(data);
+
+    if (urlMap.size > 0) {
+      let evidenciasText = '';
+      urlMap.forEach((label, url) => {
+        evidenciasText += `• *${label}:*\n${url}\n\n`;
       });
-    }
-
-    if (data.adjuntos) {
-      const adjArr = Array.isArray(data.adjuntos) ? data.adjuntos : [data.adjuntos];
-      adjArr.forEach((adj: any, idx: number) => {
-        const url = typeof adj === 'string' ? adj : adj?.url || adj?.uri;
-        if (url) evidenciasText += `*Adjunto ${idx + 1}:* ${url}\n`;
-      });
-    }
-
-    if (evidenciasText) {
       reporte += `\n*EVIDENCIAS Y FOTOGRAFÍAS:*\n${evidenciasText}`;
     }
 

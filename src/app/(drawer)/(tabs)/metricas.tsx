@@ -24,6 +24,10 @@ import {
   ChevronUp,
   CheckCircle2,
   ExternalLink,
+  Wrench,
+  XCircle,
+  Clock,
+  UserCheck,
 } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
@@ -39,30 +43,51 @@ export interface VendedorStats {
   tarjetas: Tarjeta[];
 }
 
+export interface TecnicoStats {
+  tecnicoNombre: string;
+  totalAsignadas: number;
+  completadas: number;
+  liberadas: number;
+  enProceso: number;
+  tasaEficiencia: number;
+  tarjetas: Tarjeta[];
+}
+
 export default function MetricasScreen() {
   const { userRol, empresaId } = useAuth();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
+  // Subtab activo: 'vendedores' o 'tecnicos'
+  const [subTab, setSubTab] = useState<'vendedores' | 'tecnicos'>('vendedores');
+
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filtroPeriodo, setFiltroPeriodo] = useState<'todo' | 'hoy' | '7dias' | 'mes'>('mes');
-  const [busquedaVendedor, setBusquedaVendedor] = useState('');
-  const [vendedorExpandido, setVendedorExpandido] = useState<string | null>(null);
+  const [busquedaTexto, setBusquedaTexto] = useState('');
+  const [expandidoId, setExpandidoId] = useState<string | null>(null);
 
+  // Estados Vendedores
   const [statsVendedores, setStatsVendedores] = useState<VendedorStats[]>([]);
   const [kpiTotalVentas, setKpiTotalVentas] = useState(0);
   const [kpiTotalCensos, setKpiTotalCensos] = useState(0);
   const [kpiVendedoresActivos, setKpiVendedoresActivos] = useState(0);
   const [kpiTopVendedor, setKpiTopVendedor] = useState<{ nombre: string; ventas: number } | null>(null);
 
+  // Estados Técnicos
+  const [statsTecnicos, setStatsTecnicos] = useState<TecnicoStats[]>([]);
+  const [kpiInstalacionesTotal, setKpiInstalacionesTotal] = useState(0);
+  const [kpiInstalacionesCompletadas, setKpiInstalacionesCompletadas] = useState(0);
+  const [kpiInstalacionesLiberadas, setKpiInstalacionesLiberadas] = useState(0);
+  const [kpiTopTecnico, setKpiTopTecnico] = useState<{ nombre: string; completadas: number } | null>(null);
+
   const cargarMetricas = useCallback(async (isBackground = false) => {
     if (!empresaId) return;
     try {
       if (!isBackground) setIsLoading(true);
 
-      // 1. Cargar todas las sucursales de la empresa
+      // 1. Cargar sucursales de la empresa
       const { data: sucursales, error: errorSuc } = await supabase
         .from('sucursales')
         .select('id')
@@ -75,7 +100,7 @@ export default function MetricasScreen() {
         return;
       }
 
-      // 2. Cargar todos los tableros de estas sucursales
+      // 2. Cargar tableros
       const { data: tableros, error: errorTab } = await supabase
         .from('tableros')
         .select('id')
@@ -88,7 +113,7 @@ export default function MetricasScreen() {
         return;
       }
 
-      // 3. Cargar listas de estos tableros
+      // 3. Cargar listas
       const { data: listas, error: errorList } = await supabase
         .from('listas')
         .select('id, nombre, tablero_id')
@@ -110,7 +135,18 @@ export default function MetricasScreen() {
       if (errorTar) throw errorTar;
       const tarjetas = (tarjetasData || []) as Tarjeta[];
 
-      // 5. Filtrar por periodo
+      // 5. Cargar usuarios/perfiles para mapear nombres de técnicos si están asignados por UUID
+      const { data: perfilesData } = await supabase
+        .from('perfiles')
+        .select('id, nombre_completo, email')
+        .eq('empresa_id', empresaId);
+
+      const mapPerfiles = new Map<string, string>();
+      (perfilesData || []).forEach(p => {
+        if (p.id) mapPerfiles.set(p.id, p.nombre_completo || p.email);
+      });
+
+      // 6. Filtrar por periodo
       const ahora = new Date();
       const tarjetasFiltradas = tarjetas.filter(t => {
         if (!t.created_at) return true;
@@ -129,31 +165,39 @@ export default function MetricasScreen() {
             fechaTarjeta.getFullYear() === ahora.getFullYear()
           );
         }
-        return true; // 'todo'
+        return true;
       });
 
-      // 6. Agrupar estadisticas por vendedor
+      // ----------------------------------------------------
+      // A. METRICAS DE VENDEDORES
+      // ----------------------------------------------------
       const mapVendedores = new Map<string, VendedorStats>();
-
       let globalVentas = 0;
       let globalCensos = 0;
 
+      // ----------------------------------------------------
+      // B. METRICAS DE TÉCNICOS / INSTALACIONES
+      // ----------------------------------------------------
+      const mapTecnicos = new Map<string, TecnicoStats>();
+      let globalInstalaciones = 0;
+      let globalCompletadas = 0;
+      let globalLiberadas = 0;
+
       tarjetasFiltradas.forEach(t => {
         const data = t.datos_valores || {};
+        const listaNombre = listas?.find(l => l.id === t.lista_id)?.nombre || '';
+        const cleanLista = listaNombre.toLowerCase();
+
+        // --- VENDEDORES ---
         const vendedorRaw =
           data.vendedor ||
           data.asesorComercial ||
           data.supervisor ||
           'Sin Vendedor Asignado';
-
         const nombreVendedor = String(vendedorRaw).trim() || 'Sin Vendedor Asignado';
 
-        // Determinar si es una venta concretada
         const gestiones = data.gestiones || [];
         const tieneVentaConcretada = gestiones.some((g: any) => g.resultado === 'Venta concretada');
-
-        const listaNombre = listas?.find(l => l.id === t.lista_id)?.nombre || '';
-        const cleanLista = listaNombre.toLowerCase();
 
         const esVenta =
           tieneVentaConcretada ||
@@ -184,40 +228,107 @@ export default function MetricasScreen() {
             tarjetas: [],
           });
         }
-
         const vStat = mapVendedores.get(nombreVendedor)!;
         vStat.totalTarjetas++;
         if (esVenta) vStat.totalVentas++;
         if (esCenso) vStat.totalCensos++;
         if (tieneLch) vStat.totalLch++;
         vStat.tarjetas.push(t);
+
+        // --- TÉCNICOS ---
+        let tecnicoRaw =
+          data.tecnicoAsignado ||
+          data.tecnico ||
+          (t.asignado_a ? mapPerfiles.get(t.asignado_a) : null);
+
+        if (tecnicoRaw) {
+          const nombreTecnico = String(tecnicoRaw).trim();
+          if (nombreTecnico && nombreTecnico !== 'Sin Vendedor Asignado') {
+            const esInstalacionCompletada =
+              cleanLista.includes('activar') ||
+              cleanLista.includes('activo') ||
+              data.reporteInstalacion ||
+              data.fechaInstalacion ||
+              gestiones.some((g: any) => g.resultado === 'Instalado' || g.resultado === 'Completado');
+
+            const esInstalacionLiberada =
+              data.motivoLiberacion ||
+              data.estadoInstalacion === 'Liberada' ||
+              cleanLista.includes('liberad') ||
+              cleanLista.includes('rechazad') ||
+              cleanLista.includes('no factible') ||
+              gestiones.some((g: any) =>
+                g.resultado === 'Liberada' ||
+                g.resultado === 'Rechazada' ||
+                g.resultado === 'No factible'
+              );
+
+            globalInstalaciones++;
+            if (esInstalacionCompletada) globalCompletadas++;
+            if (esInstalacionLiberada) globalLiberadas++;
+
+            if (!mapTecnicos.has(nombreTecnico)) {
+              mapTecnicos.set(nombreTecnico, {
+                tecnicoNombre: nombreTecnico,
+                totalAsignadas: 0,
+                completadas: 0,
+                liberadas: 0,
+                enProceso: 0,
+                tasaEficiencia: 0,
+                tarjetas: [],
+              });
+            }
+
+            const tStat = mapTecnicos.get(nombreTecnico)!;
+            tStat.totalAsignadas++;
+            if (esInstalacionCompletada) {
+              tStat.completadas++;
+            } else if (esInstalacionLiberada) {
+              tStat.liberadas++;
+            } else {
+              tStat.enProceso++;
+            }
+            tStat.tarjetas.push(t);
+          }
+        }
       });
 
+      // Procesar lista Vendedores
       const listaVendedores: VendedorStats[] = Array.from(mapVendedores.values()).map(v => {
         const totalBase = v.totalCensos > 0 ? v.totalCensos : v.totalTarjetas;
         const conversion = totalBase > 0 ? Math.round((v.totalVentas / totalBase) * 100) : 0;
-        return {
-          ...v,
-          tasaConversion: conversion,
-        };
+        return { ...v, tasaConversion: conversion };
       });
-
-      // Ordenar por total de ventas descendente
       listaVendedores.sort((a, b) => b.totalVentas - a.totalVentas || b.totalCensos - a.totalCensos);
 
+      // Procesar lista Técnicos
+      const listaTecnicos: TecnicoStats[] = Array.from(mapTecnicos.values()).map(t => {
+        const eficiencia = t.totalAsignadas > 0 ? Math.round((t.completadas / t.totalAsignadas) * 100) : 0;
+        return { ...t, tasaEficiencia: eficiencia };
+      });
+      listaTecnicos.sort((a, b) => b.completadas - a.completadas || a.liberadas - b.liberadas);
+
+      // Guardar estados Vendedores
       setStatsVendedores(listaVendedores);
       setKpiTotalVentas(globalVentas);
       setKpiTotalCensos(globalCensos);
       setKpiVendedoresActivos(listaVendedores.filter(v => v.vendedorNombre !== 'Sin Vendedor Asignado').length);
+      setKpiTopVendedor(
+        listaVendedores.length > 0 && listaVendedores[0].totalVentas > 0
+          ? { nombre: listaVendedores[0].vendedorNombre, ventas: listaVendedores[0].totalVentas }
+          : null
+      );
 
-      if (listaVendedores.length > 0 && listaVendedores[0].totalVentas > 0) {
-        setKpiTopVendedor({
-          nombre: listaVendedores[0].vendedorNombre,
-          ventas: listaVendedores[0].totalVentas,
-        });
-      } else {
-        setKpiTopVendedor(null);
-      }
+      // Guardar estados Técnicos
+      setStatsTecnicos(listaTecnicos);
+      setKpiInstalacionesTotal(globalInstalaciones);
+      setKpiInstalacionesCompletadas(globalCompletadas);
+      setKpiInstalacionesLiberadas(globalLiberadas);
+      setKpiTopTecnico(
+        listaTecnicos.length > 0 && listaTecnicos[0].completadas > 0
+          ? { nombre: listaTecnicos[0].tecnicoNombre, completadas: listaTecnicos[0].completadas }
+          : null
+      );
     } catch (e: any) {
       console.error('[MetricasScreen] Error cargando métricas:', e);
     } finally {
@@ -244,7 +355,7 @@ export default function MetricasScreen() {
           <Lock size={48} color="#E53E3E" style={{ marginBottom: 16 }} />
           <Text style={styles.accessDeniedTitle}>Acceso Restringido</Text>
           <Text style={styles.accessDeniedSubtitle}>
-            Esta sección de Métricas y Rendimiento Comercial es exclusiva para la cuenta de Administrador.
+            Esta sección de Métricas es exclusiva para la cuenta de Administrador.
           </Text>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(drawer)/(tabs)')}>
             <Text style={styles.backBtnText}>Volver a Operaciones</Text>
@@ -254,9 +365,13 @@ export default function MetricasScreen() {
     );
   }
 
-  // Filtrado local por buscador
+  // Filtrado por buscador
   const vendedoresFiltrados = statsVendedores.filter(v =>
-    v.vendedorNombre.toLowerCase().includes(busquedaVendedor.toLowerCase())
+    v.vendedorNombre.toLowerCase().includes(busquedaTexto.toLowerCase())
+  );
+
+  const tecnicosFiltrados = statsTecnicos.filter(t =>
+    t.tecnicoNombre.toLowerCase().includes(busquedaTexto.toLowerCase())
   );
 
   return (
@@ -266,8 +381,8 @@ export default function MetricasScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <BarChart3 size={24} color="#0C66E4" style={{ marginRight: 10 }} />
           <View>
-            <Text style={styles.headerTitle}>Métricas de Ventas por Vendedor</Text>
-            <Text style={styles.headerSubtitle}>Control ejecutivo de desempeño comercial y censos</Text>
+            <Text style={styles.headerTitle}>Métricas de Administración</Text>
+            <Text style={styles.headerSubtitle}>Desempeño comercial de Vendedores e Instalaciones de Técnicos</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.refreshIconBtn} onPress={() => cargarMetricas()}>
@@ -279,6 +394,35 @@ export default function MetricasScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0C66E4" />}
       >
+        {/* SELECTOR DE SUBTAB (Vendedores vs Técnicos) */}
+        <View style={styles.subTabRow}>
+          <TouchableOpacity
+            style={[styles.subTabButton, subTab === 'vendedores' && styles.subTabButtonActive]}
+            onPress={() => {
+              setSubTab('vendedores');
+              setExpandidoId(null);
+            }}
+          >
+            <Users size={18} color={subTab === 'vendedores' ? '#FFF' : '#8C9BAB'} />
+            <Text style={[styles.subTabText, subTab === 'vendedores' && styles.subTabTextActive]}>
+              Vendedores y Ventas
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.subTabButton, subTab === 'tecnicos' && styles.subTabButtonActive]}
+            onPress={() => {
+              setSubTab('tecnicos');
+              setExpandidoId(null);
+            }}
+          >
+            <Wrench size={18} color={subTab === 'tecnicos' ? '#FFF' : '#8C9BAB'} />
+            <Text style={[styles.subTabText, subTab === 'tecnicos' && styles.subTabTextActive]}>
+              Técnicos e Instalaciones
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* FILTROS DE TIEMPO */}
         <View style={styles.filterRow}>
           {(['mes', '7dias', 'hoy', 'todo'] as const).map(periodo => (
@@ -297,155 +441,347 @@ export default function MetricasScreen() {
           ))}
         </View>
 
-        {/* CARDS KPIS PRINCIPALES */}
-        <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
-          <View style={[styles.kpiCard, { borderColor: '#0C66E4' }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.kpiLabel}>Total Ventas Concretadas</Text>
-              <CheckCircle2 size={20} color="#0C66E4" />
-            </View>
-            <Text style={[styles.kpiValue, { color: '#579DFF' }]}>{kpiTotalVentas}</Text>
-            <Text style={styles.kpiSubtext}>Cierres confirmados en el periodo</Text>
-          </View>
-
-          <View style={[styles.kpiCard, { borderColor: '#25D366' }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.kpiLabel}>Vendedor Lider (Top 1)</Text>
-              <Award size={20} color="#25D366" />
-            </View>
-            <Text style={[styles.kpiValue, { color: '#25D366', fontSize: 20 }]} numberOfLines={1}>
-              {kpiTopVendedor ? kpiTopVendedor.nombre : 'N/A'}
-            </Text>
-            <Text style={styles.kpiSubtext}>
-              {kpiTopVendedor ? `${kpiTopVendedor.ventas} ventas concretadas` : 'Sin ventas registradas'}
-            </Text>
-          </View>
-
-          <View style={[styles.kpiCard, { borderColor: '#8A2BE2' }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.kpiLabel}>Total Censos Levantados</Text>
-              <TrendingUp size={20} color="#8A2BE2" />
-            </View>
-            <Text style={[styles.kpiValue, { color: '#B197FC' }]}>{kpiTotalCensos}</Text>
-            <Text style={styles.kpiSubtext}>Registros de prospección en campo</Text>
-          </View>
-
-          <View style={[styles.kpiCard, { borderColor: '#DD6B20' }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.kpiLabel}>Vendedores Activos</Text>
-              <Users size={20} color="#DD6B20" />
-            </View>
-            <Text style={[styles.kpiValue, { color: '#F6AD55' }]}>{kpiVendedoresActivos}</Text>
-            <Text style={styles.kpiSubtext}>Asesores generando actividad</Text>
-          </View>
-        </View>
-
-        {/* BUSCADOR DE VENDEDOR */}
-        <View style={styles.searchBox}>
-          <Search size={18} color="#8C9BAB" style={{ marginRight: 8 }} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar por nombre o correo de vendedor..."
-            placeholderTextColor="#8C9BAB"
-            value={busquedaVendedor}
-            onChangeText={setBusquedaVendedor}
-          />
-        </View>
-
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#0C66E4" />
-            <Text style={styles.loadingText}>Calculando métricas de ventas...</Text>
-          </View>
-        ) : vendedoresFiltrados.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <BarChart3 size={40} color="#8C9BAB" style={{ marginBottom: 12 }} />
-            <Text style={styles.emptyTitle}>No hay datos de vendedores</Text>
-            <Text style={styles.emptySubtitle}>No se encontraron registros de ventas para los filtros seleccionados.</Text>
-          </View>
-        ) : (
-          <View style={styles.vendedoresSection}>
-            <Text style={styles.sectionTitle}>Desglose Individual por Vendedor</Text>
-
-            {vendedoresFiltrados.map((v, index) => {
-              const isExpanded = vendedorExpandido === v.vendedorNombre;
-              const maxVentas = statsVendedores[0]?.totalVentas || 1;
-              const porcentajeBarra = Math.min(100, Math.round((v.totalVentas / maxVentas) * 100));
-
-              return (
-                <View key={v.vendedorNombre} style={styles.vendedorCard}>
-                  <TouchableOpacity
-                    style={styles.vendedorHeader}
-                    onPress={() => setVendedorExpandido(isExpanded ? null : v.vendedorNombre)}
-                  >
-                    <View style={styles.vendedorInfoMain}>
-                      <View style={styles.rankBadge}>
-                        <Text style={styles.rankBadgeText}>#{index + 1}</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.vendedorNombre}>{v.vendedorNombre}</Text>
-                        <View style={styles.progressTrack}>
-                          <View style={[styles.progressBar, { width: `${porcentajeBarra}%` }]} />
-                        </View>
-                      </View>
-                    </View>
-
-                    <View style={styles.vendedorStatsQuick}>
-                      <View style={styles.statPill}>
-                        <Text style={styles.statPillNum}>{v.totalVentas}</Text>
-                        <Text style={styles.statPillLabel}>Ventas</Text>
-                      </View>
-                      <View style={styles.statPill}>
-                        <Text style={styles.statPillNum}>{v.totalCensos}</Text>
-                        <Text style={styles.statPillLabel}>Censos</Text>
-                      </View>
-                      <View style={styles.statPill}>
-                        <Text style={styles.statPillNum}>{v.tasaConversion}%</Text>
-                        <Text style={styles.statPillLabel}>Cierre</Text>
-                      </View>
-
-                      {isExpanded ? <ChevronUp size={20} color="#B6C2CF" /> : <ChevronDown size={20} color="#B6C2CF" />}
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* VISTA EXPANDIDA CON DETALLES DE TARJETAS */}
-                  {isExpanded && (
-                    <View style={styles.vendedorDetailBody}>
-                      <View style={styles.detailSummaryRow}>
-                        <Text style={styles.detailSummaryItem}>LCHs Procesados: <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{v.totalLch}</Text></Text>
-                        <Text style={styles.detailSummaryItem}>Total Tarjetas: <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{v.totalTarjetas}</Text></Text>
-                      </View>
-
-                      <Text style={styles.tarjetasSubTitle}>Clientes y Casos Asignados:</Text>
-                      {v.tarjetas.map(t => {
-                        const data = t.datos_valores || {};
-                        const clienteNombre = data.nombreApellido || data.nombres || 'Cliente Sin Nombre';
-                        const servicio = data.tipoServicio || data.tipoProspecto || 'Servicio General';
-                        const fecha = t.created_at ? new Date(t.created_at).toLocaleDateString() : 'Sin fecha';
-
-                        return (
-                          <View key={t.id} style={styles.tarjetaItemRow}>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.tarjetaClienteNombre}>{clienteNombre}</Text>
-                              <Text style={styles.tarjetaMeta}>{servicio} • {fecha}</Text>
-                            </View>
-
-                            <TouchableOpacity
-                              style={styles.verTarjetaBtn}
-                              onPress={() => router.push(`/(drawer)/(tabs)?tarjeta=${t.id}`)}
-                            >
-                              <ExternalLink size={14} color="#579DFF" />
-                              <Text style={styles.verTarjetaBtnText}>Ver Caso</Text>
-                            </TouchableOpacity>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
+        {/* ============================================================== */}
+        {/* MODULO 1: VENDEDORES */}
+        {/* ============================================================== */}
+        {subTab === 'vendedores' && (
+          <>
+            {/* CARDS KPIS VENDEDORES */}
+            <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
+              <View style={[styles.kpiCard, { borderColor: '#0C66E4' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Total Ventas Concretadas</Text>
+                  <CheckCircle2 size={20} color="#0C66E4" />
                 </View>
-              );
-            })}
-          </View>
+                <Text style={[styles.kpiValue, { color: '#579DFF' }]}>{kpiTotalVentas}</Text>
+                <Text style={styles.kpiSubtext}>Cierres confirmados en el periodo</Text>
+              </View>
+
+              <View style={[styles.kpiCard, { borderColor: '#25D366' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Vendedor Líder (Top 1)</Text>
+                  <Award size={20} color="#25D366" />
+                </View>
+                <Text style={[styles.kpiValue, { color: '#25D366', fontSize: 20 }]} numberOfLines={1}>
+                  {kpiTopVendedor ? kpiTopVendedor.nombre : 'N/A'}
+                </Text>
+                <Text style={styles.kpiSubtext}>
+                  {kpiTopVendedor ? `${kpiTopVendedor.ventas} ventas concretadas` : 'Sin ventas registradas'}
+                </Text>
+              </View>
+
+              <View style={[styles.kpiCard, { borderColor: '#8A2BE2' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Total Censos Levantados</Text>
+                  <TrendingUp size={20} color="#8A2BE2" />
+                </View>
+                <Text style={[styles.kpiValue, { color: '#B197FC' }]}>{kpiTotalCensos}</Text>
+                <Text style={styles.kpiSubtext}>Registros de prospección en campo</Text>
+              </View>
+
+              <View style={[styles.kpiCard, { borderColor: '#DD6B20' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Vendedores Activos</Text>
+                  <Users size={20} color="#DD6B20" />
+                </View>
+                <Text style={[styles.kpiValue, { color: '#F6AD55' }]}>{kpiVendedoresActivos}</Text>
+                <Text style={styles.kpiSubtext}>Asesores generando actividad</Text>
+              </View>
+            </View>
+
+            {/* BUSCADOR */}
+            <View style={styles.searchBox}>
+              <Search size={18} color="#8C9BAB" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar por nombre o correo de vendedor..."
+                placeholderTextColor="#8C9BAB"
+                value={busquedaTexto}
+                onChangeText={setBusquedaTexto}
+              />
+            </View>
+
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0C66E4" />
+                <Text style={styles.loadingText}>Calculando métricas comerciales...</Text>
+              </View>
+            ) : vendedoresFiltrados.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <BarChart3 size={40} color="#8C9BAB" style={{ marginBottom: 12 }} />
+                <Text style={styles.emptyTitle}>No hay datos de vendedores</Text>
+                <Text style={styles.emptySubtitle}>No se encontraron registros de ventas para los filtros seleccionados.</Text>
+              </View>
+            ) : (
+              <View style={styles.vendedoresSection}>
+                <Text style={styles.sectionTitle}>Desglose Individual por Vendedor</Text>
+
+                {vendedoresFiltrados.map((v, index) => {
+                  const isExpanded = expandidoId === v.vendedorNombre;
+                  const maxVentas = statsVendedores[0]?.totalVentas || 1;
+                  const porcentajeBarra = Math.min(100, Math.round((v.totalVentas / maxVentas) * 100));
+
+                  return (
+                    <View key={v.vendedorNombre} style={styles.vendedorCard}>
+                      <TouchableOpacity
+                        style={styles.vendedorHeader}
+                        onPress={() => setExpandidoId(isExpanded ? null : v.vendedorNombre)}
+                      >
+                        <View style={styles.vendedorInfoMain}>
+                          <View style={styles.rankBadge}>
+                            <Text style={styles.rankBadgeText}>#{index + 1}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.vendedorNombre}>{v.vendedorNombre}</Text>
+                            <View style={styles.progressTrack}>
+                              <View style={[styles.progressBar, { width: `${porcentajeBarra}%` }]} />
+                            </View>
+                          </View>
+                        </View>
+
+                        <View style={styles.vendedorStatsQuick}>
+                          <View style={styles.statPill}>
+                            <Text style={styles.statPillNum}>{v.totalVentas}</Text>
+                            <Text style={styles.statPillLabel}>Ventas</Text>
+                          </View>
+                          <View style={styles.statPill}>
+                            <Text style={styles.statPillNum}>{v.totalCensos}</Text>
+                            <Text style={styles.statPillLabel}>Censos</Text>
+                          </View>
+                          <View style={styles.statPill}>
+                            <Text style={styles.statPillNum}>{v.tasaConversion}%</Text>
+                            <Text style={styles.statPillLabel}>Cierre</Text>
+                          </View>
+
+                          {isExpanded ? <ChevronUp size={20} color="#B6C2CF" /> : <ChevronDown size={20} color="#B6C2CF" />}
+                        </View>
+                      </TouchableOpacity>
+
+                      {isExpanded && (
+                        <View style={styles.vendedorDetailBody}>
+                          <View style={styles.detailSummaryRow}>
+                            <Text style={styles.detailSummaryItem}>LCHs Procesados: <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{v.totalLch}</Text></Text>
+                            <Text style={styles.detailSummaryItem}>Total Tarjetas: <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{v.totalTarjetas}</Text></Text>
+                          </View>
+
+                          <Text style={styles.tarjetasSubTitle}>Clientes y Casos Asignados:</Text>
+                          {v.tarjetas.map(t => {
+                            const data = t.datos_valores || {};
+                            const clienteNombre = data.nombreApellido || data.nombres || 'Cliente Sin Nombre';
+                            const servicio = data.tipoServicio || data.tipoProspecto || 'Servicio General';
+                            const fecha = t.created_at ? new Date(t.created_at).toLocaleDateString() : 'Sin fecha';
+
+                            return (
+                              <View key={t.id} style={styles.tarjetaItemRow}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.tarjetaClienteNombre}>{clienteNombre}</Text>
+                                  <Text style={styles.tarjetaMeta}>{servicio} • {fecha}</Text>
+                                </View>
+
+                                <TouchableOpacity
+                                  style={styles.verTarjetaBtn}
+                                  onPress={() => router.push(`/(drawer)/(tabs)?tarjeta=${t.id}`)}
+                                >
+                                  <ExternalLink size={14} color="#579DFF" />
+                                  <Text style={styles.verTarjetaBtnText}>Ver Caso</Text>
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
+        )}
+
+        {/* ============================================================== */}
+        {/* MODULO 2: TÉCNICOS E INSTALACIONES */}
+        {/* ============================================================== */}
+        {subTab === 'tecnicos' && (
+          <>
+            {/* CARDS KPIS TÉCNICOS */}
+            <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
+              <View style={[styles.kpiCard, { borderColor: '#0C66E4' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Total Instalaciones</Text>
+                  <Wrench size={20} color="#0C66E4" />
+                </View>
+                <Text style={[styles.kpiValue, { color: '#579DFF' }]}>{kpiInstalacionesTotal}</Text>
+                <Text style={styles.kpiSubtext}>Casos asignados a equipos técnicos</Text>
+              </View>
+
+              <View style={[styles.kpiCard, { borderColor: '#25D366' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Instalaciones Completadas</Text>
+                  <CheckCircle2 size={20} color="#25D366" />
+                </View>
+                <Text style={[styles.kpiValue, { color: '#25D366' }]}>{kpiInstalacionesCompletadas}</Text>
+                <Text style={styles.kpiSubtext}>Finalizadas y reportadas con éxito</Text>
+              </View>
+
+              <View style={[styles.kpiCard, { borderColor: '#E53E3E' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Liberadas / Devueltas</Text>
+                  <XCircle size={20} color="#E53E3E" />
+                </View>
+                <Text style={[styles.kpiValue, { color: '#FF6B6B' }]}>{kpiInstalacionesLiberadas}</Text>
+                <Text style={styles.kpiSubtext}>Casos liberados o no factibles</Text>
+              </View>
+
+              <View style={[styles.kpiCard, { borderColor: '#8A2BE2' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Técnico Más Eficiente</Text>
+                  <UserCheck size={20} color="#8A2BE2" />
+                </View>
+                <Text style={[styles.kpiValue, { color: '#B197FC', fontSize: 20 }]} numberOfLines={1}>
+                  {kpiTopTecnico ? kpiTopTecnico.nombre : 'N/A'}
+                </Text>
+                <Text style={styles.kpiSubtext}>
+                  {kpiTopTecnico ? `${kpiTopTecnico.completadas} completadas` : 'Sin instalaciones reportadas'}
+                </Text>
+              </View>
+            </View>
+
+            {/* BUSCADOR TÉCNICOS */}
+            <View style={styles.searchBox}>
+              <Search size={18} color="#8C9BAB" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar por nombre de técnico..."
+                placeholderTextColor="#8C9BAB"
+                value={busquedaTexto}
+                onChangeText={setBusquedaTexto}
+              />
+            </View>
+
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0C66E4" />
+                <Text style={styles.loadingText}>Calculando rendimiento de instalaciones...</Text>
+              </View>
+            ) : tecnicosFiltrados.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Wrench size={40} color="#8C9BAB" style={{ marginBottom: 12 }} />
+                <Text style={styles.emptyTitle}>No hay datos de técnicos</Text>
+                <Text style={styles.emptySubtitle}>No se encontraron instalaciones asignadas para los filtros seleccionados.</Text>
+              </View>
+            ) : (
+              <View style={styles.vendedoresSection}>
+                <Text style={styles.sectionTitle}>Desglose Individual por Técnico / Instalador</Text>
+
+                {tecnicosFiltrados.map((t, index) => {
+                  const isExpanded = expandidoId === t.tecnicoNombre;
+                  const maxCompletadas = statsTecnicos[0]?.completadas || 1;
+                  const porcentajeBarra = Math.min(100, Math.round((t.completadas / maxCompletadas) * 100));
+
+                  return (
+                    <View key={t.tecnicoNombre} style={styles.vendedorCard}>
+                      <TouchableOpacity
+                        style={styles.vendedorHeader}
+                        onPress={() => setExpandidoId(isExpanded ? null : t.tecnicoNombre)}
+                      >
+                        <View style={styles.vendedorInfoMain}>
+                          <View style={[styles.rankBadge, { borderColor: '#0C66E4' }]}>
+                            <Text style={styles.rankBadgeText}>#{index + 1}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.vendedorNombre}>{t.tecnicoNombre}</Text>
+                            <View style={styles.progressTrack}>
+                              <View style={[styles.progressBar, { width: `${porcentajeBarra}%`, backgroundColor: '#25D366' }]} />
+                            </View>
+                          </View>
+                        </View>
+
+                        <View style={styles.vendedorStatsQuick}>
+                          <View style={styles.statPill}>
+                            <Text style={[styles.statPillNum, { color: '#25D366' }]}>{t.completadas}</Text>
+                            <Text style={styles.statPillLabel}>Completas</Text>
+                          </View>
+                          <View style={styles.statPill}>
+                            <Text style={[styles.statPillNum, { color: '#FF6B6B' }]}>{t.liberadas}</Text>
+                            <Text style={styles.statPillLabel}>Liberadas</Text>
+                          </View>
+                          <View style={styles.statPill}>
+                            <Text style={[styles.statPillNum, { color: '#579DFF' }]}>{t.enProceso}</Text>
+                            <Text style={styles.statPillLabel}>En Proceso</Text>
+                          </View>
+                          <View style={styles.statPill}>
+                            <Text style={styles.statPillNum}>{t.tasaEficiencia}%</Text>
+                            <Text style={styles.statPillLabel}>Eficiencia</Text>
+                          </View>
+
+                          {isExpanded ? <ChevronUp size={20} color="#B6C2CF" /> : <ChevronDown size={20} color="#B6C2CF" />}
+                        </View>
+                      </TouchableOpacity>
+
+                      {isExpanded && (
+                        <View style={styles.vendedorDetailBody}>
+                          <View style={styles.detailSummaryRow}>
+                            <Text style={styles.detailSummaryItem}>Total Asignadas: <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{t.totalAsignadas}</Text></Text>
+                            <Text style={styles.detailSummaryItem}>Tasa de Éxito: <Text style={{ color: '#25D366', fontWeight: 'bold' }}>{t.tasaEficiencia}%</Text></Text>
+                          </View>
+
+                          <Text style={styles.tarjetasSubTitle}>Instalaciones y Casos Asignados:</Text>
+                          {t.tarjetas.map(tar => {
+                            const data = tar.datos_valores || {};
+                            const clienteNombre = data.nombreApellido || data.nombres || 'Cliente Sin Nombre';
+                            const servicio = data.tipoServicio || data.tipoProspecto || 'Instalación de Fibra';
+                            const lch = data.lch_numero ? `LCH: ${data.lch_numero}` : 'Sin LCH';
+                            const fecha = tar.created_at ? new Date(tar.created_at).toLocaleDateString() : 'Sin fecha';
+
+                            const esCompletada = data.reporteInstalacion || data.fechaInstalacion;
+                            const esLiberada = data.motivoLiberacion || data.estadoInstalacion === 'Liberada';
+
+                            return (
+                              <View key={tar.id} style={styles.tarjetaItemRow}>
+                                <View style={{ flex: 1 }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Text style={styles.tarjetaClienteNombre}>{clienteNombre}</Text>
+                                    {esCompletada ? (
+                                      <View style={{ backgroundColor: '#1C3B2B', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                        <Text style={{ color: '#25D366', fontSize: 9, fontWeight: 'bold' }}>COMPLETADA</Text>
+                                      </View>
+                                    ) : esLiberada ? (
+                                      <View style={{ backgroundColor: '#3B1C1C', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                        <Text style={{ color: '#FF6B6B', fontSize: 9, fontWeight: 'bold' }}>LIBERADA</Text>
+                                      </View>
+                                    ) : (
+                                      <View style={{ backgroundColor: '#1C2B3A', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                        <Text style={{ color: '#579DFF', fontSize: 9, fontWeight: 'bold' }}>EN PROCESO</Text>
+                                      </View>
+                                    )}
+                                  </View>
+
+                                  <Text style={styles.tarjetaMeta}>{servicio} • {lch} • {fecha}</Text>
+                                  {data.motivoLiberacion && (
+                                    <Text style={{ color: '#FF6B6B', fontSize: 11, marginTop: 2, italic: true }}>
+                                      Motivo liberación: {data.motivoLiberacion}
+                                    </Text>
+                                  )}
+                                </View>
+
+                                <TouchableOpacity
+                                  style={styles.verTarjetaBtn}
+                                  onPress={() => router.push(`/(drawer)/(tabs)?tarjeta=${tar.id}`)}
+                                >
+                                  <ExternalLink size={14} color="#579DFF" />
+                                  <Text style={styles.verTarjetaBtnText}>Ver Caso</Text>
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
     </View>
@@ -487,6 +823,35 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
   },
+  subTabRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  subTabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#22272B',
+    borderWidth: 1,
+    borderColor: '#384148',
+  },
+  subTabButtonActive: {
+    backgroundColor: '#0C66E4',
+    borderColor: '#0C66E4',
+  },
+  subTabText: {
+    color: '#8C9BAB',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  subTabTextActive: {
+    color: '#FFFFFF',
+  },
   filterRow: {
     flexDirection: 'row',
     gap: 8,
@@ -502,7 +867,7 @@ const styles = StyleSheet.create({
     borderColor: '#384148',
   },
   filterChipActive: {
-    backgroundColor: '#0C66E4',
+    backgroundColor: '#1C2B3A',
     borderColor: '#0C66E4',
   },
   filterChipText: {
@@ -511,7 +876,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   filterChipTextActive: {
-    color: '#FFFFFF',
+    color: '#579DFF',
   },
   kpiGrid: {
     gap: 16,

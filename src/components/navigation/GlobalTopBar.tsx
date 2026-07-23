@@ -1,25 +1,33 @@
+import { useRouter } from 'expo-router';
+import { Bell, HelpCircle, LogOut, Search, X } from 'lucide-react-native';
 import React from 'react';
-import { useNavigation, useRouter } from 'expo-router';
-import { DrawerActions } from '@react-navigation/native';
 import { ActivityIndicator, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, HelpCircle, LogOut, Search, X } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useGlobalUi } from '../../context/GlobalUiContext';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { supabase } from '../../lib/supabase';
+import { ModalSoporteTecnico } from '../soporte/ModalSoporteTecnico';
+import { ModalCentroAyuda } from '../soporte/ModalCentroAyuda';
 
 export function GlobalTopBar() {
-  const { nombreCompleto, userRol, session } = useAuth();
+  const { nombreCompleto, userRol, session, avatarUrl } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const navigation = useNavigation();
-  const { searchQuery, setSearchQuery, triggerCreateModal } = useGlobalUi();
+  const { searchQuery, setSearchQuery, soporteTrigger } = useGlobalUi();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [showNotificaciones, setShowNotificaciones] = React.useState(false);
+  const [showSoporte, setShowSoporte] = React.useState(false);
+  const [showCentroAyuda, setShowCentroAyuda] = React.useState(false);
   const { notificaciones, unreadCount, marcarComoLeida, marcarTodasComoLeidas } = useNotificaciones(session?.user?.id);
+
+  React.useEffect(() => {
+    if (soporteTrigger > 0) {
+      setShowSoporte(true);
+    }
+  }, [soporteTrigger]);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -30,19 +38,11 @@ export function GlobalTopBar() {
     router.replace('/');
   };
 
-  const openMenu = () => {
-    try {
-      navigation.dispatch(DrawerActions.openDrawer());
-    } catch (e) {
-      console.log('Open drawer:', e);
-    }
-  };
-
   return (
     <View style={[styles.topBar, isDesktop && styles.topBarDesktop]}>
       <View style={styles.topBarLeft}>
         {!isDesktop && (
-          <TouchableOpacity style={styles.iconBtn} onPress={openMenu}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => { }}>
             <Image source={require('../../../assets/images/logo-metricall-negative.png')} style={{ width: 44, height: 44, marginLeft: -8 }} resizeMode="contain" />
           </TouchableOpacity>
         )}
@@ -71,11 +71,7 @@ export function GlobalTopBar() {
           </View>
         )}
 
-        {userRol !== 'empleado' && (
-          <TouchableOpacity style={styles.btnCrear} onPress={() => triggerCreateModal()}>
-            <Text style={styles.btnCrearText}>Crear</Text>
-          </TouchableOpacity>
-        )}
+
 
         <View style={styles.iconGroup}>
           <TouchableOpacity style={styles.iconBtn} onPress={() => setShowNotificaciones(true)}>
@@ -86,19 +82,21 @@ export function GlobalTopBar() {
               </View>
             )}
           </TouchableOpacity>
-          {isDesktop && (
-            <TouchableOpacity style={styles.iconBtn}>
-              <HelpCircle size={20} color="#9FADBC" />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity style={styles.iconBtn} onPress={() => setShowCentroAyuda(true)}>
+            <HelpCircle size={20} color="#9FADBC" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.avatarBtn}>
-          <Text style={styles.avatarText}>{nombreCompleto ? nombreCompleto.charAt(0).toUpperCase() : 'U'}</Text>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+          ) : (
+            <Text style={styles.avatarText}>{nombreCompleto ? nombreCompleto.charAt(0).toUpperCase() : 'U'}</Text>
+          )}
         </View>
 
-        <TouchableOpacity 
-          style={styles.logoutTopBarBtn} 
+        <TouchableOpacity
+          style={styles.logoutTopBarBtn}
           onPress={handleLogout}
           disabled={isLoggingOut}
         >
@@ -106,26 +104,10 @@ export function GlobalTopBar() {
         </TouchableOpacity>
       </View>
 
-      {/* MODAL DE NOTIFICACIONES ADAPTATIVO */}
-      <Modal visible={showNotificaciones} transparent animationType="fade" onRequestClose={() => setShowNotificaciones(false)}>
+      {/* MODAL DE NOTIFICACIONES */}
+      <Modal visible={showNotificaciones} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowNotificaciones(false)}>
-          <TouchableOpacity 
-            activeOpacity={1} 
-            style={[
-              styles.notifContainer, 
-              isDesktop ? {
-                width: 400,
-                marginTop: 56,
-                marginRight: 20,
-                alignSelf: 'flex-end',
-              } : {
-                width: '92%',
-                maxWidth: 420,
-                marginTop: Platform.OS === 'web' ? 65 : (insets.top > 0 ? insets.top + 10 : 35),
-                alignSelf: 'center',
-              }
-            ]}
-          >
+          <TouchableOpacity activeOpacity={1} style={[styles.notifContainer, { width: isDesktop ? 400 : '100%', marginTop: isDesktop ? 60 : insets.top + 50, marginRight: isDesktop ? 20 : 0 }]}>
             <View style={styles.notifHeader}>
               <Text style={styles.notifTitle}>Notificaciones</Text>
               {unreadCount > 0 && (
@@ -139,8 +121,8 @@ export function GlobalTopBar() {
                 <Text style={styles.emptyNotifText}>No tienes notificaciones recientes.</Text>
               ) : (
                 notificaciones.map((notif) => (
-                  <TouchableOpacity 
-                    key={notif.id} 
+                  <TouchableOpacity
+                    key={notif.id}
                     style={[styles.notifItem, { backgroundColor: notif.leida ? 'transparent' : '#1D2125', borderColor: notif.leida ? 'transparent' : '#0C66E4' }]}
                     onPress={async () => {
                       marcarComoLeida(notif.id);
@@ -168,6 +150,10 @@ export function GlobalTopBar() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* MODAL DE SOPORTE TÉCNICO Y CENTRO DE AYUDA */}
+      <ModalSoporteTecnico visible={showSoporte} onClose={() => setShowSoporte(false)} />
+      <ModalCentroAyuda visible={showCentroAyuda} onClose={() => setShowCentroAyuda(false)} />
     </View>
   );
 }
@@ -251,19 +237,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     outlineStyle: 'none',
   } as any,
-  btnCrear: {
-    backgroundColor: '#0C66E4',
-    paddingHorizontal: 16,
-    height: 32,
-    justifyContent: 'center',
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  btnCrearText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
   iconGroup: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -277,6 +250,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   avatarText: {
     color: '#FFF',

@@ -1,4 +1,4 @@
-import { Pencil, X } from 'lucide-react-native';
+import { History, Pencil, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ImageBackground, Modal, Platform, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Tarjeta, TarjetaDatosValores } from '../../types/kanban';
@@ -53,25 +53,26 @@ export const ModalDetalleTarjeta = ({
   handleEnviarComentario,
   onRemoveTarjetaLocal,
   startInEditMode = false,
+  onOpenReasignacion,
+  onOpenTrazabilidad,
 }: ModalDetalleTarjetaProps) => {
-  const { userRol: contextRol } = useAuth();
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && width > 768;
+  const { userRol } = useAuth();
+  const puedeEditar = userRol !== 'empleado';
+
   const [isSaving, setIsSaving] = useState(false);
   const [imagenExpandida, setImagenExpandida] = useState<string | null>(null);
   const [conversionData, setConversionData] = useState<any | null>(null);
-
   const [isEditing, setIsEditing] = useState(startInEditMode);
-  const [editFormData, setEditFormData] = useState<any>({});
-
-  const listaActual = listas.find(l => l.id === tarjetaSeleccionada?.lista_id);
-  const { width } = useWindowDimensions();
-  const isDesktop = width > 768;
-  const puedeEditar = contextRol === 'lider' || listaActual?.permisos_relacionales?.puede_editar === true;
+  const [editFormData, setEditFormData] = useState<any>(tarjetaSeleccionada?.datos_valores || {});
 
   React.useEffect(() => {
-    if (isEditing && tarjetaSeleccionada?.datos_valores) {
+    setIsEditing(startInEditMode);
+    if (tarjetaSeleccionada?.datos_valores) {
       setEditFormData(tarjetaSeleccionada.datos_valores);
     }
-  }, [isEditing, tarjetaSeleccionada]);
+  }, [startInEditMode, tarjetaSeleccionada]);
 
   if (!tarjetaSeleccionada) return null;
 
@@ -120,34 +121,41 @@ export const ModalDetalleTarjeta = ({
 
   return (
     <>
-      <Modal visible={!!tarjetaSeleccionada} animationType="fade" transparent={true}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(15, 17, 20, 0.95)', justifyContent: 'center' }}>
+      <Modal visible={!!tarjetaSeleccionada} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center' }}>
           <View style={[{
             flex: 1,
+            width: '100%',
             backgroundColor: '#22272B',
-            overflow: 'hidden',
             borderRadius: isDesktop ? 12 : 0,
+            overflow: 'hidden',
             elevation: 10,
             ...Platform.select({ web: { boxShadow: '0px 10px 20px rgba(0,0,0,0.3)' }, default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20 } }),
           },
             WEB_MODAL_CONTAINER,
           isDesktop && { maxHeight: '90%', marginVertical: 'auto' }
           ]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 60, backgroundColor: '#2C333A', borderBottomWidth: 1, borderBottomColor: '#384148' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#2C333A', borderBottomWidth: 1, borderBottomColor: '#384148' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 <Text style={{ fontSize: 18, fontWeight: '900', color: '#B6C2CF' }}>
                   {tarjetaSeleccionada?.datos_valores?.tipoServicio?.toUpperCase() || 'DETALLE DE TARJETA'}
                 </Text>
-                {puedeEditar && !isEditing && (
-                  <TouchableOpacity onPress={() => setIsEditing(true)} style={{ marginLeft: 16, padding: 8, backgroundColor: '#1D2125', borderRadius: 8, borderWidth: 1, borderColor: '#384148' }}>
-                    <Pencil size={16} color="#B6C2CF" />
-                  </TouchableOpacity>
-                )}
-              </View>
-              <TouchableOpacity onPress={() => { setTarjetaSeleccionada(null); setConversionData(null); setIsEditing(false); }} style={{ padding: 4 }}>
-                <X size={28} color="#B6C2CF" />
-              </TouchableOpacity>
+              {puedeEditar && !isEditing && (
+                <TouchableOpacity onPress={() => setIsEditing(true)} style={{ marginLeft: 8, padding: 8, backgroundColor: '#1D2125', borderRadius: 8, borderWidth: 1, borderColor: '#384148' }}>
+                  <Pencil size={16} color="#B6C2CF" />
+                </TouchableOpacity>
+              )}
+              {onOpenTrazabilidad && (
+                <TouchableOpacity onPress={() => onOpenTrazabilidad(tarjetaSeleccionada)} style={{ marginLeft: 4, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#1D2125', borderRadius: 8, borderWidth: 1, borderColor: '#0C66E4', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <History size={15} color="#579DFF" />
+                  <Text style={{ color: '#579DFF', fontWeight: 'bold', fontSize: 13 }}>Trazabilidad</Text>
+                </TouchableOpacity>
+              )}
             </View>
+            <TouchableOpacity onPress={() => { setTarjetaSeleccionada(null); setConversionData(null); setIsEditing(false); }} style={{ padding: 4 }}>
+              <X size={28} color="#B6C2CF" />
+            </TouchableOpacity>
+          </View>
 
             {conversionData ? (
               <FormularioConversionVenta

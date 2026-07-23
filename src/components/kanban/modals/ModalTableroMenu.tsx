@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Pressable, ScrollView, Platform, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, Pressable, ScrollView, Platform, TextInput, ActivityIndicator, Image } from 'react-native';
 import Reanimated, { SlideInRight, SlideOutRight } from 'react-native-reanimated';
 import { X, Star, Copy, Info, Archive, Plus, Image as ImageIcon } from 'lucide-react-native';
 
@@ -42,6 +42,7 @@ export const ModalTableroMenu = ({
   isUploadingImage
 }: ModalTableroMenuProps) => {
   const [isEditingDesc, setIsEditingDesc] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
 
   if (!visible) return null;
 
@@ -76,11 +77,20 @@ export const ModalTableroMenu = ({
             <Text style={styles.sectionSubtitle}>Miembros</Text>
             <View style={styles.membersRow}>
               {miembros.map((m, idx) => (
-                <View key={idx} style={[styles.memberAvatar, { marginLeft: idx > 0 ? -12 : 0 }]}>
-                  <Text style={styles.memberAvatarText}>
-                    {m.nombre_completo ? m.nombre_completo.substring(0, 2).toUpperCase() : 'US'}
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.memberAvatar, { marginLeft: idx > 0 ? -10 : 0 }]}
+                  onPress={() => setSelectedMember(m)}
+                  activeOpacity={0.7}
+                >
+                  {m.avatar_url ? (
+                    <Image source={{ uri: m.avatar_url }} style={styles.memberAvatarImg} />
+                  ) : (
+                    <Text style={styles.memberAvatarText}>
+                      {m.nombre_completo ? m.nombre_completo.substring(0, 2).toUpperCase() : 'US'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
               ))}
               <View style={styles.memberAvatarAdd}>
                 <Plus size={16} color="#8C9BAB" />
@@ -169,6 +179,40 @@ export const ModalTableroMenu = ({
           </View>
         </ScrollView>
       </Reanimated.View>
+
+      {/* MODAL DETALLE DE MIEMBRO */}
+      <Modal visible={!!selectedMember} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.memberModalOverlay}
+          activeOpacity={1}
+          onPress={() => setSelectedMember(null)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.memberModalCard}>
+            <TouchableOpacity style={styles.memberModalCloseBtn} onPress={() => setSelectedMember(null)}>
+              <X size={18} color="#8C9BAB" />
+            </TouchableOpacity>
+
+            <View style={styles.memberModalAvatarBox}>
+              {selectedMember?.avatar_url ? (
+                <Image source={{ uri: selectedMember.avatar_url }} style={styles.memberModalAvatarImg} />
+              ) : (
+                <View style={styles.memberModalAvatarFallback}>
+                  <Text style={styles.memberModalAvatarText}>
+                    {selectedMember?.nombre_completo ? selectedMember.nombre_completo.substring(0, 2).toUpperCase() : 'U'}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <Text style={styles.memberModalName}>{selectedMember?.nombre_completo || 'Usuario del Equipo'}</Text>
+            {selectedMember?.rol && (
+              <View style={styles.memberModalRoleBadge}>
+                <Text style={styles.memberModalRoleText}>{selectedMember.rol.toUpperCase()}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -242,6 +286,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#22272B',
+    overflow: 'hidden',
+  },
+  memberAvatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
   },
   memberAvatarText: {
     color: '#FFF',
@@ -289,5 +339,74 @@ const styles = StyleSheet.create({
   descSaveBtnText: {
     color: '#FFF',
     fontWeight: 'bold',
-  }
+  },
+  memberModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  memberModalCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#2C333A',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#384148',
+    padding: 24,
+    alignItems: 'center',
+    elevation: 8,
+  },
+  memberModalCloseBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    padding: 6,
+  },
+  memberModalAvatarBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#0C66E4',
+  },
+  memberModalAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  memberModalAvatarFallback: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#0C66E4',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  memberModalAvatarText: {
+    color: '#FFF',
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  memberModalName: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  memberModalRoleBadge: {
+    backgroundColor: 'rgba(12, 102, 228, 0.2)',
+    borderWidth: 1,
+    borderColor: '#0C66E4',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  memberModalRoleText: {
+    color: '#579DFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
 });

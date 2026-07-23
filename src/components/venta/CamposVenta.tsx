@@ -10,18 +10,20 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
-import { WEB_MODAL_CONTAINER } from '../../constants/theme';
 
 export interface InputTextoProps {
   label: string;
   value?: string;
-  onChangeText: (v: string) => void;
+  onChangeText?: (v: string) => void;
   placeholder?: string;
   keyboardType?: 'default' | 'numeric' | 'phone-pad' | 'email-address';
   isRequired?: boolean;
   readOnly?: boolean;
   multiline?: boolean;
+  halfWidth?: boolean;
+  fullWidth?: boolean;
 }
 
 export const InputTexto = ({
@@ -33,27 +35,38 @@ export const InputTexto = ({
   isRequired = false,
   readOnly = false,
   multiline = false,
-}: InputTextoProps) => (
-  <View style={styles.fieldContainer}>
-    <Text style={styles.label}>
-      {label} {isRequired && <Text style={styles.required}>*</Text>}
-    </Text>
-    <TextInput
+  halfWidth = false,
+}: InputTextoProps) => {
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
+
+  return (
+    <View
       style={[
-        styles.input,
-        readOnly && styles.inputReadOnly,
-        multiline && styles.inputMultiline,
-      ]}
-      value={value || ''}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      keyboardType={keyboardType}
-      placeholderTextColor="#8C9BAB"
-      editable={!readOnly}
-      multiline={multiline}
-    />
-  </View>
-);
+        styles.fieldContainer,
+        isDesktop && halfWidth ? { width: '48%' } : { width: '100%' },
+      ] as any}
+    >
+      <Text style={styles.label}>
+        {label} {isRequired && <Text style={styles.required}>*</Text>}
+      </Text>
+      <TextInput
+        style={[
+          styles.input,
+          readOnly && styles.inputReadOnly,
+          multiline && styles.inputMultiline,
+        ]}
+        value={value || ''}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        keyboardType={keyboardType}
+        placeholderTextColor="#8C9BAB"
+        editable={!readOnly}
+        multiline={multiline}
+      />
+    </View>
+  );
+};
 
 export interface DatePickerInputProps {
   label: string;
@@ -62,6 +75,8 @@ export interface DatePickerInputProps {
   placeholder?: string;
   isRequired?: boolean;
   disabled?: boolean;
+  halfWidth?: boolean;
+  fullWidth?: boolean;
 }
 
 export const DatePickerInput = ({
@@ -71,8 +86,17 @@ export const DatePickerInput = ({
   placeholder = 'Seleccionar fecha',
   isRequired = false,
   disabled = false,
+  halfWidth = false,
 }: DatePickerInputProps) => {
   const [show, setShow] = useState(false);
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
+
+  const containerStyle: any = [
+    styles.fieldContainer,
+    disabled && styles.btnDisabled,
+    isDesktop && halfWidth ? { width: '48%' } : { width: '100%' },
+  ];
 
   if (Platform.OS === 'web') {
     const parseDateToIso = (val?: string) => {
@@ -84,7 +108,7 @@ export const DatePickerInput = ({
     };
 
     return (
-      <View style={styles.fieldContainer}>
+      <View style={containerStyle}>
         <Text style={styles.label}>
           {label} {isRequired && <Text style={styles.required}>*</Text>}
         </Text>
@@ -107,20 +131,19 @@ export const DatePickerInput = ({
               backgroundColor: 'transparent',
               border: 'none',
               outline: 'none',
-              color: value ? '#B6C2CF' : '#8C9BAB',
+              color: value ? (disabled ? '#8C9BAB' : '#B6C2CF') : '#8C9BAB',
               fontSize: '16px',
               cursor: 'pointer',
               colorScheme: 'dark',
             } as any}
           />
-          <CalendarIcon size={20} color="#8C9BAB" />
         </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.fieldContainer}>
+    <View style={containerStyle}>
       <Text style={styles.label}>
         {label} {isRequired && <Text style={styles.required}>*</Text>}
       </Text>
@@ -129,10 +152,10 @@ export const DatePickerInput = ({
         onPress={() => !disabled && setShow(true)}
         disabled={disabled}
       >
-        <Text style={{ color: value ? '#B6C2CF' : '#8C9BAB', fontSize: 16 }}>
+        <Text style={{ color: value ? (disabled ? '#8C9BAB' : '#B6C2CF') : '#8C9BAB', fontSize: 16 }}>
           {value || placeholder}
         </Text>
-        <CalendarIcon size={20} color="#8C9BAB" />
+        <CalendarIcon size={20} color={disabled ? '#8C9BAB' : '#B6C2CF'} />
       </TouchableOpacity>
       {show && (
         <DateTimePicker
@@ -163,6 +186,8 @@ export interface SelectDropdownProps {
   placeholder?: string;
   isRequired?: boolean;
   disabled?: boolean;
+  halfWidth?: boolean;
+  fullWidth?: boolean;
 }
 
 export const SelectDropdown = ({
@@ -173,11 +198,20 @@ export const SelectDropdown = ({
   placeholder = 'Seleccione...',
   isRequired = false,
   disabled = false,
+  halfWidth = false,
 }: SelectDropdownProps) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
 
   return (
-    <View style={[styles.fieldContainer, disabled && styles.btnDisabled]}>
+    <View
+      style={[
+        styles.fieldContainer,
+        disabled && styles.btnDisabled,
+        isDesktop && halfWidth ? { width: '48%' } : { width: '100%' },
+      ] as any}
+    >
       <Text style={styles.label}>
         {label} {isRequired && <Text style={styles.required}>*</Text>}
       </Text>
@@ -186,20 +220,20 @@ export const SelectDropdown = ({
         onPress={() => !disabled && setModalVisible(true)}
         disabled={disabled}
       >
-        <Text style={{ color: value ? '#B6C2CF' : '#8C9BAB', fontSize: 16 }}>
+        <Text style={{ color: value ? (disabled ? '#8C9BAB' : '#B6C2CF') : '#8C9BAB', fontSize: 16 }}>
           {value || placeholder}
         </Text>
-        <ChevronDown size={20} color="#8C9BAB" />
+        <ChevronDown size={20} color={disabled ? '#8C9BAB' : '#B6C2CF'} />
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} transparent animationType="slide">
+      <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => setModalVisible(false)} />
-          <View style={[styles.modalContent, WEB_MODAL_CONTAINER]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setModalVisible(false)} />
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{label}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <X size={24} color="#B6C2CF" />
+                <X size={20} color="#B6C2CF" />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -230,6 +264,7 @@ export const SelectDropdown = ({
 const styles = StyleSheet.create({
   fieldContainer: {
     marginBottom: 16,
+    width: '100%',
   },
   label: {
     fontSize: 14,
@@ -274,38 +309,46 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
   },
   modalContent: {
     backgroundColor: '#2C333A',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    paddingBottom: 30,
+    borderRadius: 12,
+    width: '85%',
+    maxWidth: 340,
+    maxHeight: '60%',
+    paddingBottom: 8,
+    borderWidth: 1,
+    borderColor: '#384148',
+    elevation: 5,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#384148',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#B6C2CF',
   },
   optionItem: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#384148',
   },
   optionText: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#B6C2CF',
-    textTransform: 'lowercase',
+    textTransform: 'capitalize',
   },
   optionTextSelected: {
     fontWeight: 'bold',

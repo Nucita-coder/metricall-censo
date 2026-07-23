@@ -11,6 +11,8 @@ interface AuthContextData {
   empresaNombre: string;
   permisosEspeciales: any;
   etiquetas: string[];
+  avatarUrl: string | null;
+  mensaje: string;
   isLoading: boolean;
   refreshProfile: () => Promise<void>;
 }
@@ -23,6 +25,8 @@ const AuthContext = createContext<AuthContextData>({
   empresaNombre: '',
   permisosEspeciales: {},
   etiquetas: [],
+  avatarUrl: null,
+  mensaje: '',
   isLoading: true,
   refreshProfile: async () => {},
 });
@@ -37,20 +41,50 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [empresaNombre, setEmpresaNombre] = useState<string>('');
   const [permisosEspeciales, setPermisosEspeciales] = useState<any>({});
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [mensaje, setMensaje] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      let data: any = null;
+      let error: any = null;
+
+      const res = await supabase
         .from('perfiles')
-        .select('rol, empresa_id, permisos_especiales, etiquetas, nombre_completo, empresas(nombre)')
+        .select('rol, empresa_id, permisos_especiales, etiquetas, nombre_completo, avatar_url, mensaje, empresas!empresa_id(nombre)')
         .eq('id', userId)
         .single();
+
+      data = res.data;
+      error = res.error;
         
-      if (!error && data) {
+      if (error && error.message?.includes('avatar_url')) {
+        // Fallback si la migración 42 aún no se ha ejecutado en Supabase SQL Editor
+        const fallbackRes = await supabase
+          .from('perfiles')
+          .select('rol, empresa_id, permisos_especiales, etiquetas, nombre_completo, empresas!empresa_id(nombre)')
+          .eq('id', userId)
+          .single();
+        data = fallbackRes.data;
+        error = fallbackRes.error;
+      }
+
+      if (error) {
+        console.warn("AuthContext - Error fetching profile:", error.message);
+        if (error.code === 'PGRST116' || error.message?.includes('JWT') || error.message?.includes('token')) {
+          await supabase.auth.signOut().catch(() => {});
+          setSession(null);
+        }
+        return;
+      }
+
+      if (data) {
         setUserRol(data.rol || '');
         setEmpresaId(data.empresa_id || null);
         setNombreCompleto(data.nombre_completo || '');
+        setAvatarUrl((data as any).avatar_url || null);
+        setMensaje((data as any).mensaje || '');
         const empresaData: any = data.empresas;
         const nombreEmpresa = Array.isArray(empresaData) ? empresaData[0]?.nombre : empresaData?.nombre;
         setEmpresaNombre(nombreEmpresa || '');
@@ -95,6 +129,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setEmpresaNombre('');
           setPermisosEspeciales({});
           setEtiquetas([]);
+          setAvatarUrl(null);
+          setMensaje('');
 
           try {
             const keys = await AsyncStorage.getAllKeys();
@@ -145,6 +181,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       empresaNombre,
       permisosEspeciales,
       etiquetas,
+      avatarUrl,
+      mensaje,
       isLoading, 
       refreshProfile: () => session?.user ? fetchProfile(session.user.id) : Promise.resolve() 
     }}>

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, ImageBackground, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, ImageBackground, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import Reanimated, { LinearTransition } from 'react-native-reanimated';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { X } from 'lucide-react-native';
@@ -21,15 +21,17 @@ import { ModalAuditoria } from '../../components/kanban/modals/ModalAuditoria';
 import { ModalContextMenu } from '../../components/kanban/modals/ModalContextMenu';
 import { ModalArchivadas } from '../../components/kanban/modals/ModalArchivadas';
 import { ModalTableroMenu } from '../../components/kanban/modals/ModalTableroMenu';
+import { ModalGestionLista } from '../../components/kanban/modals/ModalGestionLista';
 import { ModalDetalleTarjeta } from '../../components/kanban/ModalDetalleTarjeta';
+import { ModalTrazabilidad } from '../../components/kanban/ModalTrazabilidad';
 import { BoardHeader } from '../../components/kanban/BoardHeader';
 import { BoardActionButtons } from '../../components/kanban/BoardActionButtons';
 
 export default function KanbanTableroScreen() {
-  const { userRol, session, permisosEspeciales, empresaId } = useAuth();
+  const { userRol, session, permisosEspeciales, empresaId, nombreCompleto } = useAuth();
   const { id, isSecondary, abrirTarjeta } = useLocalSearchParams<{ id: string, isSecondary?: string, abrirTarjeta?: string }>();
 
-  const { isLoading, tableroInfo, setTableroInfo, listas, setListas, miembros, fetchKanbanData } = useKanbanDataLoader({ id, session, userRol, permisosEspeciales, empresaId });
+  const { isLoading, tableroInfo, setTableroInfo, listas, setListas, tablerosDisponibles, miembros, fetchKanbanData } = useKanbanDataLoader({ id, session, userRol, permisosEspeciales, empresaId });
 
   const [startInEditMode, setStartInEditMode] = useState(false);
   const { pendingCount } = useSyncQueue();
@@ -43,11 +45,13 @@ export default function KanbanTableroScreen() {
   const { tarjetaEnMovimiento, setTarjetaEnMovimiento, listaEnMovimiento, setListaEnMovimiento, handleMove, handleSwapLists } = useKanbanDragDrop({ listas, setListas, tableroInfo });
 
   const { tarjetaSeleccionada, setTarjetaSeleccionada, tarjetaAuditoria, setTarjetaAuditoria, nuevoComentario, setNuevoComentario, handleEnviarComentario } = useTarjetaDetalle(session, userRol, setListas);
+  const [tarjetaTrazabilidad, setTarjetaTrazabilidad] = useState<Tarjeta | null>(null);
 
   const [modalMenuVisible, setModalMenuVisible] = useState(false);
   const [tempDesc, setTempDesc] = useState('');
   const [modalArchivadasVisible, setModalArchivadasVisible] = useState(false);
   const [tarjetasArchivadas, setTarjetasArchivadas] = useState<any[]>([]);
+  const [listasArchivadas, setListasArchivadas] = useState<any[]>([]);
   const [showBoardMenu, setShowBoardMenu] = useState(false);
   const [showSplitMenu, setShowSplitMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,8 +59,128 @@ export default function KanbanTableroScreen() {
   const [contextMenu, setContextMenu] = useState<{ visible: boolean, x: number, y: number, tarjeta: Tarjeta | null }>({ visible: false, x: 0, y: 0, tarjeta: null });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
+  const handleRestoreCard = async (cardId: string) => {
+    try {
+      const { error } = await supabase.from('tarjetas').update({ estado_archivo: false }).eq('id', cardId);
+      if (error) throw error;
+      setTarjetasArchivadas(prev => prev.filter(t => t.id !== cardId));
+      fetchKanbanData();
+    } catch (e: any) { Alert.alert('Error', e.message); }
+  };
+
+  const handleRestoreList = async (listaId: string) => {
+    try {
+      const { error } = await supabase.from('listas').update({ estado_archivo: false }).eq('id', listaId);
+      if (error) throw error;
+      setListasArchivadas(prev => prev.filter(l => l.id !== listaId));
+      fetchKanbanData();
+      if (Platform.OS === 'web') alert('¡Lista desarchivada y restaurada en el tablero!');
+      else Alert.alert('Éxito', '¡Lista desarchivada y restaurada en el tablero!');
+    } catch (e: any) { Alert.alert('Error', e.message); }
+  };
+
+  const [modalListaVisible, setModalListaVisible] = useState(false);
+  const [listaActivaGestion, setListaActivaGestion] = useState<Lista | null>(null);
+  const [gestionMenuPos, setGestionMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [gestionMenuAction, setGestionMenuAction] = useState<'main' | 'rename' | 'color' | 'move'>('main');
+  const [editListaNombre, setEditListaNombre] = useState('');
+  const [editListaColor, setEditListaColor] = useState('');
+  const [selectedTableroId, setSelectedTableroId] = useState('');
+
+  const openGestionLista = (lista: Lista, x?: number, y?: number) => {
+    setListaActivaGestion(lista);
+    setEditListaNombre(lista.nombre);
+    setEditListaColor(lista.color_fondo || '#22272B');
+    setGestionMenuAction('main');
+    if (x !== undefined && y !== undefined) {
+      setGestionMenuPos({ x, y });
+    } else {
+      setGestionMenuPos(null);
+    }
+    setModalListaVisible(true);
+  };
+
+  const handleActualizarLista = async () => {
+    if (!listaActivaGestion) return;
+    try {
+      const payload: any = {};
+      if (gestionMenuAction === 'rename') payload.nombre = editListaNombre;
+      if (gestionMenuAction === 'color') payload.color_fondo = editListaColor;
+
+      const { error } = await supabase.from('listas').update(payload).eq('id', listaActivaGestion.id);
+      if (error) throw error;
+
+      setListas(prev => prev.map(l => l.id === listaActivaGestion.id ? { ...l, ...payload } : l));
+      setModalListaVisible(false);
+      Alert.alert('¡Éxito!', 'Lista actualizada correctamente.');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo actualizar la lista.');
+    }
+  };
+
+  const handleArchivarLista = async () => {
+    if (!listaActivaGestion) return;
+    try {
+      const { error } = await supabase.from('listas').update({ estado_archivo: true }).eq('id', listaActivaGestion.id);
+      if (error) throw error;
+
+      setListas(prev => prev.filter(l => l.id !== listaActivaGestion.id));
+      setModalListaVisible(false);
+      Alert.alert('Éxito', 'Lista archivada correctamente.');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo archivar la lista.');
+    }
+  };
+
+  const handleMoverListaTablero = async () => {
+    if (!listaActivaGestion || !selectedTableroId) return;
+    try {
+      const { error } = await supabase.from('listas').update({ tablero_id: selectedTableroId }).eq('id', listaActivaGestion.id);
+      if (error) throw error;
+
+      setListas(prev => prev.filter(l => l.id !== listaActivaGestion.id));
+      setModalListaVisible(false);
+      Alert.alert('Éxito', 'Lista movida al tablero seleccionado.');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo mover la lista.');
+    }
+  };
+
   const handleCambiarFondo = async () => {
     if (!tableroInfo) return;
+
+    if (Platform.OS === 'web') {
+      try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+          const uri = result.assets[0].uri;
+          setIsUploadingImage(true);
+
+          const publicUrl = await uploadImageToSupabase(uri, 'adjuntos', `tableros/${id}`);
+          if (!publicUrl) throw new Error('No se pudo subir la imagen.');
+
+          const { error } = await supabase
+            .from('tableros')
+            .update({ fondo_url: publicUrl })
+            .eq('id', id);
+
+          if (error) throw error;
+
+          setTableroInfo({ ...tableroInfo, fondo_url: publicUrl });
+          alert('¡Éxito! El fondo del tablero ha sido actualizado.');
+        }
+      } catch (e: any) {
+        alert('Error: ' + (e.message || 'Error al cambiar fondo'));
+      } finally {
+        setIsUploadingImage(false);
+      }
+      return;
+    }
 
     Alert.alert(
       'Fondo del Tablero',
@@ -269,7 +393,43 @@ export default function KanbanTableroScreen() {
     const cardToUpdate = targetCard || tarjetaSeleccionada;
     if (!cardToUpdate) return;
     try {
-      const updatedDatosValores = { ...cardToUpdate.datos_valores, ...nuevosDatos };
+      const oldValues = cardToUpdate.datos_valores || {};
+      const modificaciones: any[] = [];
+
+      Object.keys(nuevosDatos).forEach(key => {
+        if (key === 'historial_auditoria') return;
+        const valAnterior = oldValues[key];
+        const valNuevo = nuevosDatos[key];
+
+        if (JSON.stringify(valAnterior) !== JSON.stringify(valNuevo)) {
+          modificaciones.push({
+            campo: key,
+            valor_anterior: valAnterior !== undefined && valAnterior !== null && valAnterior !== '' ? valAnterior : 'Vacío',
+            valor_nuevo: valNuevo !== undefined && valNuevo !== null && valNuevo !== '' ? valNuevo : 'Vacío',
+          });
+        }
+      });
+
+      let historialNuevo = Array.isArray(oldValues.historial_auditoria) ? [...oldValues.historial_auditoria] : [];
+
+      if (modificaciones.length > 0) {
+        const autorNombre = nombreCompleto || session?.user?.email || 'Usuario Registrado';
+        const nuevaEntradaAuditoria = {
+          id: Date.now().toString(),
+          autor: autorNombre,
+          fecha: new Date().toISOString(),
+          tipo: 'edicion',
+          modificaciones,
+        };
+        historialNuevo.push(nuevaEntradaAuditoria);
+      }
+
+      const updatedDatosValores = {
+        ...oldValues,
+        ...nuevosDatos,
+        historial_auditoria: historialNuevo,
+      };
+
       await supabase.from('tarjetas').update({ datos_valores: updatedDatosValores }).eq('id', cardToUpdate.id);
       setListas(prev => prev.map(lista => ({ ...lista, tarjetas: lista.tarjetas.map(t => t.id === cardToUpdate.id ? { ...t, datos_valores: updatedDatosValores } : t) })));
       if (tarjetaSeleccionada?.id === cardToUpdate.id) setTarjetaSeleccionada({ ...tarjetaSeleccionada, datos_valores: updatedDatosValores });
@@ -319,7 +479,7 @@ export default function KanbanTableroScreen() {
               tarjetaEnMovimiento={tarjetaEnMovimiento}
               setTarjetaEnMovimiento={setTarjetaEnMovimiento}
               handleMove={handleMove}
-              openGestionLista={() => {}}
+              openGestionLista={(lista, x, y) => openGestionLista(lista, x, y)}
               baseOpacity={tableroInfo?.opacidad_listas ?? 0.85}
               listaEnMovimiento={listaEnMovimiento}
               setListaEnMovimiento={setListaEnMovimiento}
@@ -344,7 +504,7 @@ export default function KanbanTableroScreen() {
       ) : (
         renderContent()
       )}
-      <ModalContextMenu contextMenu={contextMenu} onClose={() => setContextMenu({ ...contextMenu, visible: false })} userRol={userRol} listas={listas} tableroId={id} onAbrirTarjeta={(tarjeta) => setTarjetaSeleccionada(tarjeta)} onVerTrazabilidad={() => {}} onReasignarCaso={() => {}} onArchivarTarjeta={handleArchiveCard} />
+      <ModalContextMenu contextMenu={contextMenu} onClose={() => setContextMenu({ ...contextMenu, visible: false })} userRol={userRol} listas={listas} tableroId={id} onAbrirTarjeta={(tarjeta) => setTarjetaSeleccionada(tarjeta)} onVerTrazabilidad={(t) => setTarjetaTrazabilidad(t)} onReasignarCaso={() => {}} onArchivarTarjeta={handleArchiveCard} />
       <ModalTableroMenu
         visible={modalMenuVisible}
         onClose={() => setModalMenuVisible(false)}
@@ -365,8 +525,12 @@ export default function KanbanTableroScreen() {
         tempDesc={tempDesc}
         setTempDesc={setTempDesc}
         fetchArchivedCards={async () => {
-          const { data } = await supabase.from('tarjetas').select('*, listas!inner(nombre, tablero_id)').eq('listas.tablero_id', id).eq('estado_archivo', true);
-          setTarjetasArchivadas(data || []);
+          const { data: dataCards } = await supabase.from('tarjetas').select('*, listas!inner(nombre, tablero_id)').eq('listas.tablero_id', id).eq('estado_archivo', true);
+          setTarjetasArchivadas(dataCards || []);
+
+          const { data: dataLists } = await supabase.from('listas').select('*').eq('tablero_id', id).eq('estado_archivo', true);
+          setListasArchivadas(dataLists || []);
+
           setModalArchivadasVisible(true);
         }}
         handleOpacityChange={(val) => tableroInfo && setTableroInfo({ ...tableroInfo, opacidad_listas: val })}
@@ -374,9 +538,36 @@ export default function KanbanTableroScreen() {
         handleCambiarFondo={handleCambiarFondo}
         isUploadingImage={isUploadingImage}
       />
+      <ModalGestionLista
+        visible={modalListaVisible}
+        onClose={() => setModalListaVisible(false)}
+        gestionMenuPos={gestionMenuPos}
+        gestionMenuAction={gestionMenuAction}
+        setGestionMenuAction={setGestionMenuAction}
+        listaActiva={listaActivaGestion}
+        editListaNombre={editListaNombre}
+        setEditListaNombre={setEditListaNombre}
+        editListaColor={editListaColor}
+        setEditListaColor={setEditListaColor}
+        handleActualizarLista={handleActualizarLista}
+        handleArchivarLista={handleArchivarLista}
+        tablerosDisponibles={tablerosDisponibles}
+        selectedTableroId={selectedTableroId}
+        setSelectedTableroId={setSelectedTableroId}
+        handleMoverListaTablero={handleMoverListaTablero}
+      />
+      <ModalArchivadas
+        visible={modalArchivadasVisible}
+        onClose={() => setModalArchivadasVisible(false)}
+        tarjetasArchivadas={tarjetasArchivadas}
+        listasArchivadas={listasArchivadas}
+        restoreCard={handleRestoreCard}
+        restoreList={handleRestoreList}
+      />
       <BoardActionButtons tarjetaEnMovimiento={tarjetaEnMovimiento} listas={listas} userRol={userRol} onEdit={() => { setStartInEditMode(true); setTarjetaSeleccionada(tarjetaEnMovimiento); setTarjetaEnMovimiento(null); }} onDuplicar={handleDuplicarTarjeta} onDelete={handleDeleteCard} />
-      <ModalDetalleTarjeta tarjetaSeleccionada={tarjetaSeleccionada} setTarjetaSeleccionada={(t) => { setTarjetaSeleccionada(t); if (!t) setStartInEditMode(false); }} startInEditMode={startInEditMode} listas={listas} miembros={miembros} onUpdateTarjeta={onUpdateTarjetaSeleccionada} autoMoverTarjeta={autoMoverTarjeta} nuevoComentario={nuevoComentario} setNuevoComentario={setNuevoComentario} handleEnviarComentario={handleEnviarComentario} />
+      <ModalDetalleTarjeta tarjetaSeleccionada={tarjetaSeleccionada} setTarjetaSeleccionada={(t) => { setTarjetaSeleccionada(t); if (!t) setStartInEditMode(false); }} startInEditMode={startInEditMode} listas={listas} miembros={miembros} onUpdateTarjeta={onUpdateTarjetaSeleccionada} autoMoverTarjeta={autoMoverTarjeta} nuevoComentario={nuevoComentario} setNuevoComentario={setNuevoComentario} handleEnviarComentario={handleEnviarComentario} onOpenTrazabilidad={(t) => setTarjetaTrazabilidad(t)} />
       <ModalAuditoria visible={!!tarjetaAuditoria} tarjetaAuditoria={tarjetaAuditoria} onClose={() => setTarjetaAuditoria(null)} />
+      <ModalTrazabilidad visible={!!tarjetaTrazabilidad} tarjeta={tarjetaTrazabilidad} onClose={() => setTarjetaTrazabilidad(null)} />
     </View>
   );
 }

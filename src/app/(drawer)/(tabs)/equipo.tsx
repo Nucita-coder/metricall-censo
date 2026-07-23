@@ -68,7 +68,7 @@ export default function EquipoScreen() {
           const ids = sols.map(s => s.usuario_id);
           const { data: perfiles } = await supabase
             .from('perfiles')
-            .select('id, nombre_completo, rol')
+            .select('id, nombre_completo, rol, avatar_url, mensaje')
             .in('id', ids);
 
           const enriquecidas = sols.map(sol => ({
@@ -86,7 +86,7 @@ export default function EquipoScreen() {
           if (miPerfil?.empresa_id) {
             const { data: acts, error: actError } = await supabase
               .from('perfiles')
-              .select('id, nombre_completo, rol, sucursal_id, permisos_especiales, etiquetas')
+              .select('id, nombre_completo, rol, sucursal_id, permisos_especiales, etiquetas, avatar_url, mensaje')
               .eq('empresa_id', miPerfil.empresa_id);
             if (!actError && acts) setActivos(acts);
           }
@@ -201,6 +201,32 @@ export default function EquipoScreen() {
     );
   };
 
+  const handleEliminarMiembro = (miembroId: string, nombre?: string) => {
+    confirmAction(
+      '¿Eliminar miembro de la compañía?',
+      `El usuario "${nombre || 'Seleccionado'}" será desvinculado de la empresa y perderá acceso a los tableros.`,
+      async () => {
+        try {
+          const { error: rpcErr } = await supabase.rpc('eliminar_miembro_empresa', { p_miembro_id: miembroId });
+          if (rpcErr) {
+            await supabase.from('perfiles').update({
+              empresa_id: null,
+              sucursal_id: null,
+              rol: 'empleado',
+              etiquetas: [],
+              permisos_especiales: {}
+            }).eq('id', miembroId);
+          }
+          fetchData();
+          if (Platform.OS === 'web') alert('El miembro ha sido desvinculado de la empresa.');
+          else Alert.alert('Éxito', 'El miembro ha sido desvinculado de la empresa.');
+        } catch (e: any) {
+          Alert.alert('Error', e.message || 'No se pudo eliminar el miembro de la empresa.');
+        }
+      }
+    );
+  };
+
   const toggleTablero = (id: string) => {
     if (selectedTableros.includes(id)) {
       setSelectedTableros(selectedTableros.filter((t: string) => t !== id));
@@ -259,6 +285,7 @@ export default function EquipoScreen() {
             <EquipoMemberCard
               type="activo"
               item={item}
+              onEliminar={handleEliminarMiembro}
             />
           )}
           contentContainerStyle={styles.listContainer}

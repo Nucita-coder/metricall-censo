@@ -16,6 +16,10 @@ Para optimizar el RLS y evitar JOINs costosos (anti-patrón), el `empresa_id` (T
 2. **Capa 2: Privilegios Granulares (`permisos_especiales` JSONB)**: Interruptores booleanos (`{"puede_borrar_tarjetas": true}`).
 3. **Lógica de Ascenso**: Un rol superior solo puede ascender/modificar a alguien de menor jerarquía en su misma jurisdicción.
 
+## Reglas de Componentes UI y Formularios Globales
+- **Reutilización Global**: Todos los componentes de formulario (`InputTexto`, `DatePickerInput`, `SelectDropdown`) deben importarse de `src/components/venta/CamposVenta.tsx`. Prohibido duplicar componentes de entrada localmente.
+- **Selectores emergentes compactos**: Los modales de opciones (`SelectDropdown`) deben ser ventanas flotantes emergentes centradas (`maxWidth: 340`, `animationType="fade"`). Prohibido el uso de desplegables tipo bottom-sheet (`justifyContent: 'flex-end'`).
+
 ## Optimización y Escalabilidad (Obligatorio)
 - **Índices GIN**: Obligatorios en TODAS las columnas JSONB (`esquema_campos`, `datos_valores`, `permisos_especiales`).
 - **Políticas RLS Optimizadas**: Cero JOINs en el `USING`. Al propagar `empresa_id` en todas las tablas, el RLS se reduce a una sola lectura de clave primaria.

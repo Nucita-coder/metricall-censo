@@ -88,7 +88,7 @@ export function useKanbanDataLoader({ id, session, userRol, permisosEspeciales, 
       const { data: tabs } = await tabsQuery;
       if (tabs) setTablerosDisponibles(tabs.filter(t => t.id !== id));
 
-      let usersQuery = supabase.from('perfiles').select('id, nombre_completo, rol, etiquetas');
+      let usersQuery = supabase.from('perfiles').select('id, nombre_completo, rol, etiquetas, avatar_url');
       if (empresaId) usersQuery = usersQuery.eq('empresa_id', empresaId);
       const { data: users } = await usersQuery;
       if (users) setMiembros(users);

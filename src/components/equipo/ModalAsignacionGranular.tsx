@@ -39,8 +39,9 @@ export function ModalAsignacionGranular({
   guardando,
 }: ModalAsignacionGranularProps) {
   return (
-    <Modal visible={visible} transparent={true} animationType="slide">
+    <Modal visible={visible} transparent={true} animationType="fade">
       <View style={styles.bottomSheetOverlay}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={[styles.bottomSheetContent, WEB_MODAL_CONTAINER]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={styles.modalTitle}>Asignación Granular</Text>
@@ -136,16 +137,19 @@ export function ModalAsignacionGranular({
 const styles = StyleSheet.create({
   bottomSheetOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
   },
   bottomSheetContent: {
     backgroundColor: '#22272B',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 12,
+    width: '90%',
+    maxWidth: 550,
+    maxHeight: '80%',
     padding: 24,
-    maxHeight: '85%',
-    borderTopWidth: 1,
+    borderWidth: 1,
     borderColor: '#384148',
   },
   modalTitle: {

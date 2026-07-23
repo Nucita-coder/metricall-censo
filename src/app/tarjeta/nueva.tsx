@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { Save } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import FormularioCenso from '../../components/FormularioCenso';
 import FormularioVenta from '../../components/FormularioVenta';
 import CardLayoutWrapper from '../../components/layout/CardLayoutWrapper';
@@ -136,11 +136,23 @@ export default function NuevaTarjetaScreen() {
       if (error) throw error;
 
       if (currentLista && currentLista.nombre === 'Venta' && nuevaTarjeta) {
-        const { error: rpcError } = await supabase.rpc('mover_tarjeta_seguro', {
-          p_tarjeta_id: nuevaTarjeta.id,
-          p_nombre_lista_destino: 'Factibilidad'
-        });
-        if (rpcError) console.warn('No se pudo mover a Factibilidad:', rpcError.message);
+        const { data: listaFactibilidad } = await supabase
+          .from('listas')
+          .select('id')
+          .eq('tablero_id', currentLista.tablero_id)
+          .eq('nombre', 'Factibilidad')
+          .maybeSingle();
+
+        if (listaFactibilidad) {
+          const { error: rpcError } = await supabase.rpc('mover_tarjeta_seguro', {
+            p_tarjeta_id: nuevaTarjeta.id,
+            p_lista_destino_id: listaFactibilidad.id
+          });
+          if (rpcError) {
+            console.warn('RPC mover_tarjeta_seguro falló, actualizando directamente:', rpcError.message);
+            await supabase.from('tarjetas').update({ lista_id: listaFactibilidad.id }).eq('id', nuevaTarjeta.id);
+          }
+        }
       }
 
       try {
@@ -174,9 +186,26 @@ export default function NuevaTarjetaScreen() {
         runClone();
       }
 
-      Alert.alert('Éxito', listaNombre === 'Censo' ? 'Censo registrado correctamente.' : 'Venta registrada correctamente.', [
-        { text: 'OK', onPress: () => router.canGoBack() ? router.back() : (session ? router.replace('/(drawer)' as Href) : router.replace('/')) }
-      ]);
+      const navigateBack = () => {
+        if (router.canGoBack()) {
+          router.back();
+        } else if (session) {
+          router.replace('/(drawer)' as Href);
+        } else {
+          router.replace('/');
+        }
+      };
+
+      if (Platform.OS === 'web') {
+        alert(listaNombre === 'Censo' ? 'Censo registrado correctamente.' : 'Venta registrada correctamente.');
+        navigateBack();
+      } else {
+        Alert.alert(
+          'Éxito',
+          listaNombre === 'Censo' ? 'Censo registrado correctamente.' : 'Venta registrada correctamente.',
+          [{ text: 'OK', onPress: navigateBack }]
+        );
+      }
     } catch (e: any) {
       Alert.alert('Error', 'No se pudo guardar: ' + e.message);
     } finally {

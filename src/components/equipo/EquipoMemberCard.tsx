@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Check, Settings, ShieldAlert, X } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
+import { Check, Settings, ShieldAlert, Trash2, X } from 'lucide-react-native';
 import { router } from 'expo-router';
 
 interface EquipoMemberCardProps {
@@ -9,19 +9,33 @@ interface EquipoMemberCardProps {
   onAceptar?: (item: any) => void;
   onRechazar?: (id: string) => void;
   onBloquear?: (id: string) => void;
+  onEliminar?: (id: string, nombre?: string) => void;
 }
 
-export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear }: EquipoMemberCardProps) {
+export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear, onEliminar }: EquipoMemberCardProps) {
+  const avatarUrl = type === 'solicitud' ? item.perfil?.avatar_url : item.avatar_url;
+  const mensaje = type === 'solicitud' ? item.perfil?.mensaje : item.mensaje;
+  const nombre = type === 'solicitud' ? item.perfil?.nombre_completo : item.nombre_completo;
+
   if (type === 'solicitud') {
     return (
       <View style={styles.card}>
         <View style={styles.cardInfo}>
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarText}>{item.perfil?.nombre_completo?.charAt(0).toUpperCase()}</Text>
-          </View>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarText}>{nombre?.charAt(0).toUpperCase() || 'U'}</Text>
+            </View>
+          )}
           <View style={styles.cardTextContent}>
-            <Text style={styles.cardName}>{item.perfil?.nombre_completo}</Text>
+            <Text style={styles.cardName}>{nombre}</Text>
             <Text style={styles.cardDate}>Solicitado el: {new Date(item.created_at).toLocaleDateString()}</Text>
+            {mensaje ? (
+              <Text style={styles.cardMensaje} numberOfLines={2}>
+                "{mensaje}"
+              </Text>
+            ) : null}
           </View>
         </View>
         <View style={styles.cardActions}>
@@ -49,20 +63,36 @@ export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear
   return (
     <View style={styles.card}>
       <View style={styles.cardInfo}>
-        <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>{item.nombre_completo?.charAt(0).toUpperCase()}</Text>
-        </View>
+        {avatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarText}>{nombre?.charAt(0).toUpperCase() || 'U'}</Text>
+          </View>
+        )}
         <View style={styles.cardTextContent}>
-          <Text style={styles.cardName}>{item.nombre_completo}</Text>
+          <Text style={styles.cardName}>{nombre}</Text>
           <Text style={styles.cardRole}>
             Rol: {item.etiquetas && item.etiquetas.length > 0 ? item.etiquetas.join(', ') : item.rol}
           </Text>
+          {mensaje ? (
+            <Text style={styles.cardMensaje} numberOfLines={2}>
+              "{mensaje}"
+            </Text>
+          ) : null}
         </View>
-        {item.rol === 'empleado' && (
-          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push(`/(drawer)/gestion/permisos/${item.id}` as any)}>
-            <Settings size={24} color="#666" />
-          </TouchableOpacity>
-        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {item.rol === 'empleado' && (
+            <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push(`/(drawer)/gestion/permisos/${item.id}` as any)}>
+              <Settings size={22} color="#666" />
+            </TouchableOpacity>
+          )}
+          {item.rol !== 'lider' && onEliminar && (
+            <TouchableOpacity style={[styles.actionBtn, styles.btnRechazar, { paddingHorizontal: 10, paddingVertical: 8 }]} onPress={() => onEliminar(item.id, nombre)}>
+              <Trash2 size={18} color="#FFF" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -90,6 +120,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#0C66E4',
+  },
   avatarText: {
     color: '#FFF',
     fontWeight: 'bold',
@@ -112,6 +150,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8C9BAB',
     marginTop: 2,
+  },
+  cardMensaje: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#90CDF4',
+    marginTop: 4,
   },
   cardActions: {
     flexDirection: 'row',

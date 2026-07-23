@@ -1,19 +1,20 @@
 import React from 'react';
 import { ActivityIndicator, Image, Text, TouchableOpacity, View } from 'react-native';
-import { ChevronDown, Image as ImageIcon } from 'lucide-react-native';
+import { Image as ImageIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import NetInfo from '@react-native-community/netinfo';
 import * as FileSystem from 'expo-file-system/legacy';
 import { uploadImageToSupabase } from '../../../services/uploadImage';
 import { GeofotoTool } from './GeofotoTool';
+import { SelectDropdown } from '../../venta/CamposVenta';
 
 interface DropdownSelectorProps {
   label: string;
   value: string;
   setValue: (v: string) => void;
   options: string[];
-  show: boolean;
-  setShow: (s: boolean) => void;
+  show?: boolean;
+  setShow?: (s: boolean) => void;
   isSaving: boolean;
   setEvidUrl?: (v: string) => void;
 }
@@ -23,54 +24,22 @@ export function DropdownSelector({
   value,
   setValue,
   options,
-  show,
-  setShow,
   isSaving,
   setEvidUrl,
 }: DropdownSelectorProps) {
   return (
-    <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' }}>
-        {label}
-      </Text>
-      <TouchableOpacity
-        style={{
-          backgroundColor: '#2C333A',
-          borderWidth: 1,
-          borderColor: '#384148',
-          borderRadius: 8,
-          padding: 12,
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-        onPress={() => !isSaving && setShow(!show)}
-        disabled={isSaving}
-      >
-        <Text style={{ color: value ? '#B6C2CF' : '#8C9BAB' }}>{value || 'Seleccionar...'}</Text>
-        <ChevronDown size={16} color="#8C9BAB" />
-      </TouchableOpacity>
-
-      {show && !isSaving && (
-        <View style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, marginTop: 4, overflow: 'hidden' }}>
-          {options.map((opcion) => (
-            <TouchableOpacity
-              key={opcion}
-              style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#2C333A' }}
-              onPress={() => {
-                setValue(opcion);
-                setShow(false);
-                if (opcion !== 'Visita Residencia' && label === 'Tipo de Contacto' && setEvidUrl) {
-                  setEvidUrl('');
-                }
-              }}
-            >
-              <Text style={{ color: '#B6C2CF' }}>{opcion}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
+    <SelectDropdown
+      label={label}
+      value={value}
+      options={options}
+      disabled={isSaving}
+      onSelect={(opcion: string) => {
+        setValue(opcion);
+        if (opcion !== 'Visita Residencia' && label === 'Tipo de Contacto' && setEvidUrl) {
+          setEvidUrl('');
+        }
+      }}
+    />
   );
 }
 

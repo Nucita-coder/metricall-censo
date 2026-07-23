@@ -5,6 +5,8 @@ interface GlobalUiContextProps {
   setSearchQuery: (query: string) => void;
   createTrigger: number;
   triggerCreateModal: () => void;
+  soporteTrigger: number;
+  triggerSoporteModal: () => void;
 }
 
 const GlobalUiContext = createContext<GlobalUiContextProps | undefined>(undefined);
@@ -12,13 +14,18 @@ const GlobalUiContext = createContext<GlobalUiContextProps | undefined>(undefine
 export function GlobalUiProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [createTrigger, setCreateTrigger] = useState(0);
+  const [soporteTrigger, setSoporteTrigger] = useState(0);
 
   const triggerCreateModal = () => {
     setCreateTrigger(prev => prev + 1);
   };
 
+  const triggerSoporteModal = () => {
+    setSoporteTrigger(prev => prev + 1);
+  };
+
   return (
-    <GlobalUiContext.Provider value={{ searchQuery, setSearchQuery, createTrigger, triggerCreateModal }}>
+    <GlobalUiContext.Provider value={{ searchQuery, setSearchQuery, createTrigger, triggerCreateModal, soporteTrigger, triggerSoporteModal }}>
       {children}
     </GlobalUiContext.Provider>
   );

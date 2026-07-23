@@ -20,6 +20,7 @@ export default function EsperaScreen() {
       setLoading(true);
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData?.user) {
+        await supabase.auth.signOut().catch(() => {});
         router.replace('/');
         return;
       }
@@ -29,7 +30,7 @@ export default function EsperaScreen() {
         .from('perfiles')
         .select('empresa_id')
         .eq('id', userData.user.id)
-        .single();
+        .maybeSingle();
 
       if (perfil?.empresa_id) {
         // ¡Ya fue aceptado y tiene empresa! Lo enviamos al dashboard
@@ -38,13 +39,13 @@ export default function EsperaScreen() {
       }
 
       // 2. Si sigue sin empresa, revisar el estado de su solicitud
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('solicitudes_acceso')
         .select('*, empresas(nombre)')
         .eq('usuario_id', userData.user.id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (data) {
         setSolicitud(data);

@@ -19,7 +19,7 @@ export const ModalTrazabilidad = ({ visible, onClose, tarjeta }: ModalTrazabilid
   if (!visible || !tarjeta) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           {/* Header */}

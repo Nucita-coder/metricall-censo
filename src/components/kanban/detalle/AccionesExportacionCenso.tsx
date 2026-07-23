@@ -43,6 +43,40 @@ export function AccionesExportacionCenso({ tarjetaSeleccionada, isSaving }: Acci
       processEntry(key, value);
     }
 
+    if (data.geo_nap && data.geo_nap.lat && data.geo_nap.lng) {
+      reporte += `\n*Ubicación GPS NAP:*\nhttps://www.google.com/maps/search/?api=1&query=${data.geo_nap.lat},${data.geo_nap.lng}\n`;
+    }
+
+    if (data.geo_casa && data.geo_casa.lat && data.geo_casa.lng) {
+      reporte += `\n*Ubicación GPS Casa:*\nhttps://www.google.com/maps/search/?api=1&query=${data.geo_casa.lat},${data.geo_casa.lng}\n`;
+    }
+
+    let evidenciasText = '';
+
+    if (data.lch_imagen && typeof data.lch_imagen === 'string') {
+      evidenciasText += `*Foto LCH:* ${data.lch_imagen}\n`;
+    }
+
+    if (data.geofotos) {
+      const fotosArr = Array.isArray(data.geofotos) ? data.geofotos : [data.geofotos];
+      fotosArr.forEach((foto: any, idx: number) => {
+        const url = typeof foto === 'string' ? foto : foto?.url || foto?.uri;
+        if (url) evidenciasText += `*GeoFoto ${idx + 1}:* ${url}\n`;
+      });
+    }
+
+    if (data.adjuntos) {
+      const adjArr = Array.isArray(data.adjuntos) ? data.adjuntos : [data.adjuntos];
+      adjArr.forEach((adj: any, idx: number) => {
+        const url = typeof adj === 'string' ? adj : adj?.url || adj?.uri;
+        if (url) evidenciasText += `*Adjunto ${idx + 1}:* ${url}\n`;
+      });
+    }
+
+    if (evidenciasText) {
+      reporte += `\n*EVIDENCIAS Y FOTOGRAFÍAS:*\n${evidenciasText}`;
+    }
+
     if (data.gestiones && Array.isArray(data.gestiones) && data.gestiones.length > 0) {
       reporte += `\n*GESTIONES COMERCIALES*\n\n`;
       data.gestiones.forEach((g: any) => {

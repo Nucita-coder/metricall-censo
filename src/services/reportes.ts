@@ -32,11 +32,15 @@ const formatKey = (k: string) => {
 export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
   const datos = tarjeta.datos_valores || {};
   
-  const geofotos = datos.geofotos || [];
-  const adjuntos = datos.adjuntos || [];
+  const geofotosArr = Array.isArray(datos.geofotos) ? datos.geofotos : (datos.geofotos ? [datos.geofotos] : []);
+  const adjuntosArr = Array.isArray(datos.adjuntos) ? datos.adjuntos : (datos.adjuntos ? [datos.adjuntos] : []);
   const lchImagen = datos.lch_imagen;
-  
-  const allImages = [...(lchImagen ? [lchImagen] : []), ...geofotos, ...adjuntos];
+
+  const allImages = [
+    ...(lchImagen ? [lchImagen] : []),
+    ...geofotosArr.map((f: any) => typeof f === 'string' ? f : f?.url || f?.uri).filter(Boolean),
+    ...adjuntosArr.map((a: any) => typeof a === 'string' ? a : a?.url || a?.uri).filter(Boolean),
+  ];
   const imagesHtml = allImages.map(url => `<img src="${url}" style="width: 100%; max-width: 500px; display: block; margin: 0 auto 20px auto; border-radius: 8px; border: 1px solid #CCC;" />`).join('\n');
 
   let comentariosHtml = '';

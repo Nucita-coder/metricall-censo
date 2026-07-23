@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useWindowDimensions, Platform } from 'react-native';
-import { Briefcase, Users, Settings, MessageSquare } from 'lucide-react-native';
+import { Briefcase, Users, Settings, MessageSquare, BarChart3 } from 'lucide-react-native';
 import { useAuth } from '../../../context/AuthContext';
 
 export default function TabLayout() {
@@ -37,6 +37,14 @@ export default function TabLayout() {
         options={{
           title: 'Operaciones',
           tabBarIcon: ({ color }) => <Briefcase size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="metricas"
+        options={{
+          title: 'Métricas',
+          tabBarIcon: ({ color }) => <BarChart3 size={24} color={color} />,
+          href: ['admin', 'lider', 'administrador', 'supervisor'].includes((userRol || '').toLowerCase()) ? '/(drawer)/(tabs)/metricas' : null,
         }}
       />
       <Tabs.Screen

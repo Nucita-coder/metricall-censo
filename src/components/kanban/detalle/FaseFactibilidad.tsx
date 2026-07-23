@@ -35,43 +35,73 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
             editable={!isSaving && !subiendoLch}
           />
 
-          <TouchableOpacity
-            style={{ backgroundColor: '#1D2125', padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginBottom: lchImagen ? 12 : 0, borderWidth: 1, borderColor: !lchImagen && errorFactibilidad ? '#E53E3E' : '#384148' }}
-            onPress={async () => {
-              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-              if (status !== 'granted') {
-                if (Platform.OS === 'web') window.alert('Se requiere acceso a la galería.');
-                else Alert.alert('Permiso', 'Se requiere acceso a la galería.');
-                return;
-              }
-              const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                quality: 0.7,
-                base64: true,
-              });
-
-              if (!result.canceled && result.assets && result.assets.length > 0) {
-                setSubiendoLch(true);
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: lchImagen ? 12 : 0 }}>
+            <TouchableOpacity
+              style={{ flex: 1, backgroundColor: '#1D2125', padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', borderWidth: 1, borderColor: !lchImagen && errorFactibilidad ? '#E53E3E' : '#384148' }}
+              onPress={async () => {
                 try {
-                  const asset = result.assets[0];
-                  const url = await uploadImageToSupabase(asset.uri, 'evidencias', 'lch');
-                  if (url) {
-                    setLchImagen(url);
-                    setErrorFactibilidad(null);
+                  setSubiendoLch(true);
+                  let result: ImagePicker.ImagePickerResult;
+                  if (Platform.OS === 'web') {
+                    result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
+                  } else {
+                    result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 }).catch(async () => {
+                      return await ImagePicker.launchCameraAsync({ quality: 0.7 });
+                    });
+                  }
+
+                  if (!result.canceled && result.assets && result.assets.length > 0) {
+                    const asset = result.assets[0];
+                    const url = await uploadImageToSupabase(asset.uri, 'evidencias', 'lch');
+                    if (url) {
+                      setLchImagen(url);
+                      setErrorFactibilidad(null);
+                    }
                   }
                 } catch (e: any) {
-                  if (Platform.OS === 'web') window.alert('Error: ' + e.message);
-                  else Alert.alert('Error', e.message);
+                  showDiagnosticError('ERR-LCH-SUBIDA', 'Error al seleccionar o subir la imagen de LCH.', e, 'Factibilidad');
                 } finally {
                   setSubiendoLch(false);
                 }
-              }
-            }}
-            disabled={isSaving || subiendoLch}
-          >
-            <ImageIcon size={18} color="#B6C2CF" style={{ marginRight: 8 }} />
-            <Text style={{ color: '#B6C2CF', fontWeight: 'bold' }}>{lchImagen ? 'Cambiar Foto de LCH' : 'Adjuntar Foto de LCH *'}</Text>
-          </TouchableOpacity>
+              }}
+              disabled={isSaving || subiendoLch}
+            >
+              {subiendoLch ? (
+                <ActivityIndicator size="small" color="#B6C2CF" />
+              ) : (
+                <>
+                  <ImageIcon size={18} color="#B6C2CF" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#B6C2CF', fontWeight: 'bold', fontSize: 13 }}>{lchImagen ? 'Cambiar Foto LCH' : 'Galería LCH *'}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{ flex: 1, backgroundColor: '#1D2125', padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', borderWidth: 1, borderColor: !lchImagen && errorFactibilidad ? '#E53E3E' : '#384148' }}
+              onPress={async () => {
+                try {
+                  setSubiendoLch(true);
+                  let result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+                  if (!result.canceled && result.assets && result.assets.length > 0) {
+                    const asset = result.assets[0];
+                    const url = await uploadImageToSupabase(asset.uri, 'evidencias', 'lch');
+                    if (url) {
+                      setLchImagen(url);
+                      setErrorFactibilidad(null);
+                    }
+                  }
+                } catch (e: any) {
+                  showDiagnosticError('ERR-LCH-CAMARA', 'Error al abrir la cámara para foto de LCH.', e, 'Factibilidad');
+                } finally {
+                  setSubiendoLch(false);
+                }
+              }}
+              disabled={isSaving || subiendoLch}
+            >
+              <ImageIcon size={18} color="#0C66E4" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#579DFF', fontWeight: 'bold', fontSize: 13 }}>Cámara LCH *</Text>
+            </TouchableOpacity>
+          </View>
 
           {lchImagen && (
             <View style={{ height: 150, borderRadius: 8, overflow: 'hidden', marginTop: 8 }}>

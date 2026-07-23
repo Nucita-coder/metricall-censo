@@ -16,6 +16,7 @@ export interface KanbanCardProps {
   isLiberada?: boolean;
   listaNombre?: string;
   onRightClick?: (item: Tarjeta, x: number, y: number) => void;
+  isResaltada?: boolean;
 }
 
 const KanbanCardComponent = ({
@@ -27,7 +28,8 @@ const KanbanCardComponent = ({
   setTarjetaAuditoria,
   isLiberada,
   listaNombre,
-  onRightClick
+  onRightClick,
+  isResaltada,
 }: KanbanCardProps) => {
   const { userRol } = useAuth();
   const isMoveMode = tarjetaEnMovimiento !== null;
@@ -37,6 +39,7 @@ const KanbanCardComponent = ({
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const hoverAnim = useRef(new Animated.Value(0)).current;
+  const highlightAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.spring(scaleAnim, {
@@ -45,6 +48,20 @@ const KanbanCardComponent = ({
       bounciness: 10,
     }).start();
   }, [isMovingThis]);
+
+  useEffect(() => {
+    if (isResaltada) {
+      highlightAnim.setValue(1);
+      Animated.sequence([
+        Animated.delay(3000),
+        Animated.timing(highlightAnim, {
+          toValue: 0,
+          duration: 2000,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }
+  }, [isResaltada]);
 
   const tipoServicio = String(data.tipoServicio || '').toLowerCase();
   const esHogar = tipoServicio === 'hogar';
@@ -135,7 +152,7 @@ const KanbanCardComponent = ({
             backgroundColor: cardBg
           },
           (isMoveMode && !isMovingThis) && { opacity: 0.5 },
-          isBloqueada && { opacity: 0.8 }
+          isBloqueada && { opacity: 0.8 },
         ]}
           {...(Platform.OS === 'web' ? {
             onContextMenu: (e: any) => {
@@ -221,29 +238,19 @@ const KanbanCardComponent = ({
               </>
             )
           )}
+          <Animated.View pointerEvents="none" style={[styles.cardHighlightOverlay, { opacity: highlightAnim }]} />
         </Animated.View>
       </Reanimated.View>
     </TouchableOpacity>
   );
 };
 
-const areEqual = (prevProps: KanbanCardProps, nextProps: KanbanCardProps) => {
-  if (prevProps.item.id !== nextProps.item.id) return false;
-  if (prevProps.item.updated_at !== nextProps.item.updated_at) return false;
-  if (prevProps.item.lista_id !== nextProps.item.lista_id) return false;
-  if (prevProps.listaNombre !== nextProps.listaNombre) return false;
-  if (prevProps.isLiberada !== nextProps.isLiberada) return false;
-
-  if (JSON.stringify(prevProps.item.datos_valores) !== JSON.stringify(nextProps.item.datos_valores)) return false;
-
-  const prevIsMovingThis = prevProps.tarjetaEnMovimiento?.id === prevProps.item.id;
-  const nextIsMovingThis = nextProps.tarjetaEnMovimiento?.id === nextProps.item.id;
-  if (prevIsMovingThis !== nextIsMovingThis) return false;
-
-  const prevIsListMoving = prevProps.listaEnMovimiento !== null;
-  const nextIsListMoving = nextProps.listaEnMovimiento !== null;
-  if (prevIsListMoving !== nextIsListMoving) return false;
-
+const areEqual = (prev: KanbanCardProps, next: KanbanCardProps) => {
+  if (prev.item.id !== next.item.id || prev.item.updated_at !== next.item.updated_at || prev.item.lista_id !== next.item.lista_id) return false;
+  if (prev.listaNombre !== next.listaNombre || prev.isLiberada !== next.isLiberada || prev.isResaltada !== next.isResaltada) return false;
+  if (JSON.stringify(prev.item.datos_valores) !== JSON.stringify(next.item.datos_valores)) return false;
+  if ((prev.tarjetaEnMovimiento?.id === prev.item.id) !== (next.tarjetaEnMovimiento?.id === next.item.id)) return false;
+  if ((prev.listaEnMovimiento !== null) !== (next.listaEnMovimiento !== null)) return false;
   return true;
 };
 
@@ -313,10 +320,6 @@ const styles = StyleSheet.create({
     color: KANBAN_COLORS.text.primary,
     marginBottom: 4
   },
-  cardDocs: {
-    fontSize: 13,
-    color: KANBAN_COLORS.text.muted
-  },
   contactInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -331,5 +334,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#718096',
     fontWeight: '500'
-  }
+  },
+  cardHighlightOverlay: {
+    ...StyleSheet.absoluteFill,
+    borderColor: '#0C66E4',
+    borderWidth: 2.5,
+    borderRadius: KANBAN_THEME.card.borderRadius,
+    shadowColor: '#579DFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 10,
+  },
 });

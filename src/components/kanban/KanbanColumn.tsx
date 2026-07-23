@@ -21,6 +21,8 @@ export interface KanbanColumnProps {
   setTarjetaSeleccionada: (t: Tarjeta | null) => void;
   setTarjetaAuditoria: (t: Tarjeta | null) => void;
   onRightClickCard?: (item: Tarjeta, x: number, y: number) => void;
+  resaltadaListaId?: string | null;
+  resaltadaTarjetaId?: string | null;
 }
 
 const KanbanColumnComponent = ({
@@ -35,7 +37,9 @@ const KanbanColumnComponent = ({
   handleSwapLists,
   setTarjetaSeleccionada,
   setTarjetaAuditoria,
-  onRightClickCard
+  onRightClickCard,
+  resaltadaListaId,
+  resaltadaTarjetaId,
 }: KanbanColumnProps) => {
   const isMoveMode = tarjetaEnMovimiento !== null;
   const isSourceColumn = isMoveMode && tarjetaEnMovimiento.lista_id === item.id;
@@ -50,6 +54,21 @@ const KanbanColumnComponent = ({
   const dotsRef = useRef<any>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
+  const highlightAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (resaltadaListaId === item.id) {
+      highlightAnim.setValue(1);
+      Animated.sequence([
+        Animated.delay(3000),
+        Animated.timing(highlightAnim, {
+          toValue: 0,
+          duration: 2000,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }
+  }, [resaltadaListaId, item.id]);
 
   useEffect(() => {
     let targetScale = 1;
@@ -121,8 +140,9 @@ const KanbanColumnComponent = ({
             elevation: isMovingThisList ? 10 : 0,
             shadowOpacity: isMovingThisList ? 0.3 : 0,
             shadowRadius: isMovingThisList ? 10 : 0,
-          }
+          },
         ]}>
+          <Animated.View pointerEvents="none" style={[styles.columnHighlightOverlay, { opacity: highlightAnim }]} />
           <View style={[styles.columnHeader, { borderTopColor: item.color || '#000' }]}>
             <TouchableOpacity
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
@@ -139,27 +159,24 @@ const KanbanColumnComponent = ({
               activeOpacity={0.7}
               disabled={isMoveMode || (isMoveListMode && isMovingThisList)}
             >
-              <Text style={styles.columnTitle} numberOfLines={1}>{item.nombre}</Text>
-              <Text style={styles.columnCount}>({item.tarjetas.length})</Text>
+              <Text style={styles.columnTitle} numberOfLines={1}>
+                {item.nombre}
+              </Text>
+
+              <Text style={styles.columnCount}>{item.tarjetas.length}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               ref={dotsRef}
+              style={styles.moreBtn}
               onPress={() => {
-                if (!isMoveMode && !isMoveListMode) {
-                  if (dotsRef.current && dotsRef.current.measure) {
-                    dotsRef.current.measure((x: number, y: number, w: number, h: number, pageX: number, pageY: number) => {
-                      openGestionLista(item, pageX, pageY + h);
-                    });
-                  } else {
-                    openGestionLista(item);
-                  }
-                }
+                dotsRef.current?.measure((fx: number, fy: number, width: number, height: number, px: number, py: number) => {
+                  openGestionLista(item, px, py + height);
+                });
               }}
-              style={{ padding: 4, marginLeft: 8 }}
-              disabled={isMoveMode || isMoveListMode}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <MoreHorizontal size={24} color={(isMoveMode || isMoveListMode) ? "#CCC" : "#333"} />
+              <MoreHorizontal size={20} color="#718096" />
             </TouchableOpacity>
           </View>
 
@@ -183,6 +200,7 @@ const KanbanColumnComponent = ({
                 isLiberada={t.datos_valores?.estadoLiberacion === 'bloqueada'}
                 listaNombre={item.nombre}
                 onRightClick={onRightClickCard}
+                isResaltada={t.id === resaltadaTarjetaId}
               />
             )}
             showsVerticalScrollIndicator={false}
@@ -262,8 +280,6 @@ const areEqualColumn = (prevProps: KanbanColumnProps, nextProps: KanbanColumnPro
 export const KanbanColumn = React.memo(KanbanColumnComponent, areEqualColumn);
 
 const { width, height } = Dimensions.get('window');
-// Diseño responsivo: En pantallas grandes (PC/Tablets) fijamos el ancho a 350px.
-// En móviles, usamos el 85% para mantener el efecto carrusel enfocado.
 export const COLUMN_WIDTH = Platform.OS === 'web' || width > 768 ? 350 : width * 0.85;
 export const GAP = 16;
 export const SNAP_INTERVAL = COLUMN_WIDTH + GAP;
@@ -301,5 +317,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#718096',
     fontWeight: '600'
-  }
+  },
+  moreBtn: {
+    padding: 4,
+  },
+  columnHighlightOverlay: {
+    ...StyleSheet.absoluteFill,
+    borderColor: '#0C66E4',
+    borderWidth: 2.5,
+    borderRadius: KANBAN_THEME.column.borderRadius,
+    shadowColor: '#579DFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 10,
+  },
 });

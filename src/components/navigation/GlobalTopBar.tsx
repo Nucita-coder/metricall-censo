@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Bell, HelpCircle, LogOut, Search, X } from 'lucide-react-native';
+import { Bell, HelpCircle, LogOut, MessageSquare, Search, X } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -71,9 +71,10 @@ export function GlobalTopBar() {
           </View>
         )}
 
-
-
         <View style={styles.iconGroup}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(drawer)/(tabs)/mensajes' as any)}>
+            <MessageSquare size={20} color="#9FADBC" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => setShowNotificaciones(true)}>
             <Bell size={20} color="#9FADBC" />
             {unreadCount > 0 && (

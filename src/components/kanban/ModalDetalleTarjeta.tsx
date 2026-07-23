@@ -1,6 +1,6 @@
 import { History, Pencil, X } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ImageBackground, Modal, Platform, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Animated, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Tarjeta, TarjetaDatosValores } from '../../types/kanban';
 
 import { WEB_MODAL_CONTAINER } from '../../constants/theme';
@@ -39,6 +39,7 @@ export interface ModalDetalleTarjetaProps {
   startInEditMode?: boolean;
   onOpenReasignacion?: (t: Tarjeta) => void;
   onOpenTrazabilidad?: (t: Tarjeta) => void;
+  isResaltada?: boolean;
 }
 
 export const ModalDetalleTarjeta = ({
@@ -55,6 +56,7 @@ export const ModalDetalleTarjeta = ({
   startInEditMode = false,
   onOpenReasignacion,
   onOpenTrazabilidad,
+  isResaltada,
 }: ModalDetalleTarjetaProps) => {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width > 768;
@@ -66,6 +68,21 @@ export const ModalDetalleTarjeta = ({
   const [conversionData, setConversionData] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(startInEditMode);
   const [editFormData, setEditFormData] = useState<any>(tarjetaSeleccionada?.datos_valores || {});
+  const highlightAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (isResaltada && tarjetaSeleccionada) {
+      highlightAnim.setValue(1);
+      Animated.sequence([
+        Animated.delay(3000),
+        Animated.timing(highlightAnim, {
+          toValue: 0,
+          duration: 2000,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }
+  }, [isResaltada, tarjetaSeleccionada]);
 
   React.useEffect(() => {
     setIsEditing(startInEditMode);
@@ -94,17 +111,16 @@ export const ModalDetalleTarjeta = ({
   };
 
   const renderFaseDinamica = () => {
-    switch (listaActualNombre) {
-      case 'Venta': return <FaseVenta {...faseProps} />;
-      case 'Factibilidad': return <FaseFactibilidad {...faseProps} />;
-      case 'Por Instalar': return <FasePorInstalar {...faseProps} />;
-      case 'Asignado A': return <FaseAsignadoA {...faseProps} />;
-      case 'Liberada': return <FaseLiberada {...faseProps} />;
-      case 'En Proceso': return <FaseEnProceso {...faseProps} />;
-      case 'Por Activar': return <FasePorActivar {...faseProps} />;
-      case 'Cliente Activo': return <FaseClienteActivo {...faseProps} />;
-      default: return null;
-    }
+    const clean = listaActualNombre.toLowerCase().trim().replace(/_/g, ' ');
+    if (clean.includes('factibilidad')) return <FaseFactibilidad {...faseProps} />;
+    if (clean.includes('venta')) return <FaseVenta {...faseProps} />;
+    if (clean.includes('por instalar') || clean.includes('instalar')) return <FasePorInstalar {...faseProps} />;
+    if (clean.includes('asignado')) return <FaseAsignadoA {...faseProps} />;
+    if (clean.includes('liberad')) return <FaseLiberada {...faseProps} />;
+    if (clean.includes('proceso')) return <FaseEnProceso {...faseProps} />;
+    if (clean.includes('activar')) return <FasePorActivar {...faseProps} />;
+    if (clean.includes('activo')) return <FaseClienteActivo {...faseProps} />;
+    return null;
   };
 
   const handleGuardarCambios = async () => {
@@ -135,6 +151,7 @@ export const ModalDetalleTarjeta = ({
             WEB_MODAL_CONTAINER,
           isDesktop && { maxHeight: '90%', marginVertical: 'auto' }
           ]}>
+            <Animated.View pointerEvents="none" style={[styles.modalHighlightOverlay, { opacity: highlightAnim }]} />
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#2C333A', borderBottomWidth: 1, borderBottomColor: '#384148' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 <Text style={{ fontSize: 18, fontWeight: '900', color: '#B6C2CF' }}>
@@ -222,7 +239,7 @@ export const ModalDetalleTarjeta = ({
               <ScrollView contentContainerStyle={{ padding: 24 }} showsVerticalScrollIndicator={false}>
                 <View style={{ flexDirection: isDesktop ? 'row' : 'column', gap: 24 }}>
                   <View style={{ flex: isDesktop ? 2 : 1 }}>
-                    <View style={{ opacity: puedeEditar ? 1 : 0.8, pointerEvents: puedeEditar ? 'auto' : 'none' }}>
+                    <View style={{ flex: 1 }}>
                       {isCensoFormat ? (
                         <View style={{ marginBottom: 24 }}>
                           <Text style={{ fontSize: 16, fontWeight: '900', color: '#B6C2CF', marginBottom: 16 }}>
@@ -302,3 +319,17 @@ export const ModalDetalleTarjeta = ({
     </>
   );
 };
+
+const styles = StyleSheet.create({
+  modalHighlightOverlay: {
+    ...StyleSheet.absoluteFill,
+    borderColor: '#0C66E4',
+    borderWidth: 3,
+    borderRadius: 12,
+    shadowColor: '#579DFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 15,
+    zIndex: 100,
+  },
+});

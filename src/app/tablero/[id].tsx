@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, ImageBackground, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, Animated, ImageBackground, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import Reanimated, { LinearTransition } from 'react-native-reanimated';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { X } from 'lucide-react-native';
@@ -22,6 +22,8 @@ import { ModalContextMenu } from '../../components/kanban/modals/ModalContextMen
 import { ModalArchivadas } from '../../components/kanban/modals/ModalArchivadas';
 import { ModalTableroMenu } from '../../components/kanban/modals/ModalTableroMenu';
 import { ModalGestionLista } from '../../components/kanban/modals/ModalGestionLista';
+import { ModalCambiarTablero } from '../../components/kanban/modals/ModalCambiarTablero';
+import { ModalPantallaDividida } from '../../components/kanban/modals/ModalPantallaDividida';
 import { ModalDetalleTarjeta } from '../../components/kanban/ModalDetalleTarjeta';
 import { ModalTrazabilidad } from '../../components/kanban/ModalTrazabilidad';
 import { BoardHeader } from '../../components/kanban/BoardHeader';
@@ -29,7 +31,43 @@ import { BoardActionButtons } from '../../components/kanban/BoardActionButtons';
 
 export default function KanbanTableroScreen() {
   const { userRol, session, permisosEspeciales, empresaId, nombreCompleto } = useAuth();
-  const { id, isSecondary, abrirTarjeta } = useLocalSearchParams<{ id: string, isSecondary?: string, abrirTarjeta?: string }>();
+  const { id, isSecondary, abrirTarjeta, resaltarTarjeta, resaltarLista, resaltarTablero } = useLocalSearchParams<{ id: string, isSecondary?: string, abrirTarjeta?: string, resaltarTarjeta?: string, resaltarLista?: string, resaltarTablero?: string }>();
+
+  const [activeHighlightTarjeta, setActiveHighlightTarjeta] = useState<string | null>(null);
+  const [activeHighlightLista, setActiveHighlightLista] = useState<string | null>(null);
+  const tableroHighlightAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (resaltarTarjeta) {
+      setActiveHighlightTarjeta(resaltarTarjeta);
+      const t = setTimeout(() => { setActiveHighlightTarjeta(null); router.setParams({ resaltarTarjeta: undefined }); }, 5000);
+      return () => clearTimeout(t);
+    }
+  }, [resaltarTarjeta]);
+
+  useEffect(() => {
+    if (resaltarLista) {
+      setActiveHighlightLista(resaltarLista);
+      const t = setTimeout(() => { setActiveHighlightLista(null); router.setParams({ resaltarLista: undefined }); }, 5000);
+      return () => clearTimeout(t);
+    }
+  }, [resaltarLista]);
+
+  useEffect(() => {
+    if (resaltarTablero === 'true' || resaltarTablero === '1') {
+      tableroHighlightAnim.setValue(1);
+      Animated.sequence([
+        Animated.delay(3000),
+        Animated.timing(tableroHighlightAnim, {
+          toValue: 0,
+          duration: 2000,
+          useNativeDriver: false,
+        }),
+      ]).start();
+      const t = setTimeout(() => { router.setParams({ resaltarTablero: undefined }); }, 5000);
+      return () => clearTimeout(t);
+    }
+  }, [resaltarTablero]);
 
   const { isLoading, tableroInfo, setTableroInfo, listas, setListas, tablerosDisponibles, miembros, fetchKanbanData } = useKanbanDataLoader({ id, session, userRol, permisosEspeciales, empresaId });
 
@@ -54,10 +92,23 @@ export default function KanbanTableroScreen() {
   const [listasArchivadas, setListasArchivadas] = useState<any[]>([]);
   const [showBoardMenu, setShowBoardMenu] = useState(false);
   const [showSplitMenu, setShowSplitMenu] = useState(false);
+  const [secondaryBoardId, setSecondaryBoardId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSearchActive, setIsMobileSearchActive] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean, x: number, y: number, tarjeta: Tarjeta | null }>({ visible: false, x: 0, y: 0, tarjeta: null });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'CLOSE_SPLIT_VIEW') {
+          setSecondaryBoardId(null);
+        }
+      };
+      window.addEventListener('message', handleMessage);
+      return () => window.removeEventListener('message', handleMessage);
+    }
+  }, []);
 
   const handleRestoreCard = async (cardId: string) => {
     try {
@@ -487,6 +538,8 @@ export default function KanbanTableroScreen() {
               setTarjetaSeleccionada={setTarjetaSeleccionada}
               setTarjetaAuditoria={setTarjetaAuditoria}
               onRightClickCard={(tarjeta, x, y) => setContextMenu({ visible: true, x, y, tarjeta })}
+              resaltadaListaId={activeHighlightLista}
+              resaltadaTarjetaId={activeHighlightTarjeta}
             />
           )}
           contentContainerStyle={{ paddingVertical: 16, paddingHorizontal: 16 }}
@@ -496,14 +549,36 @@ export default function KanbanTableroScreen() {
   );
 
   return (
-    <View style={styles.container} ref={boardWrapperRef}>
-      {tableroInfo?.fondo_url ? (
-        <ImageBackground source={{ uri: tableroInfo.fondo_url }} style={{ flex: 1 }} resizeMode="cover">
-          {renderContent()}
-        </ImageBackground>
-      ) : (
-        renderContent()
+    <View style={{ flex: 1, flexDirection: 'row' }}>
+      <View style={styles.container} ref={boardWrapperRef}>
+        <Animated.View pointerEvents="none" style={[styles.tableroHighlightOverlay, { opacity: tableroHighlightAnim }]} />
+        {tableroInfo?.fondo_url ? (
+          <ImageBackground source={{ uri: tableroInfo.fondo_url }} style={{ flex: 1 }} resizeMode="cover">
+            {renderContent()}
+          </ImageBackground>
+        ) : (
+          renderContent()
+        )}
+      </View>
+
+      {secondaryBoardId && (
+        <View style={{ flex: 1, borderLeftWidth: 2, borderLeftColor: '#384148', backgroundColor: '#1D2125' }}>
+          {Platform.OS === 'web' ? (
+            <iframe
+              src={`/tablero/${secondaryBoardId}?isSecondary=true`}
+              style={{ width: '100%', height: '100%', border: 'none' } as any}
+            />
+          ) : (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+              <Text style={{ color: '#FFF', fontSize: 16, marginBottom: 12 }}>Pantalla Dividida Activa</Text>
+              <TouchableOpacity onPress={() => setSecondaryBoardId(null)} style={{ paddingVertical: 10, paddingHorizontal: 16, backgroundColor: '#E53E3E', borderRadius: 8 }}>
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Cerrar Pantalla Dividida</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       )}
+
       <ModalContextMenu contextMenu={contextMenu} onClose={() => setContextMenu({ ...contextMenu, visible: false })} userRol={userRol} listas={listas} tableroId={id} onAbrirTarjeta={(tarjeta) => setTarjetaSeleccionada(tarjeta)} onVerTrazabilidad={(t) => setTarjetaTrazabilidad(t)} onReasignarCaso={() => {}} onArchivarTarjeta={handleArchiveCard} />
       <ModalTableroMenu
         visible={modalMenuVisible}
@@ -525,7 +600,7 @@ export default function KanbanTableroScreen() {
         tempDesc={tempDesc}
         setTempDesc={setTempDesc}
         fetchArchivedCards={async () => {
-          const { data: dataCards } = await supabase.from('tarjetas').select('*, listas!inner(nombre, tablero_id)').eq('listas.tablero_id', id).eq('estado_archivo', true);
+          const { data: dataCards } = await supabase.from('tarjetas').select('*, perfiles(nombre_completo)').in('lista_id', listas.map(l => l.id)).eq('estado_archivo', true);
           setTarjetasArchivadas(dataCards || []);
 
           const { data: dataLists } = await supabase.from('listas').select('*').eq('tablero_id', id).eq('estado_archivo', true);
@@ -565,9 +640,23 @@ export default function KanbanTableroScreen() {
         restoreList={handleRestoreList}
       />
       <BoardActionButtons tarjetaEnMovimiento={tarjetaEnMovimiento} listas={listas} userRol={userRol} onEdit={() => { setStartInEditMode(true); setTarjetaSeleccionada(tarjetaEnMovimiento); setTarjetaEnMovimiento(null); }} onDuplicar={handleDuplicarTarjeta} onDelete={handleDeleteCard} />
-      <ModalDetalleTarjeta tarjetaSeleccionada={tarjetaSeleccionada} setTarjetaSeleccionada={(t) => { setTarjetaSeleccionada(t); if (!t) setStartInEditMode(false); }} startInEditMode={startInEditMode} listas={listas} miembros={miembros} onUpdateTarjeta={onUpdateTarjetaSeleccionada} autoMoverTarjeta={autoMoverTarjeta} nuevoComentario={nuevoComentario} setNuevoComentario={setNuevoComentario} handleEnviarComentario={handleEnviarComentario} onOpenTrazabilidad={(t) => setTarjetaTrazabilidad(t)} />
+      <ModalDetalleTarjeta tarjetaSeleccionada={tarjetaSeleccionada} setTarjetaSeleccionada={(t) => { setTarjetaSeleccionada(t); if (!t) setStartInEditMode(false); }} startInEditMode={startInEditMode} listas={listas} miembros={miembros} onUpdateTarjeta={onUpdateTarjetaSeleccionada} autoMoverTarjeta={autoMoverTarjeta} nuevoComentario={nuevoComentario} setNuevoComentario={setNuevoComentario} handleEnviarComentario={handleEnviarComentario} onOpenTrazabilidad={(t) => setTarjetaTrazabilidad(t)} isResaltada={!!activeHighlightTarjeta} />
       <ModalAuditoria visible={!!tarjetaAuditoria} tarjetaAuditoria={tarjetaAuditoria} onClose={() => setTarjetaAuditoria(null)} />
       <ModalTrazabilidad visible={!!tarjetaTrazabilidad} tarjeta={tarjetaTrazabilidad} onClose={() => setTarjetaTrazabilidad(null)} />
+      <ModalCambiarTablero
+        visible={showBoardMenu}
+        onClose={() => setShowBoardMenu(false)}
+        tablerosDisponibles={tablerosDisponibles}
+        tableroActualId={id}
+        tableroInfo={tableroInfo}
+      />
+      <ModalPantallaDividida
+        visible={showSplitMenu}
+        onClose={() => setShowSplitMenu(false)}
+        tablerosDisponibles={tablerosDisponibles}
+        tableroActualId={id}
+        onSeleccionarSecundario={(secId) => setSecondaryBoardId(secId)}
+      />
     </View>
   );
 }
@@ -576,4 +665,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1D2125' },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1D2125' },
   emptyColumnText: { textAlign: 'center', color: '#8C9BAB', marginTop: 16, marginBottom: 16 },
+  tableroHighlightOverlay: {
+    ...StyleSheet.absoluteFill,
+    borderColor: '#0C66E4',
+    borderWidth: 3,
+    shadowColor: '#579DFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 16,
+    zIndex: 10,
+  },
 });

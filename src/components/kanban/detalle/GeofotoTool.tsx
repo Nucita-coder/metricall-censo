@@ -14,6 +14,62 @@ const safeCaptureRef = async (ref: any, options: any) => {
   return captureRef(ref, options);
 };
 
+const generarWatermarkWeb = async (fotoInfo: { uri: string, width: number, height: number, lat: number, lng: number, altitude?: number, accuracy?: number }): Promise<string> => {
+  return new Promise((resolve) => {
+    try {
+      if (typeof document === 'undefined') return resolve(fotoInfo.uri);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(fotoInfo.uri);
+
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const targetWidth = 1024;
+        const targetHeight = Math.round(1024 * (img.naturalHeight / img.naturalWidth || fotoInfo.height / fotoInfo.width || 1));
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+        const boxWidth = 400;
+        const boxHeight = 220;
+        const margin = 20;
+        const boxX = targetWidth - boxWidth - margin;
+        const boxY = targetHeight - boxHeight - margin;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        if (typeof ctx.roundRect === 'function') {
+          ctx.beginPath();
+          ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 12);
+          ctx.fill();
+        } else {
+          ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        }
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 22px Arial, sans-serif';
+        ctx.fillText(`Lat: ${fotoInfo.lat.toFixed(6)}`, boxX + 20, boxY + 40);
+        ctx.fillText(`Lng: ${fotoInfo.lng.toFixed(6)}`, boxX + 20, boxY + 75);
+        ctx.fillText(`Elev: ${(fotoInfo.altitude || 0).toFixed(2)} m`, boxX + 20, boxY + 110);
+        ctx.fillText(`Prec: ±${(fotoInfo.accuracy || 0).toFixed(2)} m`, boxX + 20, boxY + 145);
+
+        ctx.font = '18px Arial, sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fillText(new Date().toLocaleString(), boxX + 20, boxY + 185);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        resolve(dataUrl);
+      };
+      img.onerror = () => resolve(fotoInfo.uri);
+      img.src = fotoInfo.uri;
+    } catch (e) {
+      console.error('[generarWatermarkWeb] Error:', e);
+      resolve(fotoInfo.uri);
+    }
+  });
+};
+
 interface GeofotoToolProps {
   onPhotoCaptured: (url: string) => void;
   isSaving: boolean;
@@ -40,19 +96,26 @@ export const GeofotoTool: React.FC<GeofotoToolProps> = ({ onPhotoCaptured, isSav
       return;
     }
 
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      showDiagnosticError(
-        'ERR-GEO-CAMARA-PERMISO',
-        'Se requiere permiso de acceso a la cámara.',
-        'ImagePicker.requestCameraPermissionsAsync devolvió status: ' + status,
-        'GeoFoto'
-      );
-      return;
-    }
-
     try {
-      const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+      let result: ImagePicker.ImagePickerResult;
+      if (Platform.OS === 'web') {
+        result = await ImagePicker.launchCameraAsync({ quality: 0.8 }).catch(async () => {
+          return await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
+        });
+      } else {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          showDiagnosticError(
+            'ERR-GEO-CAMARA-PERMISO',
+            'Se requiere permiso de acceso a la cámara.',
+            'ImagePicker.requestCameraPermissionsAsync devolvió status: ' + status,
+            'GeoFoto'
+          );
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+      }
+
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setObteniendoGeo(true);
         const lat = currentLocation.coords.latitude;
@@ -62,15 +125,14 @@ export const GeofotoTool: React.FC<GeofotoToolProps> = ({ onPhotoCaptured, isSav
 
         const asset = result.assets[0];
 
-        // Advertencia si la precisión GPS es baja (> 50 metros)
         if (accuracy > 50) {
           console.warn(`[GeoFoto] Advertencia de baja precisión GPS: ±${accuracy}m`);
         }
 
         setFotoTemporalParaMarcar({
           uri: asset.uri,
-          width: asset.width,
-          height: asset.height,
+          width: asset.width || 1024,
+          height: asset.height || 768,
           lat,
           lng,
           altitude,
@@ -129,8 +191,8 @@ export const GeofotoTool: React.FC<GeofotoToolProps> = ({ onPhotoCaptured, isSav
               onLoad={() => {
                 setTimeout(async () => {
                   if (Platform.OS === 'web') {
-                    // Fallback para Web (PC)
-                    await procesarSubidaGeoFoto(fotoTemporalParaMarcar.uri);
+                    const stampedUri = await generarWatermarkWeb(fotoTemporalParaMarcar);
+                    await procesarSubidaGeoFoto(stampedUri);
                     return;
                   }
                   try {

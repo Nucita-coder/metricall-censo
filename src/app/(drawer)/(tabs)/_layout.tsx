@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useWindowDimensions, Platform } from 'react-native';
-import { Briefcase, Users, Settings } from 'lucide-react-native';
+import { Briefcase, Users, Settings, MessageSquare } from 'lucide-react-native';
 import { useAuth } from '../../../context/AuthContext';
 
 export default function TabLayout() {
@@ -40,6 +40,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="mensajes"
+        options={{
+          title: 'Messenger',
+          tabBarIcon: ({ color }) => <MessageSquare size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="equipo"
         options={{
           title: 'Equipo',
@@ -57,5 +64,6 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
 
 

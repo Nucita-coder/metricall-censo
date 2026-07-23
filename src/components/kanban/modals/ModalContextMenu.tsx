@@ -1,5 +1,6 @@
 import { Archive, Calendar, Columns, Copy, Info, Tag, UserPlus } from 'lucide-react-native';
 import { Alert, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { Lista, Tarjeta } from '../../../types/kanban';
 
 interface ModalContextMenuProps {
@@ -63,11 +64,11 @@ export const ModalContextMenu = ({
           <Calendar size={16} color="#B6C2CF" style={{ marginLeft: 16 }} />
           <Text style={[styles.menuListText, { fontSize: 14 }]}>Editar las fechas</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.menuListItem, { paddingVertical: 8 }]} onPress={() => {
+        <TouchableOpacity style={[styles.menuListItem, { paddingVertical: 8 }]} onPress={async () => {
           onClose();
-          if (Platform.OS === 'web') {
-            navigator.clipboard.writeText(`${window.location.origin}/tablero/${tableroId}?tarjeta=${contextMenu.tarjeta?.id}`);
-          }
+          const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'https://metricall-censo.app';
+          const cardUrl = `${origin}/tablero/${tableroId}?tarjeta=${contextMenu.tarjeta?.id}`;
+          await Clipboard.setStringAsync(cardUrl);
           Alert.alert('Copiado', 'Enlace de la tarjeta copiado al portapapeles.');
         }}>
           <Copy size={16} color="#B6C2CF" style={{ marginLeft: 16 }} />

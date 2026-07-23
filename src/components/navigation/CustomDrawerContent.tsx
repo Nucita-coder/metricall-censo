@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePathname, useRouter } from 'expo-router';
-import { FolderKanban, LifeBuoy, Settings, Users } from 'lucide-react-native';
+import { FolderKanban, LifeBuoy, MessageSquare, Settings, Users } from 'lucide-react-native';
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGlobalUi } from '../../context/GlobalUiContext';
@@ -36,6 +36,7 @@ export function CustomDrawerContent(props: any) {
       {!isDesktop && (
         <>
           <MenuItem label="Operaciones" icon={FolderKanban} route="/(drawer)/(tabs)" />
+          <MenuItem label="Messenger" icon={MessageSquare} route="/(drawer)/(tabs)/mensajes" />
           <MenuItem label="Soporte Técnico" icon={LifeBuoy} onPress={() => triggerSoporteModal()} />
           {userRol !== 'empleado' && <MenuItem label="Organización" icon={Users} route="/(drawer)/gestion" />}
         </>
@@ -44,6 +45,7 @@ export function CustomDrawerContent(props: any) {
       {isDesktop && (
         <>
           <MenuItem label="Operaciones" icon={FolderKanban} route="/(drawer)/(tabs)" />
+          <MenuItem label="Messenger" icon={MessageSquare} route="/(drawer)/(tabs)/mensajes" />
           {userRol !== 'empleado' && <MenuItem label="Equipo" icon={Users} route="/(drawer)/(tabs)/equipo" />}
           <MenuItem label="Ajustes" icon={Settings} route="/(drawer)/(tabs)/ajustes" />
           <MenuItem label="Soporte Técnico" icon={LifeBuoy} onPress={() => triggerSoporteModal()} />
@@ -53,6 +55,7 @@ export function CustomDrawerContent(props: any) {
     </ScrollView>
   );
 }
+
 
 const styles = StyleSheet.create({
   menuItem: {

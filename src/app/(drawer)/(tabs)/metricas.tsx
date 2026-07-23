@@ -26,7 +26,9 @@ import {
   ExternalLink,
   Wrench,
   XCircle,
-  Clock,
+  FileCheck2,
+  MapPin,
+  ClipboardList,
   UserCheck,
 } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
@@ -40,6 +42,14 @@ export interface VendedorStats {
   totalLch: number;
   totalTarjetas: number;
   tasaConversion: number;
+  tarjetas: Tarjeta[];
+}
+
+export interface CensadorStats {
+  censadorNombre: string;
+  totalCensados: number;
+  conLch: number;
+  conVenta: number;
   tarjetas: Tarjeta[];
 }
 
@@ -59,8 +69,8 @@ export default function MetricasScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
-  // Subtab activo: 'vendedores' o 'tecnicos'
-  const [subTab, setSubTab] = useState<'vendedores' | 'tecnicos'>('vendedores');
+  // Subtab activo: 'vendedores' | 'censos' | 'tecnicos'
+  const [subTab, setSubTab] = useState<'vendedores' | 'censos' | 'tecnicos'>('vendedores');
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,6 +84,13 @@ export default function MetricasScreen() {
   const [kpiTotalCensos, setKpiTotalCensos] = useState(0);
   const [kpiVendedoresActivos, setKpiVendedoresActivos] = useState(0);
   const [kpiTopVendedor, setKpiTopVendedor] = useState<{ nombre: string; ventas: number } | null>(null);
+
+  // Estados Personas Censadas
+  const [statsCensadores, setStatsCensadores] = useState<CensadorStats[]>([]);
+  const [kpiTotalPersonasCensadas, setKpiTotalPersonasCensadas] = useState(0);
+  const [kpiTopCensador, setKpiTopCensador] = useState<{ nombre: string; total: number } | null>(null);
+  const [kpiPersonasConLch, setKpiPersonasConLch] = useState(0);
+  const [kpiTasaConversionCenso, setKpiTasaConversionCenso] = useState(0);
 
   // Estados Técnicos
   const [statsTecnicos, setStatsTecnicos] = useState<TecnicoStats[]>([]);
@@ -168,16 +185,18 @@ export default function MetricasScreen() {
         return true;
       });
 
-      // ----------------------------------------------------
       // A. METRICAS DE VENDEDORES
-      // ----------------------------------------------------
       const mapVendedores = new Map<string, VendedorStats>();
       let globalVentas = 0;
       let globalCensos = 0;
 
-      // ----------------------------------------------------
-      // B. METRICAS DE TÉCNICOS / INSTALACIONES
-      // ----------------------------------------------------
+      // B. METRICAS DE PERSONAS CENSADAS
+      const mapCensadores = new Map<string, CensadorStats>();
+      let globalPersonasCensadas = 0;
+      let globalPersonasConLch = 0;
+      let globalPersonasConVenta = 0;
+
+      // C. METRICAS DE TÉCNICOS / INSTALACIONES
       const mapTecnicos = new Map<string, TecnicoStats>();
       let globalInstalaciones = 0;
       let globalCompletadas = 0;
@@ -234,6 +253,34 @@ export default function MetricasScreen() {
         if (esCenso) vStat.totalCensos++;
         if (tieneLch) vStat.totalLch++;
         vStat.tarjetas.push(t);
+
+        // --- PERSONAS CENSADAS ---
+        // Se considera persona censada si la tarjeta tiene origen censo, fecha censo o esta en etapa de censo/prospección
+        const esPersonaCensada = esCenso || data.nombreApellido || data.cedula || data.direccion;
+        if (esPersonaCensada) {
+          const censadorRaw = data.vendedor || data.asesorComercial || data.censador || 'Sin Censador Asignado';
+          const nombreCensador = String(censadorRaw).trim() || 'Sin Censador Asignado';
+
+          globalPersonasCensadas++;
+          if (tieneLch) globalPersonasConLch++;
+          if (esVenta) globalPersonasConVenta++;
+
+          if (!mapCensadores.has(nombreCensador)) {
+            mapCensadores.set(nombreCensador, {
+              censadorNombre: nombreCensador,
+              totalCensados: 0,
+              conLch: 0,
+              conVenta: 0,
+              tarjetas: [],
+            });
+          }
+
+          const cStat = mapCensadores.get(nombreCensador)!;
+          cStat.totalCensados++;
+          if (tieneLch) cStat.conLch++;
+          if (esVenta) cStat.conVenta++;
+          cStat.tarjetas.push(t);
+        }
 
         // --- TÉCNICOS ---
         let tecnicoRaw =
@@ -301,6 +348,10 @@ export default function MetricasScreen() {
       });
       listaVendedores.sort((a, b) => b.totalVentas - a.totalVentas || b.totalCensos - a.totalCensos);
 
+      // Procesar lista Censadores
+      const listaCensadores: CensadorStats[] = Array.from(mapCensadores.values());
+      listaCensadores.sort((a, b) => b.totalCensados - a.totalCensados);
+
       // Procesar lista Técnicos
       const listaTecnicos: TecnicoStats[] = Array.from(mapTecnicos.values()).map(t => {
         const eficiencia = t.totalAsignadas > 0 ? Math.round((t.completadas / t.totalAsignadas) * 100) : 0;
@@ -316,6 +367,18 @@ export default function MetricasScreen() {
       setKpiTopVendedor(
         listaVendedores.length > 0 && listaVendedores[0].totalVentas > 0
           ? { nombre: listaVendedores[0].vendedorNombre, ventas: listaVendedores[0].totalVentas }
+          : null
+      );
+
+      // Guardar estados Personas Censadas
+      setStatsCensadores(listaCensadores);
+      setKpiTotalPersonasCensadas(globalPersonasCensadas);
+      setKpiPersonasConLch(globalPersonasConLch);
+      const conversionCenso = globalPersonasCensadas > 0 ? Math.round((globalPersonasConVenta / globalPersonasCensadas) * 100) : 0;
+      setKpiTasaConversionCenso(conversionCenso);
+      setKpiTopCensador(
+        listaCensadores.length > 0 && listaCensadores[0].totalCensados > 0
+          ? { nombre: listaCensadores[0].censadorNombre, total: listaCensadores[0].totalCensados }
           : null
       );
 
@@ -370,6 +433,10 @@ export default function MetricasScreen() {
     v.vendedorNombre.toLowerCase().includes(busquedaTexto.toLowerCase())
   );
 
+  const censadoresFiltrados = statsCensadores.filter(c =>
+    c.censadorNombre.toLowerCase().includes(busquedaTexto.toLowerCase())
+  );
+
   const tecnicosFiltrados = statsTecnicos.filter(t =>
     t.tecnicoNombre.toLowerCase().includes(busquedaTexto.toLowerCase())
   );
@@ -382,7 +449,7 @@ export default function MetricasScreen() {
           <BarChart3 size={24} color="#0C66E4" style={{ marginRight: 10 }} />
           <View>
             <Text style={styles.headerTitle}>Métricas de Administración</Text>
-            <Text style={styles.headerSubtitle}>Desempeño comercial de Vendedores e Instalaciones de Técnicos</Text>
+            <Text style={styles.headerSubtitle}>Vendedores, Personas Censadas e Instalaciones de Técnicos</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.refreshIconBtn} onPress={() => cargarMetricas()}>
@@ -394,7 +461,7 @@ export default function MetricasScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0C66E4" />}
       >
-        {/* SELECTOR DE SUBTAB (Vendedores vs Técnicos) */}
+        {/* SELECTOR DE SUBTAB (Vendedores vs Personas Censadas vs Técnicos) */}
         <View style={styles.subTabRow}>
           <TouchableOpacity
             style={[styles.subTabButton, subTab === 'vendedores' && styles.subTabButtonActive]}
@@ -403,9 +470,22 @@ export default function MetricasScreen() {
               setExpandidoId(null);
             }}
           >
-            <Users size={18} color={subTab === 'vendedores' ? '#FFF' : '#8C9BAB'} />
+            <Users size={16} color={subTab === 'vendedores' ? '#FFF' : '#8C9BAB'} />
             <Text style={[styles.subTabText, subTab === 'vendedores' && styles.subTabTextActive]}>
-              Vendedores y Ventas
+              Ventas
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.subTabButton, subTab === 'censos' && styles.subTabButtonActive]}
+            onPress={() => {
+              setSubTab('censos');
+              setExpandidoId(null);
+            }}
+          >
+            <ClipboardList size={16} color={subTab === 'censos' ? '#FFF' : '#8C9BAB'} />
+            <Text style={[styles.subTabText, subTab === 'censos' && styles.subTabTextActive]}>
+              Personas Censadas
             </Text>
           </TouchableOpacity>
 
@@ -416,9 +496,9 @@ export default function MetricasScreen() {
               setExpandidoId(null);
             }}
           >
-            <Wrench size={18} color={subTab === 'tecnicos' ? '#FFF' : '#8C9BAB'} />
+            <Wrench size={16} color={subTab === 'tecnicos' ? '#FFF' : '#8C9BAB'} />
             <Text style={[styles.subTabText, subTab === 'tecnicos' && styles.subTabTextActive]}>
-              Técnicos e Instalaciones
+              Técnicos
             </Text>
           </TouchableOpacity>
         </View>
@@ -599,7 +679,175 @@ export default function MetricasScreen() {
         )}
 
         {/* ============================================================== */}
-        {/* MODULO 2: TÉCNICOS E INSTALACIONES */}
+        {/* MODULO 2: PERSONAS CENSADAS */}
+        {/* ============================================================== */}
+        {subTab === 'censos' && (
+          <>
+            {/* CARDS KPIS PERSONAS CENSADAS */}
+            <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
+              <View style={[styles.kpiCard, { borderColor: '#8A2BE2' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Total Personas Censadas</Text>
+                  <ClipboardList size={20} color="#8A2BE2" />
+                </View>
+                <Text style={[styles.kpiValue, { color: '#B197FC' }]}>{kpiTotalPersonasCensadas}</Text>
+                <Text style={styles.kpiSubtext}>Registros levantados en prospección</Text>
+              </View>
+
+              <View style={[styles.kpiCard, { borderColor: '#25D366' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Censador Top (Top 1)</Text>
+                  <Award size={20} color="#25D366" />
+                </View>
+                <Text style={[styles.kpiValue, { color: '#25D366', fontSize: 20 }]} numberOfLines={1}>
+                  {kpiTopCensador ? kpiTopCensador.nombre : 'N/A'}
+                </Text>
+                <Text style={styles.kpiSubtext}>
+                  {kpiTopCensador ? `${kpiTopCensador.total} personas censadas` : 'Sin registros de censo'}
+                </Text>
+              </View>
+
+              <View style={[styles.kpiCard, { borderColor: '#0C66E4' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Con Factibilidad LCH</Text>
+                  <FileCheck2 size={20} color="#0C66E4" />
+                </View>
+                <Text style={[styles.kpiValue, { color: '#579DFF' }]}>{kpiPersonasConLch}</Text>
+                <Text style={styles.kpiSubtext}>Censados con LCH registrado</Text>
+              </View>
+
+              <View style={[styles.kpiCard, { borderColor: '#DD6B20' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.kpiLabel}>Conversión Censo a Venta</Text>
+                  <TrendingUp size={20} color="#DD6B20" />
+                </View>
+                <Text style={[styles.kpiValue, { color: '#F6AD55' }]}>{kpiTasaConversionCenso}%</Text>
+                <Text style={styles.kpiSubtext}>Porcentaje de censados concretados</Text>
+              </View>
+            </View>
+
+            {/* BUSCADOR PERSONAS CENSADAS */}
+            <View style={styles.searchBox}>
+              <Search size={18} color="#8C9BAB" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar por nombre, teléfono, cédula o censador..."
+                placeholderTextColor="#8C9BAB"
+                value={busquedaTexto}
+                onChangeText={setBusquedaTexto}
+              />
+            </View>
+
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#8A2BE2" />
+                <Text style={styles.loadingText}>Cargando registros de personas censadas...</Text>
+              </View>
+            ) : censadoresFiltrados.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <ClipboardList size={40} color="#8C9BAB" style={{ marginBottom: 12 }} />
+                <Text style={styles.emptyTitle}>No hay datos de personas censadas</Text>
+                <Text style={styles.emptySubtitle}>No se encontraron registros de censo para los filtros seleccionados.</Text>
+              </View>
+            ) : (
+              <View style={styles.vendedoresSection}>
+                <Text style={styles.sectionTitle}>Desglose de Personas Censadas por Censador</Text>
+
+                {censadoresFiltrados.map((c, index) => {
+                  const isExpanded = expandidoId === c.censadorNombre;
+                  const maxCensados = statsCensadores[0]?.totalCensados || 1;
+                  const porcentajeBarra = Math.min(100, Math.round((c.totalCensados / maxCensados) * 100));
+
+                  return (
+                    <View key={c.censadorNombre} style={styles.vendedorCard}>
+                      <TouchableOpacity
+                        style={styles.vendedorHeader}
+                        onPress={() => setExpandidoId(isExpanded ? null : c.censadorNombre)}
+                      >
+                        <View style={styles.vendedorInfoMain}>
+                          <View style={[styles.rankBadge, { borderColor: '#8A2BE2' }]}>
+                            <Text style={[styles.rankBadgeText, { color: '#8A2BE2' }]}>#{index + 1}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.vendedorNombre}>{c.censadorNombre}</Text>
+                            <View style={styles.progressTrack}>
+                              <View style={[styles.progressBar, { width: `${porcentajeBarra}%`, backgroundColor: '#8A2BE2' }]} />
+                            </View>
+                          </View>
+                        </View>
+
+                        <View style={styles.vendedorStatsQuick}>
+                          <View style={styles.statPill}>
+                            <Text style={[styles.statPillNum, { color: '#B197FC' }]}>{c.totalCensados}</Text>
+                            <Text style={styles.statPillLabel}>Censados</Text>
+                          </View>
+                          <View style={styles.statPill}>
+                            <Text style={[styles.statPillNum, { color: '#579DFF' }]}>{c.conLch}</Text>
+                            <Text style={styles.statPillLabel}>Con LCH</Text>
+                          </View>
+                          <View style={styles.statPill}>
+                            <Text style={[styles.statPillNum, { color: '#25D366' }]}>{c.conVenta}</Text>
+                            <Text style={styles.statPillLabel}>Ventas</Text>
+                          </View>
+
+                          {isExpanded ? <ChevronUp size={20} color="#B6C2CF" /> : <ChevronDown size={20} color="#B6C2CF" />}
+                        </View>
+                      </TouchableOpacity>
+
+                      {isExpanded && (
+                        <View style={styles.vendedorDetailBody}>
+                          <View style={styles.detailSummaryRow}>
+                            <Text style={styles.detailSummaryItem}>Total Personas Censadas: <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{c.totalCensados}</Text></Text>
+                            <Text style={styles.detailSummaryItem}>LCHs Aprobados: <Text style={{ color: '#579DFF', fontWeight: 'bold' }}>{c.conLch}</Text></Text>
+                          </View>
+
+                          <Text style={styles.tarjetasSubTitle}>Lista de Personas Censadas:</Text>
+                          {c.tarjetas.map(t => {
+                            const data = t.datos_valores || {};
+                            const clienteNombre = data.nombreApellido || data.nombres || 'Persona Censada';
+                            const cedula = data.cedula || data.cedulaIdentidad ? `V-${data.cedula || data.cedulaIdentidad}` : '';
+                            const telefono = data.telefono || data.celular ? `Tel: ${data.telefono || data.celular}` : '';
+                            const direccion = data.direccion || data.sector || data.urbanizacion || 'Dirección General';
+                            const servicio = data.tipoServicio || data.planInteres || 'Plan General';
+                            const fecha = t.created_at ? new Date(t.created_at).toLocaleDateString() : 'Sin fecha';
+                            const lch = data.lch_numero ? `LCH: ${data.lch_numero}` : '';
+
+                            return (
+                              <View key={t.id} style={styles.tarjetaItemRow}>
+                                <View style={{ flex: 1 }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Text style={styles.tarjetaClienteNombre}>{clienteNombre}</Text>
+                                    {cedula ? (
+                                      <Text style={{ color: '#8C9BAB', fontSize: 11, fontWeight: 'bold' }}>({cedula})</Text>
+                                    ) : null}
+                                  </View>
+
+                                  <Text style={styles.tarjetaMeta}>{servicio} • {direccion} {lch ? `• ${lch}` : ''}</Text>
+                                  <Text style={{ color: '#8C9BAB', fontSize: 10, marginTop: 2 }}>{telefono} • Fecha: {fecha}</Text>
+                                </View>
+
+                                <TouchableOpacity
+                                  style={styles.verTarjetaBtn}
+                                  onPress={() => router.push(`/(drawer)/(tabs)?tarjeta=${t.id}`)}
+                                >
+                                  <ExternalLink size={14} color="#579DFF" />
+                                  <Text style={styles.verTarjetaBtnText}>Ver Caso</Text>
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
+        )}
+
+        {/* ============================================================== */}
+        {/* MODULO 3: TÉCNICOS E INSTALACIONES */}
         {/* ============================================================== */}
         {subTab === 'tecnicos' && (
           <>
@@ -825,7 +1073,7 @@ const styles = StyleSheet.create({
   },
   subTabRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     marginBottom: 16,
   },
   subTabButton: {
@@ -833,8 +1081,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
+    gap: 6,
+    paddingVertical: 10,
     borderRadius: 10,
     backgroundColor: '#22272B',
     borderWidth: 1,
@@ -847,7 +1095,7 @@ const styles = StyleSheet.create({
   subTabText: {
     color: '#8C9BAB',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 13,
   },
   subTabTextActive: {
     color: '#FFFFFF',

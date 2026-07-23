@@ -758,7 +758,7 @@ export default function MetricasScreen() {
 
                                   <Text style={styles.tarjetaMeta}>{servicio} • {lch} • {fecha}</Text>
                                   {data.motivoLiberacion && (
-                                    <Text style={{ color: '#FF6B6B', fontSize: 11, marginTop: 2, italic: true }}>
+                                    <Text style={{ color: '#FF6B6B', fontSize: 11, marginTop: 2, fontStyle: 'italic' }}>
                                       Motivo liberación: {data.motivoLiberacion}
                                     </Text>
                                   )}

@@ -210,7 +210,7 @@ const KanbanColumnComponent = ({
               if (!puedeCrear) return null;
               if (!item.nombre) return null;
               const nombreLower = item.nombre.toLowerCase();
-              if (!(nombreLower.includes('venta') || nombreLower.includes('censo'))) return null;
+              if (!(nombreLower.includes('venta') || nombreLower.includes('censo') || nombreLower.includes('carga') || nombreLower.includes('material'))) return null;
 
               return (
                 <TouchableOpacity

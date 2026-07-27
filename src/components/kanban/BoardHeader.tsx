@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ChevronDown, ChevronLeft, CloudUpload, Columns, Search, Settings, X } from 'lucide-react-native';
+import { ChevronDown, ChevronLeft, CloudUpload, Columns, Search, Settings, X, Boxes } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { TableroInfo } from '../../types/kanban';
 
@@ -19,6 +19,7 @@ interface BoardHeaderProps {
   setModalMenuVisible: (val: boolean) => void;
   width: number;
   id: string;
+  onOpenInventario?: () => void;
 }
 
 export function BoardHeader({
@@ -36,6 +37,7 @@ export function BoardHeader({
   setModalMenuVisible,
   width,
   id,
+  onOpenInventario,
 }: BoardHeaderProps) {
   return (
     <View style={styles.header}>
@@ -79,6 +81,25 @@ export function BoardHeader({
           </View>
 
           <View style={styles.headerActions}>
+            {onOpenInventario && (
+              <TouchableOpacity
+                onPress={onOpenInventario}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#0C66E4',
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  marginRight: 8,
+                }}
+              >
+                <Boxes size={16} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 13, marginLeft: 6 }}>
+                  Stock Inventario
+                </Text>
+              </TouchableOpacity>
+            )}
             {isSecondary && (
               <TouchableOpacity
                 style={[styles.boardSwitchBtn, { marginRight: 8, marginLeft: 0, paddingVertical: 6, paddingHorizontal: 10 }]}

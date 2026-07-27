@@ -7,7 +7,7 @@ export interface Tablero {
   id: string;
   nombre: string;
   descripcion: string | null;
-  tipo: 'instalaciones' | 'censo';
+  tipo: 'instalaciones' | 'censo' | 'almacen';
   fondo_url?: string;
   es_favorito?: boolean;
   es_anclado?: boolean;

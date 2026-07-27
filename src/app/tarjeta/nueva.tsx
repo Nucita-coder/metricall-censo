@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import FormularioCenso from '../../components/FormularioCenso';
 import FormularioVenta from '../../components/FormularioVenta';
+import FormularioReciboMaterial from '../../components/FormularioReciboMaterial';
 import CardLayoutWrapper from '../../components/layout/CardLayoutWrapper';
 import { ModalMapaUbicacion } from '../../components/tarjetas/ModalMapaUbicacion';
 import { checkIsCensoFormat } from '../../components/kanban/detalle/types';
@@ -49,7 +50,7 @@ export default function NuevaTarjetaScreen() {
     loadCachedCiudad();
   }, []);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Record<string, any>>({
     fechaVenta: '',
     vendedor: '',
     tipoServicio: '',
@@ -106,7 +107,16 @@ export default function NuevaTarjetaScreen() {
       return;
     }
 
-    if (listaNombre !== 'Censo') {
+    const isMaterialesMode = ['Carga de Materiales'].includes(listaNombre || (lista_nombre as string) || '');
+
+    if (isMaterialesMode) {
+      const items = Array.isArray(formData.items) && formData.items.length > 0 ? formData.items : [formData];
+      const hasValidItem = items.some((i: any) => i.codigoMaterial && i.nombreMaterial && i.cantidadRecibida);
+      if (!formData.nroOrdenEntrega || !formData.recibidoPor || !formData.entregadoPor || !hasValidItem) {
+        Alert.alert('Campos incompletos', 'Por favor, completa los campos obligatorios de la orden y al menos un material válido.');
+        return;
+      }
+    } else if (listaNombre !== 'Censo') {
       if (!formData.tipoServicio || !formData.nombreApellido || !formData.tipoDocumento || !formData.documentoIdentidad) {
         Alert.alert('Campos incompletos', 'Por favor, completa los campos obligatorios marcados con (*).');
         return;
@@ -196,15 +206,16 @@ export default function NuevaTarjetaScreen() {
         }
       };
 
+      const mensajeExito = isMaterialesMode
+        ? 'Carga de material registrada correctamente.'
+        : isCensoMode
+        ? 'Censo registrado correctamente.'
+        : 'Venta registrada correctamente.';
+
       if (Platform.OS === 'web') {
-        alert(listaNombre === 'Censo' ? 'Censo registrado correctamente.' : 'Venta registrada correctamente.');
         navigateBack();
       } else {
-        Alert.alert(
-          'Éxito',
-          listaNombre === 'Censo' ? 'Censo registrado correctamente.' : 'Venta registrada correctamente.',
-          [{ text: 'OK', onPress: navigateBack }]
-        );
+        Alert.alert('Éxito', mensajeExito, [{ text: 'OK', onPress: navigateBack }]);
       }
     } catch (e: any) {
       Alert.alert('Error', 'No se pudo guardar: ' + e.message);
@@ -214,22 +225,25 @@ export default function NuevaTarjetaScreen() {
   };
 
   const isCensoMode = checkIsCensoFormat(listaNombre || lista_nombre);
+  const isMaterialesMode = ['Carga de Materiales'].includes(listaNombre || (lista_nombre as string) || '');
 
   return (
     <>
       <CardLayoutWrapper
-        title={isCensoMode ? 'Nuevo Censo' : 'Nueva Venta'}
+        title={isMaterialesMode ? 'Carga / Recibo de Material' : isCensoMode ? 'Nuevo Censo' : 'Nueva Venta'}
         onClose={() => router.canGoBack() ? router.back() : (session ? router.replace('/(drawer)' as Href) : router.replace('/'))}
         footer={
           <View style={styles.footer}>
             <TouchableOpacity style={styles.saveBtn} onPress={handleGuardar} disabled={isSubmitting}>
               {isSubmitting ? <ActivityIndicator size="small" color="#1D2125" /> : <Save size={20} color="#1D2125" />}
-              <Text style={styles.saveBtnText}>{isSubmitting ? "Guardando..." : isCensoMode ? "Guardar Censo" : "Guardar Venta"}</Text>
+              <Text style={styles.saveBtnText}>{isSubmitting ? "Guardando..." : isMaterialesMode ? "Cargar Material" : isCensoMode ? "Guardar Censo" : "Guardar Venta"}</Text>
             </TouchableOpacity>
           </View>
         }
       >
-        {isCensoMode ? (
+        {isMaterialesMode ? (
+          <FormularioReciboMaterial formData={formData} handleChange={updateForm} />
+        ) : isCensoMode ? (
           <FormularioCenso formData={formData} handleChange={updateForm} />
         ) : (
           <FormularioVenta

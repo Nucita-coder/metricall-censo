@@ -2,12 +2,12 @@ import { History, Pencil, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Animated, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Tarjeta, TarjetaDatosValores } from '../../types/kanban';
-
 import { WEB_MODAL_CONTAINER } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import FormularioCenso from '../FormularioCenso';
 import FormularioVenta from '../FormularioVenta';
+import FormularioReciboMaterial from '../FormularioReciboMaterial';
 import { AccionesExportacionCenso } from './detalle/AccionesExportacionCenso';
 import { BotonesAccionEdicion } from './detalle/BotonesAccionEdicion';
 import { FaseAsignadoA } from './detalle/FaseAsignadoA';
@@ -95,6 +95,7 @@ export const ModalDetalleTarjeta = ({
 
   const listaActualNombre = listas.find(l => l.id === tarjetaSeleccionada.lista_id)?.nombre || '';
   const isCensoFormat = ['Censo', 'si desea', 'no desea', 'es posible'].includes(listaActualNombre);
+  const isMaterialesFormat = ['Carga de Materiales'].includes(listaActualNombre) || tarjetaSeleccionada?.datos_valores?.codigoMaterial !== undefined || tarjetaSeleccionada?.datos_valores?.nroOrdenEntrega !== undefined;
 
   const faseProps: FaseProps = {
     tarjeta: tarjetaSeleccionada,
@@ -157,7 +158,7 @@ export const ModalDetalleTarjeta = ({
                 <Text style={{ fontSize: 18, fontWeight: '900', color: '#B6C2CF' }}>
                   {tarjetaSeleccionada?.datos_valores?.tipoServicio?.toUpperCase() || 'DETALLE DE TARJETA'}
                 </Text>
-              {puedeEditar && !isEditing && (
+              {puedeEditar && !isEditing && !isMaterialesFormat && (
                 <TouchableOpacity onPress={() => setIsEditing(true)} style={{ marginLeft: 8, padding: 8, backgroundColor: '#1D2125', borderRadius: 8, borderWidth: 1, borderColor: '#384148' }}>
                   <Pencil size={16} color="#B6C2CF" />
                 </TouchableOpacity>
@@ -262,6 +263,16 @@ export const ModalDetalleTarjeta = ({
                             </View>
                           )}
                         </View>
+                      ) : isMaterialesFormat ? (
+                        <View style={{ marginBottom: 24 }}>
+                          <Text style={{ fontSize: 16, fontWeight: '900', color: '#0C66E4', marginBottom: 16 }}>
+                            Registro: Comprobante de Recepción de Material (Inmutable)
+                          </Text>
+                          <FormularioReciboMaterial
+                            formData={tarjetaSeleccionada.datos_valores || {}}
+                            readOnly={true}
+                          />
+                        </View>
                       ) : (
                         <>
                           {isEditing ? (
@@ -304,9 +315,7 @@ export const ModalDetalleTarjeta = ({
             )}
           </View>
         </View>
-      </Modal>
-
-      <Modal visible={!!imagenExpandida} transparent={true} animationType="fade">
+      </Modal>      <Modal visible={!!imagenExpandida} transparent={true} animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
           <TouchableOpacity style={{ position: 'absolute', top: 40, right: 20, zIndex: 10, padding: 8 }} onPress={() => setImagenExpandida(null)}>
             <X size={32} color="#FFF" />

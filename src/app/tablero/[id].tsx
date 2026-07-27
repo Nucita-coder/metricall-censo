@@ -24,6 +24,7 @@ import { ModalTableroMenu } from '../../components/kanban/modals/ModalTableroMen
 import { ModalGestionLista } from '../../components/kanban/modals/ModalGestionLista';
 import { ModalCambiarTablero } from '../../components/kanban/modals/ModalCambiarTablero';
 import { ModalPantallaDividida } from '../../components/kanban/modals/ModalPantallaDividida';
+import { ModalInventarioAlmacen } from '../../components/kanban/modals/ModalInventarioAlmacen';
 import { ModalDetalleTarjeta } from '../../components/kanban/ModalDetalleTarjeta';
 import { ModalTrazabilidad } from '../../components/kanban/ModalTrazabilidad';
 import { BoardHeader } from '../../components/kanban/BoardHeader';
@@ -97,6 +98,7 @@ export default function KanbanTableroScreen() {
   const [isMobileSearchActive, setIsMobileSearchActive] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean, x: number, y: number, tarjeta: Tarjeta | null }>({ visible: false, x: 0, y: 0, tarjeta: null });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [modalInventarioVisible, setModalInventarioVisible] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -508,6 +510,7 @@ export default function KanbanTableroScreen() {
         setModalMenuVisible={setModalMenuVisible}
         width={width}
         id={id}
+        onOpenInventario={tableroInfo?.tipo === 'almacen' || listas.some(l => l.nombre === 'Carga de Materiales') ? () => setModalInventarioVisible(true) : undefined}
       />
       {listas.length === 0 ? (
         <View style={styles.centerContainer}>
@@ -656,6 +659,10 @@ export default function KanbanTableroScreen() {
         tablerosDisponibles={tablerosDisponibles}
         tableroActualId={id}
         onSeleccionarSecundario={(secId) => setSecondaryBoardId(secId)}
+      />
+      <ModalInventarioAlmacen
+        visible={modalInventarioVisible}
+        onClose={() => setModalInventarioVisible(false)}
       />
     </View>
   );

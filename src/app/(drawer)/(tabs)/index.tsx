@@ -31,7 +31,7 @@ export default function DashboardScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [createType, setCreateType] = useState<'sucursal' | 'tablero'>('sucursal');
   const [targetSucursalId, setTargetSucursalId] = useState<string | null>(null);
-  const [tipoTablero, setTipoTablero] = useState<'instalaciones' | 'censo'>('instalaciones');
+  const [tipoTablero, setTipoTablero] = useState<'instalaciones' | 'censo' | 'almacen'>('instalaciones');
   const [inputNombre, setInputNombre] = useState('');
   const [inputSecundario, setInputSecundario] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -163,7 +163,9 @@ export default function DashboardScreen() {
         if (newTablero) {
           const nombresListas = tipoTablero === 'instalaciones'
             ? ['Venta', 'Factibilidad', 'Por Instalar', 'Asignado A', 'Liberada', 'En Proceso', 'Por Activar', 'Cliente Activo']
-            : ['Censo', 'si desea', 'no desea', 'es posible'];
+            : tipoTablero === 'censo'
+            ? ['Censo', 'si desea', 'no desea', 'es posible']
+            : ['Carga de Materiales'];
 
           const defaultListas = nombresListas.map((nombre, index) => ({
             empresa_id: perfilData?.empresa_id,

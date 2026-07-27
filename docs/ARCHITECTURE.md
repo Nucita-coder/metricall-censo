@@ -30,11 +30,13 @@ Para optimizar el RLS y evitar JOINs costosos (anti-patrón), el `empresa_id` (T
 - **UUIDs**: Claves primarias `gen_random_uuid()`.
 - **Cascade**: `ON DELETE CASCADE` controlado.
 - **Multimedia**: Archivos en Supabase Storage (tabla solo contiene `TEXT[]` de URLs).
+- **Delimitación de Alcance**: Delimitarse estrictamente a la tarea asignada. Queda prohibido modificar archivos, funciones o componentes aparte que no tengan relación directa con el requerimiento.
 
 ## Anti-patrones Prohibidos
 - **NO modelo EAV**: Todo es JSONB.
 - **NO UUIDs secuenciales**: Ni enteros predecibles.
 - **NO Base64 en DB**: Solo URLs.
 - **NO asumir validación frontend**: Restricciones e integridad siempre en SQL.
+- **NO modificar cosas fuera de alcance**: No realizar cambios secundarios o no solicitados en archivos no relacionados.
 
 **modularizar siempre**: es necesario que cada archivo tenga un maximo de 350 lineas.

@@ -77,6 +77,7 @@ const KanbanCardComponent = ({
   else if (tipoServicio === 'isp') { badgeBg = KANBAN_COLORS.badge.isp.bg; badgeColor = KANBAN_COLORS.badge.isp.text; }
 
   const isCensoFormat = ['Censo', 'si desea', 'no desea', 'es posible'].includes(listaNombre || '');
+  const isMaterialesFormat = ['Carga de Materiales'].includes(listaNombre || '') || data.codigoMaterial !== undefined || data.nroOrdenEntrega !== undefined;
   let cardBg = KANBAN_COLORS.card.defaultBg;
   if (listaNombre === 'si desea') cardBg = KANBAN_COLORS.card.censoInteresadosBg;
   else if (listaNombre === 'no desea') cardBg = KANBAN_COLORS.card.censoNoInteresadosBg;
@@ -179,7 +180,33 @@ const KanbanCardComponent = ({
             }
           } : {})}
         >
-          {isCensoFormat ? (
+          {isMaterialesFormat ? (
+            <View>
+              <View style={styles.cardHeader}>
+                <View style={[styles.badge, { backgroundColor: 'rgba(12, 102, 228, 0.25)', borderColor: '#0C66E4', borderWidth: 1 }]}>
+                  <Text style={[styles.badgeText, { color: '#579DFF', fontWeight: 'bold' }]}>
+                    {Array.isArray(data.items) && data.items.length > 1
+                      ? `GUÍA (${data.items.length} ÍTEMS)`
+                      : data.codigoMaterial || 'COD-MAT'}
+                  </Text>
+                </View>
+                <Text style={styles.cardDate}>{data.fechaRecibido || new Date(item.created_at).toLocaleDateString()}</Text>
+              </View>
+              <Text style={styles.cardName} numberOfLines={2}>
+                {data.nombreMaterial || (Array.isArray(data.items) && data.items[0]?.nombreMaterial) || 'Carga de Material'}
+              </Text>
+              <View style={{ marginTop: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#4ADE80' }}>
+                  Cant: {Array.isArray(data.items) ? data.items.reduce((s: number, i: any) => s + (parseFloat(i.cantidadRecibida) || 0), 0) : (data.cantidadRecibida || 0)} und.
+                </Text>
+                {data.nroOrdenEntrega ? (
+                  <Text style={{ fontSize: 11, color: '#8C9BAB' }}>
+                    Orden: {data.nroOrdenEntrega}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          ) : isCensoFormat ? (
             <View>
               {data.es_reasignada && (
                 <View style={{ backgroundColor: '#E53E3E', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', marginBottom: 6 }}>
@@ -257,94 +284,19 @@ const areEqual = (prev: KanbanCardProps, next: KanbanCardProps) => {
 export const KanbanCard = React.memo(KanbanCardComponent, areEqual);
 
 const styles = StyleSheet.create({
-  cardContainer: {
-    padding: KANBAN_THEME.card.padding,
-    borderRadius: KANBAN_THEME.card.borderRadius,
-    marginBottom: KANBAN_THEME.card.marginBottom,
-    borderWidth: KANBAN_THEME.card.borderWidth,
-    borderColor: KANBAN_COLORS.card.borderColor,
-    overflow: 'hidden'
-  },
-  censoClient: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: KANBAN_COLORS.text.primary,
-    marginBottom: 6
-  },
-  censoMeta: {
-    fontSize: 13,
-    color: KANBAN_COLORS.text.secondary,
-    marginBottom: 4
-  },
-  emptyCardText: {
-    color: KANBAN_COLORS.text.empty,
-    fontStyle: 'italic',
-    fontSize: 13
-  },
-  bloqueadaBadge: {
-    backgroundColor: KANBAN_COLORS.tags.bloqueadaBg,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-    marginBottom: 8
-  },
-  bloqueadaText: {
-    color: KANBAN_COLORS.text.danger,
-    fontSize: 10,
-    fontWeight: '900'
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6
-  },
-  badge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: 'bold'
-  },
-  cardDate: {
-    fontSize: 11,
-    color: KANBAN_COLORS.text.light,
-    fontWeight: '500',
-  },
-  cardName: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: KANBAN_COLORS.text.primary,
-    marginBottom: 4
-  },
-  contactInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    flexWrap: 'wrap'
-  },
-  contactInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  contactInfoText: {
-    fontSize: 11,
-    color: '#718096',
-    fontWeight: '500'
-  },
-  cardHighlightOverlay: {
-    ...StyleSheet.absoluteFill,
-    borderColor: '#0C66E4',
-    borderWidth: 2.5,
-    borderRadius: KANBAN_THEME.card.borderRadius,
-    shadowColor: '#579DFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
-    elevation: 8,
-    zIndex: 10,
-  },
+  cardContainer: { padding: KANBAN_THEME.card.padding, borderRadius: KANBAN_THEME.card.borderRadius, marginBottom: KANBAN_THEME.card.marginBottom, borderWidth: KANBAN_THEME.card.borderWidth, borderColor: KANBAN_COLORS.card.borderColor, overflow: 'hidden' },
+  censoClient: { fontWeight: 'bold', fontSize: 16, color: KANBAN_COLORS.text.primary, marginBottom: 6 },
+  censoMeta: { fontSize: 13, color: KANBAN_COLORS.text.secondary, marginBottom: 4 },
+  emptyCardText: { color: KANBAN_COLORS.text.empty, fontStyle: 'italic', fontSize: 13 },
+  bloqueadaBadge: { backgroundColor: KANBAN_COLORS.tags.bloqueadaBg, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, alignSelf: 'flex-start', marginBottom: 8 },
+  bloqueadaText: { color: KANBAN_COLORS.text.danger, fontSize: 10, fontWeight: '900' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  badgeText: { fontSize: 10, fontWeight: 'bold' },
+  cardDate: { fontSize: 11, color: KANBAN_COLORS.text.light, fontWeight: '500' },
+  cardName: { fontWeight: 'bold', fontSize: 16, color: KANBAN_COLORS.text.primary, marginBottom: 4 },
+  contactInfoRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' },
+  contactInfoItem: { flexDirection: 'row', alignItems: 'center' },
+  contactInfoText: { fontSize: 11, color: '#718096', fontWeight: '500' },
+  cardHighlightOverlay: { ...StyleSheet.absoluteFill, borderColor: '#0C66E4', borderWidth: 2.5, borderRadius: KANBAN_THEME.card.borderRadius, shadowColor: '#579DFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 10, elevation: 8, zIndex: 10 },
 });

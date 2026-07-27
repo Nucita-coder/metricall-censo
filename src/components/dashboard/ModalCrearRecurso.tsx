@@ -10,8 +10,8 @@ interface ModalCrearRecursoProps {
   setInputNombre: (v: string) => void;
   inputSecundario: string;
   setInputSecundario: (v: string) => void;
-  tipoTablero: 'instalaciones' | 'censo';
-  setTipoTablero: (v: 'instalaciones' | 'censo') => void;
+  tipoTablero: 'instalaciones' | 'censo' | 'almacen';
+  setTipoTablero: (v: 'instalaciones' | 'censo' | 'almacen') => void;
   isCreating: boolean;
   onConfirmar: () => void;
   onClose: () => void;
@@ -78,6 +78,14 @@ export function ModalCrearRecurso({
                 >
                   <Text style={[styles.selectorBtnText, tipoTablero === 'censo' && styles.selectorBtnTextActive]}>
                     Censo
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.selectorBtn, tipoTablero === 'almacen' && styles.selectorBtnActive]}
+                  onPress={() => setTipoTablero('almacen')}
+                >
+                  <Text style={[styles.selectorBtnText, tipoTablero === 'almacen' && styles.selectorBtnTextActive]}>
+                    Almacén
                   </Text>
                 </TouchableOpacity>
               </View>

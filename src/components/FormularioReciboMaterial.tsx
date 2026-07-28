@@ -1,40 +1,86 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ImageBackground, ActivityIndicator, Alert, Platform } from 'react-native';
-import { Plus, Trash2, Paperclip, Image as ImageIcon, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { InputTexto, DatePickerInput, SelectDropdown } from './venta/CamposVenta';
-import { supabase } from '../lib/supabase';
+import { Paperclip, Plus, Trash2, X } from 'lucide-react-native';
+import { useState, useEffect } from 'react';
+import { ActivityIndicator, Alert, ImageBackground, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { uploadImageToSupabase } from '../services/uploadImage';
+import { DatePickerInput, InputTexto, SelectDropdown } from './venta/CamposVenta';
 
-export interface MaterialRowItem {
-  codigoMaterial: string;
-  nombreMaterial: string;
-  modeloMaterial: string;
-  serialMaterial: string;
-  cantidadRecibida: string;
-}
+export interface MaterialRowItem { codigoMaterial: string; nombreMaterial: string; modeloMaterial: string; serialMaterial: string; cantidadRecibida: string; }
+interface StockInfo { stockExistente: number | null; esNuevoCodigo: boolean | null; isSearching: boolean; }
+interface FormularioReciboMaterialProps { formData: any; handleChange?: (campo: string, valor: any) => void; readOnly?: boolean; }
 
-interface StockInfo {
-  stockExistente: number | null;
-  esNuevoCodigo: boolean | null;
-  isSearching: boolean;
-}
-
-interface FormularioReciboMaterialProps {
-  formData: any;
-  handleChange?: (campo: string, valor: any) => void;
-  readOnly?: boolean;
-}
-
-export default function FormularioReciboMaterial({
-  formData,
-  handleChange,
-  readOnly = false,
-}: FormularioReciboMaterialProps) {
-  const { empresaId } = useAuth();
+export default function FormularioReciboMaterial({ formData, handleChange, readOnly = false }: FormularioReciboMaterialProps) {
+  const { empresaId, nombreCompleto } = useAuth();
   const [stockInfoMap, setStockInfoMap] = useState<Record<number, StockInfo>>({});
   const [subiendoImagen, setSubiendoImagen] = useState(false);
+  const [miembrosList, setMiembrosList] = useState<string[]>([]);
+  const [stockDisponibles, setStockDisponibles] = useState<Array<{ codigo: string; nombre: string; modelo: string; stock: number }>>([]);
+  const [stockCustodiaMiembro, setStockCustodiaMiembro] = useState<Array<{ codigo: string; nombre: string; modelo: string; stock: number }>>([]);
+  const isAsignadoMode = formData.tipoCarga?.toUpperCase() === 'MATERIAL ASIGNADO';
+  const isDevolucionMode = formData.tipoCarga?.toUpperCase() === 'DEVOLUCIÓN DE ASIGNACIÓN' || formData.tipoCarga?.toUpperCase() === 'DEVOLUCION DE ASIGNACION';
+
+  useEffect(() => {
+    if (isDevolucionMode && handleChange) {
+      if (!formData.fechaRecibido) handleChange('fechaRecibido', new Date().toISOString().split('T')[0]);
+      if (nombreCompleto) {
+        if (formData.asignadoA !== nombreCompleto) handleChange('asignadoA', nombreCompleto);
+        if (formData.entregadoPor !== nombreCompleto) handleChange('entregadoPor', nombreCompleto);
+      }
+    }
+  }, [isDevolucionMode, nombreCompleto]);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    supabase.from('perfiles').select('nombre_completo').eq('empresa_id', empresaId).then(({ data }) => {
+      if (data) setMiembrosList(data.map((m: any) => m.nombre_completo).filter(Boolean));
+    });
+    supabase.from('tarjetas').select('datos_valores').eq('empresa_id', empresaId).then(({ data }) => {
+      if (!data) return;
+      const mapa: Record<string, { codigo: string; nombre: string; modelo: string; stock: number }> = {};
+      data.forEach((row: any) => {
+        const v = row.datos_valores || {};
+        const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
+        itemsList.forEach((subItem: any) => {
+          const cod = (subItem.codigoMaterial || '').trim().toUpperCase();
+          if (!cod) return;
+          const cant = parseFloat(subItem.cantidadRecibida || '0') || 0;
+          if (!mapa[cod]) mapa[cod] = { codigo: cod, nombre: (subItem.nombreMaterial || '').toUpperCase(), modelo: (subItem.modeloMaterial || '').toUpperCase(), stock: cant };
+          else mapa[cod].stock += cant;
+        });
+      });
+      setStockDisponibles(Object.values(mapa));
+    });
+  }, [empresaId]);
+
+  useEffect(() => {
+    if (empresaId && isDevolucionMode && (formData.asignadoA || nombreCompleto)) {
+      const targetMiembro = (formData.asignadoA || nombreCompleto || '').trim().toUpperCase();
+      supabase.from('tarjetas').select('datos_valores').eq('empresa_id', empresaId).then(({ data }) => {
+        if (!data) return;
+        const mapa: Record<string, { codigo: string; nombre: string; modelo: string; stock: number }> = {};
+        data.forEach((row: any) => {
+          const v = row.datos_valores || {};
+          const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
+          const miembro = (v.asignadoA || v.recibidoPor || '').toString().trim().toUpperCase();
+          const matchMiembro = miembro === targetMiembro || (targetMiembro && (miembro.includes(targetMiembro) || targetMiembro.includes(miembro)));
+          if (!matchMiembro) return;
+
+          const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
+          itemsList.forEach((subItem: any) => {
+            const cod = (subItem.codigoMaterial || '').trim().toUpperCase();
+            if (!cod) return;
+            const cant = parseFloat(subItem.cantidadRecibida || '0') || 0;
+            if (!mapa[cod]) mapa[cod] = { codigo: cod, nombre: (subItem.nombreMaterial || '').toUpperCase(), modelo: (subItem.modeloMaterial || '').toUpperCase(), stock: 0 };
+            if (tipo === 'MATERIAL ASIGNADO' || (!tipo && v.asignadoA)) mapa[cod].stock += cant;
+            else if (tipo === 'DEVOLUCIÓN DE ASIGNACIÓN' || tipo === 'DEVOLUCION DE ASIGNACION') mapa[cod].stock -= cant;
+          });
+        });
+        setStockCustodiaMiembro(Object.values(mapa).filter(m => m.stock > 0));
+      });
+    }
+  }, [empresaId, isDevolucionMode, formData.asignadoA, nombreCompleto]);
 
   const adjuntos: string[] = Array.isArray(formData.adjuntos) ? formData.adjuntos : [];
 
@@ -66,8 +112,7 @@ export default function FormularioReciboMaterial({
 
   const updateHeaderField = (key: string, val: any) => {
     if (readOnly || !handleChange) return;
-    const upperVal = typeof val === 'string' ? val.toUpperCase() : val;
-    handleChange(key, upperVal);
+    handleChange(key, typeof val === 'string' ? val.toUpperCase() : val);
   };
 
   const updateItemField = (index: number, field: keyof MaterialRowItem, val: any) => {
@@ -78,44 +123,43 @@ export default function FormularioReciboMaterial({
     updateRootAndItems(newItems);
   };
 
-  const handleAddItem = () => {
-    if (readOnly) return;
-    updateRootAndItems([...items, { codigoMaterial: '', nombreMaterial: '', modeloMaterial: '', serialMaterial: '', cantidadRecibida: '' }]);
+  const updateMultipleItemFields = (index: number, fields: Partial<MaterialRowItem>) => {
+    if (readOnly || !handleChange) return;
+    const newItems = [...items];
+    const updated = { ...(newItems[index] || {}) };
+    Object.keys(fields).forEach((key) => {
+      const k = key as keyof MaterialRowItem;
+      const val = fields[k];
+      if (val !== undefined) {
+        (updated as any)[k] = typeof val === 'string' ? val.toUpperCase() : val;
+      }
+    });
+    newItems[index] = updated;
+    updateRootAndItems(newItems);
   };
 
-  const handleRemoveItem = (index: number) => {
-    if (readOnly || items.length <= 1) return;
-    updateRootAndItems(items.filter((_, i) => i !== index));
-  };
+  const handleAddItem = () => { if (!readOnly) updateRootAndItems([...items, { codigoMaterial: '', nombreMaterial: '', modeloMaterial: '', serialMaterial: '', cantidadRecibida: '' }]); };
+  const handleRemoveItem = (index: number) => { if (!readOnly && items.length > 1) updateRootAndItems(items.filter((_, i) => i !== index)); };
 
   const handleCodigoChangeForItem = async (index: number, codigo: string) => {
     const upperCodigo = codigo ? codigo.toUpperCase() : '';
     updateItemField(index, 'codigoMaterial', upperCodigo);
     const cleanCodigo = upperCodigo.trim();
-
     if (!cleanCodigo || cleanCodigo.length < 2 || !empresaId || readOnly) {
       setStockInfoMap((prev) => ({ ...prev, [index]: { stockExistente: null, esNuevoCodigo: null, isSearching: false } }));
       return;
     }
-
     setStockInfoMap((prev) => ({ ...prev, [index]: { ...(prev[index] || { stockExistente: null, esNuevoCodigo: null }), isSearching: true } }));
-
     try {
       const { data, error } = await supabase.from('tarjetas').select('datos_valores').eq('empresa_id', empresaId);
       if (error) throw error;
-
-      let totalStock = 0;
-      let primerNombre = '';
-      let primerModelo = '';
-      let encontrado = false;
-
+      let totalStock = 0, primerNombre = '', primerModelo = '', encontrado = false;
       if (data) {
         data.forEach((row: any) => {
           const val = row.datos_valores || {};
           const rowItems = Array.isArray(val.items) ? val.items : [val];
           rowItems.forEach((subItem: any) => {
-            const subCod = (subItem.codigoMaterial || '').trim().toUpperCase();
-            if (subCod === cleanCodigo) {
+            if ((subItem.codigoMaterial || '').trim().toUpperCase() === cleanCodigo) {
               encontrado = true;
               const cant = parseFloat(subItem.cantidadRecibida || '0');
               if (!isNaN(cant)) totalStock += cant;
@@ -142,59 +186,33 @@ export default function FormularioReciboMaterial({
 
   const handleAdjuntarFotoFactura = async () => {
     if (readOnly || !handleChange) return;
-
     if (Platform.OS === 'web') {
       try {
         const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
-        if (!res.canceled && res.assets && res.assets[0]) {
-          processUpload(res.assets[0].uri);
-        }
-      } catch (e: any) {
-        Alert.alert('Error', 'No se pudo seleccionar el archivo: ' + e.message);
-      }
+        if (!res.canceled && res.assets && res.assets[0]) processUpload(res.assets[0].uri);
+      } catch (e: any) { Alert.alert('Error', e.message); }
       return;
     }
-
-    Alert.alert('Adjuntar Evidencia / Factura', '¿Desde dónde deseas adjuntar la evidencia?', [
+    Alert.alert('Adjuntar Evidencia', '¿Desde dónde deseas adjuntar?', [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Cámara',
-        onPress: async () => {
-          const { status } = await ImagePicker.requestCameraPermissionsAsync();
-          if (status !== 'granted') return Alert.alert('Permiso denegado', 'Se requiere acceso a la cámara.');
-          const res = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-          if (!res.canceled && res.assets && res.assets[0]) processUpload(res.assets[0].uri);
-        },
-      },
-      {
-        text: 'Galería',
-        onPress: async () => {
-          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (status !== 'granted') return Alert.alert('Permiso denegado', 'Se requiere acceso a la galería.');
-          const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
-          if (!res.canceled && res.assets && res.assets[0]) processUpload(res.assets[0].uri);
-        },
-      },
+      { text: 'Cámara', onPress: async () => { const { status } = await ImagePicker.requestCameraPermissionsAsync(); if (status === 'granted') { const res = await ImagePicker.launchCameraAsync({ quality: 0.7 }); if (!res.canceled && res.assets?.[0]) processUpload(res.assets[0].uri); } } },
+      { text: 'Galería', onPress: async () => { const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync(); if (status === 'granted') { const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 }); if (!res.canceled && res.assets?.[0]) processUpload(res.assets[0].uri); } } },
     ]);
   };
 
   const processUpload = async (uri: string) => {
+    setSubiendoImagen(true);
     try {
-      setSubiendoImagen(true);
-      const url = await uploadImageToSupabase(uri, 'adjuntos', 'facturas_materiales');
-      if (url && handleChange) {
-        handleChange('adjuntos', [...adjuntos, url]);
-      }
-    } catch (e: any) {
-      Alert.alert('Error', 'No se pudo subir el archivo: ' + e.message);
-    } finally {
-      setSubiendoImagen(false);
-    }
+      const publicUrl = await uploadImageToSupabase(uri, 'facturas');
+      const cur = Array.isArray(formData.adjuntos) ? formData.adjuntos : [];
+      handleChange?.('adjuntos', [...cur, publicUrl]);
+    } catch (e: any) { Alert.alert('Error', e.message); } finally { setSubiendoImagen(false); }
   };
 
   const handleRemoveAdjunto = (index: number) => {
     if (readOnly || !handleChange) return;
-    handleChange('adjuntos', adjuntos.filter((_, i) => i !== index));
+    const cur = Array.isArray(formData.adjuntos) ? formData.adjuntos : [];
+    handleChange('adjuntos', cur.filter((_: any, i: number) => i !== index));
   };
 
   return (
@@ -210,11 +228,30 @@ export default function FormularioReciboMaterial({
             <DatePickerInput label="Fecha de Recibido" value={formData.fechaRecibido} onDateChange={(v) => updateHeaderField('fechaRecibido', v)} placeholder="Seleccionar fecha" isRequired disabled={readOnly} />
           </View>
         </View>
+        {!isDevolucionMode ? (
+          <SelectDropdown
+            label="Tipo de Carga"
+            value={formData.tipoCarga}
+            onSelect={(v) => updateHeaderField('tipoCarga', v)}
+            options={['Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados']}
+            placeholder="Seleccionar tipo de carga..."
+            isRequired
+            disabled={readOnly}
+          />
+        ) : (
+          <InputTexto label="Tipo de Carga" value="DEVOLUCIÓN DE ASIGNACIÓN" isRequired readOnly />
+        )}
+        {isAsignadoMode && (
+          <SelectDropdown label="Personal / Miembro Asignado" value={formData.asignadoA} onSelect={(v) => { updateHeaderField('asignadoA', v); updateHeaderField('recibidoPor', v); }} options={miembrosList.length > 0 ? miembrosList : ['No hay miembros registrados']} placeholder="Seleccionar miembro a asignar..." isRequired disabled={readOnly} />
+        )}
+        {isDevolucionMode && (
+          <InputTexto label="Personal / Miembro que Devuelve" value={formData.asignadoA || nombreCompleto} isRequired readOnly />
+        )}
       </View>
 
-      {/* 2. INSUMOS RECIBIDOS */}
+      {/* 2. INSUMOS / MATERIALES */}
       <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>2. MATERIALES RECIBIDOS ({items.length})</Text>
+        <Text style={styles.sectionTitle}>{isDevolucionMode ? '2. MATERIALES EN CUSTODIA A DEVOLVER' : isAsignadoMode ? '2. MATERIALES A ASIGNAR (DESDE ALMACÉN)' : '2. MATERIALES RECIBIDOS'} ({items.length})</Text>
         {items.map((item, idx) => {
           const info = stockInfoMap[idx];
           return (
@@ -227,11 +264,17 @@ export default function FormularioReciboMaterial({
                   </TouchableOpacity>
                 )}
               </View>
-              <InputTexto label="Código Material" value={item.codigoMaterial} onChangeText={(v) => handleCodigoChangeForItem(idx, v)} placeholder="Ej. MAT-0982" isRequired readOnly={readOnly} />
+              {isAsignadoMode && !readOnly && stockDisponibles.length > 0 && (
+                <SelectDropdown label="Seleccionar Material de Almacén" value={item.codigoMaterial ? `${item.codigoMaterial} - ${item.nombreMaterial}` : ''} onSelect={(sel: string) => { const found = stockDisponibles.find(s => sel.startsWith(s.codigo)); if (found) { updateMultipleItemFields(idx, { codigoMaterial: found.codigo, nombreMaterial: found.nombre, modeloMaterial: found.modelo }); setStockInfoMap(prev => ({ ...prev, [idx]: { stockExistente: found.stock, esNuevoCodigo: false, isSearching: false } })); } }} options={stockDisponibles.map(s => `${s.codigo} - ${s.nombre} (Stock: ${s.stock} und.)`)} placeholder="Buscar / Seleccionar material..." isRequired />
+              )}
+              {isDevolucionMode && !readOnly && (
+                <SelectDropdown label="Seleccionar Material en Custodia a Devolver" value={item.codigoMaterial ? `${item.codigoMaterial} - ${item.nombreMaterial}` : ''} onSelect={(sel: string) => { const found = stockCustodiaMiembro.find(s => sel.startsWith(s.codigo)); if (found) { updateMultipleItemFields(idx, { codigoMaterial: found.codigo, nombreMaterial: found.nombre, modeloMaterial: found.modelo }); setStockInfoMap(prev => ({ ...prev, [idx]: { stockExistente: found.stock, esNuevoCodigo: false, isSearching: false } })); } }} options={stockCustodiaMiembro.map(s => `${s.codigo} - ${s.nombre} (${s.stock} und. en custodia)`)} placeholder={stockCustodiaMiembro.length > 0 ? "Seleccionar material en tu poder..." : "No posees materiales en custodia"} isRequired />
+              )}
+              <InputTexto label="Código Material" value={item.codigoMaterial} onChangeText={(v) => handleCodigoChangeForItem(idx, v)} placeholder="Ej. MAT-0982" isRequired readOnly={readOnly || isDevolucionMode} />
               {info?.isSearching && <Text style={styles.helperText}>Buscando stock e información...</Text>}
-              {!info?.isSearching && info?.esNuevoCodigo === false && info?.stockExistente !== null && (
+              {!info?.isSearching && info?.stockExistente !== null && info?.stockExistente !== undefined && (
                 <View style={styles.stockBadgeExistente}>
-                  <Text style={styles.stockBadgeText}>✓ Material en inventario. Stock acumulado previo: <Text style={{ fontWeight: 'bold', color: '#FFF' }}>{info.stockExistente} und.</Text></Text>
+                  <Text style={styles.stockBadgeText}>{isDevolucionMode ? '✓ En tu poder / custodia: ' : '✓ Stock disponible en almacén: '}<Text style={{ fontWeight: 'bold', color: '#FFF' }}>{info.stockExistente} und.</Text></Text>
                 </View>
               )}
               {!info?.isSearching && info?.esNuevoCodigo === true && (
@@ -241,7 +284,10 @@ export default function FormularioReciboMaterial({
               )}
               <View style={styles.row}>
                 <View style={styles.flex1}>
-                  <InputTexto label="Cantidad Recibida" value={item.cantidadRecibida} onChangeText={(v) => updateItemField(idx, 'cantidadRecibida', v)} placeholder="Ej. 50" keyboardType="numeric" isRequired readOnly={readOnly} />
+                  <InputTexto label={isDevolucionMode ? "Cantidad a Devolver" : isAsignadoMode ? "Cantidad a Asignar" : "Cantidad Recibida"} value={item.cantidadRecibida} onChangeText={(v) => updateItemField(idx, 'cantidadRecibida', v)} placeholder="Ej. 50" keyboardType="numeric" isRequired readOnly={readOnly} />
+                  {isDevolucionMode && info?.stockExistente !== null && info?.stockExistente !== undefined && parseFloat(item.cantidadRecibida || '0') > info.stockExistente && (
+                    <Text style={{ fontSize: 10, color: '#F87171', fontWeight: 'bold', marginTop: 2 }}>⚠️ Excede las {info.stockExistente} und. en tu poder</Text>
+                  )}
                 </View>
                 <View style={styles.flex1}>
                   <InputTexto label="Modelo Material" value={item.modeloMaterial} onChangeText={(v) => updateItemField(idx, 'modeloMaterial', v)} placeholder="Ej. G657A2" readOnly={readOnly} />
@@ -254,33 +300,34 @@ export default function FormularioReciboMaterial({
         })}
         {!readOnly && (
           <TouchableOpacity style={styles.addItemBtn} onPress={handleAddItem}>
-            <Plus size={18} color="#579DFF" /><Text style={styles.addItemBtnText}>Añadir otro material a esta orden</Text>
+            <Plus size={16} color="#0C66E4" /><Text style={styles.addItemBtnText}>+ Añadir otro material</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* 3. ADJUNTOS Y EVIDENCIAS */}
+      {/* 3. ADJUNTAR EVIDENCIAS Y FACTURAS */}
       <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>3. FACTURAS Y EVIDENCIAS ({adjuntos.length})</Text>
+        <Text style={styles.sectionTitle}>3. ADJUNTAR EVIDENCIAS Y FACTURAS</Text>
+        <Text style={{ fontSize: 11, color: '#8C9BAB', marginBottom: 12 }}>Sube fotos de la nota de entrega, guía o estado de la devolución.</Text>
         {!readOnly && (
           <TouchableOpacity style={styles.attachBtn} onPress={handleAdjuntarFotoFactura} disabled={subiendoImagen}>
-            {subiendoImagen ? <ActivityIndicator color="#579DFF" size="small" /> : <Paperclip size={18} color="#579DFF" />}
-            <Text style={styles.attachBtnText}>{subiendoImagen ? 'Comprimiendo y subiendo...' : '+ Adjuntar Factura / Foto de Evidencia'}</Text>
+            {subiendoImagen ? <ActivityIndicator size="small" color="#0C66E4" /> : <><Paperclip size={16} color="#0C66E4" /><Text style={styles.attachBtnText}>Adjuntar archivo / foto</Text></>}
           </TouchableOpacity>
         )}
         {adjuntos.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.adjGrid}>
-            {adjuntos.map((url, idx) => (
-              <View key={idx} style={styles.thumbContainer}>
-                <ImageBackground source={{ uri: url }} style={styles.thumbImg} />
-                {!readOnly && (
-                  <TouchableOpacity style={styles.delThumbBtn} onPress={() => handleRemoveAdjunto(idx)}>
-                    <X size={12} color="#FFF" />
-                  </TouchableOpacity>
-                )}
+          <View style={{ marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {adjuntos.map((uri, i) => (
+              <View key={i} style={{ width: 64, height: 64, borderRadius: 6, overflow: 'hidden', backgroundColor: '#1D2125' }}>
+                <ImageBackground source={{ uri }} style={{ width: '100%', height: '100%' }}>
+                  {!readOnly && (
+                    <TouchableOpacity style={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, padding: 2 }} onPress={() => handleRemoveAdjunto(i)}>
+                      <X size={12} color="#FFF" />
+                    </TouchableOpacity>
+                  )}
+                </ImageBackground>
               </View>
             ))}
-          </ScrollView>
+          </View>
         )}
       </View>
 
@@ -292,10 +339,10 @@ export default function FormularioReciboMaterial({
             <InputTexto label="Recibido por" value={formData.recibidoPor} onChangeText={(v) => updateHeaderField('recibidoPor', v)} placeholder="Ej. Juan Pérez (Almacén)" isRequired readOnly={readOnly} />
           </View>
           <View style={styles.flex1}>
-            <InputTexto label="Entregado por" value={formData.entregadoPor} onChangeText={(v) => updateHeaderField('entregadoPor', v)} placeholder="Ej. Transporte Casa Matriz" isRequired readOnly={readOnly} />
+            <InputTexto label="Entregado por" value={formData.entregadoPor} onChangeText={(v) => updateHeaderField('entregadoPor', v)} placeholder="Ej. Transporte / Personal" isRequired readOnly={readOnly} />
           </View>
         </View>
-        <SelectDropdown label="Motivo de Asignación" value={formData.motivoAsignacion} onSelect={(v) => updateHeaderField('motivoAsignacion', v)} options={['Instalaciones', 'Construcción', 'Verticales', 'Fallas FTTH', 'Fallas FTTX', 'Otras']} placeholder="Seleccionar motivo..." isRequired disabled={readOnly} />
+        <SelectDropdown label={isDevolucionMode ? "Motivo de Devolución" : "Motivo de Asignación"} value={formData.motivoAsignacion} onSelect={(v) => updateHeaderField('motivoAsignacion', v)} options={isDevolucionMode ? ['Sobrante de Instalación', 'Material Defectuoso', 'Cambio de Equipo', 'Fin de Proyecto', 'Otras'] : ['Instalaciones', 'Construcción', 'Verticales', 'Fallas FTTH', 'Fallas FTTX', 'Otras']} placeholder="Seleccionar motivo..." isRequired disabled={readOnly} />
       </View>
     </ScrollView>
   );
@@ -314,15 +361,11 @@ const styles = StyleSheet.create({
   addItemBtnText: { color: '#579DFF', fontSize: 13, fontWeight: 'bold' },
   attachBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', paddingVertical: 10, borderRadius: 8, marginBottom: 10 },
   attachBtnText: { color: '#579DFF', fontSize: 12, fontWeight: '600' },
-  adjGrid: { flexDirection: 'row', marginTop: 6 },
-  thumbContainer: { marginRight: 10, position: 'relative' },
-  thumbImg: { width: 70, height: 70, borderRadius: 6, backgroundColor: '#1D2125', overflow: 'hidden' },
-  delThumbBtn: { position: 'absolute', top: -4, right: -4, backgroundColor: '#EF4444', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' },
   row: { flexDirection: 'row', gap: 12 },
   flex1: { flex: 1 },
   helperText: { fontSize: 11, color: '#579DFF', marginTop: -6, marginBottom: 8, fontStyle: 'italic' },
   stockBadgeExistente: { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderWidth: 1, borderColor: '#22C55E', borderRadius: 6, padding: 8, marginTop: 2, marginBottom: 10 },
   stockBadgeText: { fontSize: 11, color: '#4ADE80' },
   stockBadgeNuevo: { backgroundColor: 'rgba(12, 102, 228, 0.15)', borderWidth: 1, borderColor: '#0C66E4', borderRadius: 6, padding: 8, marginTop: 2, marginBottom: 10 },
-  stockBadgeTextNuevo: { fontSize: 11, color: '#579DFF', fontWeight: '600' },
+  stockBadgeTextNuevo: { fontSize: 11, color: '#579DFF', fontWeight: '600' }
 });

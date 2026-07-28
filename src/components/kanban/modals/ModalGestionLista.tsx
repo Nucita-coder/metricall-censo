@@ -90,15 +90,22 @@ export const ModalGestionLista = ({
           {/* Vista Principal */}
           {gestionMenuAction === 'main' && (
             <View>
-              <TouchableOpacity
-                style={{ paddingVertical: 10, paddingHorizontal: 12, borderRadius: 6, marginBottom: 4 }}
-                onPress={() => {
-                  onClose();
-                  router.push({ pathname: '/tarjeta/nueva', params: { lista_id: listaActiva?.id, lista_nombre: listaActiva?.nombre } });
-                }}
-              >
-                <Text style={{ color: '#B6C2CF', fontSize: 14 }}>Añadir tarjeta...</Text>
-              </TouchableOpacity>
+              {(() => {
+                const nombreLower = listaActiva?.nombre ? listaActiva.nombre.toLowerCase().trim() : '';
+                const isEntryColumn = nombreLower.includes('venta') || nombreLower === 'censo' || nombreLower === 'carga de materiales';
+                if (!isEntryColumn) return null;
+                return (
+                  <TouchableOpacity
+                    style={{ paddingVertical: 10, paddingHorizontal: 12, borderRadius: 6, marginBottom: 4 }}
+                    onPress={() => {
+                      onClose();
+                      router.push({ pathname: '/tarjeta/nueva', params: { lista_id: listaActiva?.id, lista_nombre: listaActiva?.nombre } });
+                    }}
+                  >
+                    <Text style={{ color: '#B6C2CF', fontSize: 14 }}>Añadir tarjeta...</Text>
+                  </TouchableOpacity>
+                );
+              })()}
               <TouchableOpacity style={{ paddingVertical: 10, paddingHorizontal: 12, borderRadius: 6, marginBottom: 4 }} onPress={() => setGestionMenuAction('rename')}>
                 <Text style={{ color: '#B6C2CF', fontSize: 14 }}>Renombrar lista...</Text>
               </TouchableOpacity>

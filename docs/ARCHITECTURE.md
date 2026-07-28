@@ -9,6 +9,9 @@ Para optimizar el RLS y evitar JOINs costosos (anti-patrón), el `empresa_id` (T
 2. **Sucursales**: Sedes geográficas. FK `empresa_id`.
 3. **Tableros**: Proyectos/Departamentos. FK `sucursal_id`, FK `empresa_id`.
 4. **Listas**: Plantillas de procesos. FK `tablero_id`, FK `empresa_id`. `esquema_campos` (JSONB).
+   - **Instalaciones**: `Venta`, `Factibilidad`, `Por Instalar`, `Asignado A`, `Liberada`, `En Proceso`, `Por Activar`, `Cliente Activo`.
+   - **Censo**: `Censo`, `si desea`, `no desea`, `es posible` (Enrutamiento automático al seleccionar `dispuestoCambiar`).
+   - **Almacén**: `Carga de Materiales`, `Material Recibido`, `Material Asignado`, `Devolución de Asignación`, `Devolución a Almacén Central`, `Recuperados` (Enrutamiento automático al seleccionar `tipoCarga`).
 5. **Tarjetas**: Registros finales. FK `lista_id`, FK `empresa_id`. `datos_valores` (JSONB).
 
 ## Sistema Híbrido de Jerarquía y Permisos Dinámicos

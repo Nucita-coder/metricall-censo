@@ -13,8 +13,10 @@ import { checkIsCensoFormat } from '../../components/kanban/detalle/types';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 
+const LISTAS_ALMACEN = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'];
+
 export default function NuevaTarjetaScreen() {
-  const { lista_id, lista_nombre } = useLocalSearchParams<{ lista_id: string, lista_nombre?: string }>();
+  const { lista_id, lista_nombre, tipoCarga: paramTipoCarga } = useLocalSearchParams<{ lista_id: string, lista_nombre?: string, tipoCarga?: string }>();
   const { session, empresaId } = useAuth();
 
   const [isLocating, setIsLocating] = useState(false);
@@ -22,6 +24,12 @@ export default function NuevaTarjetaScreen() {
   const [mapaVisible, setMapaVisible] = useState(false);
   const [ubicacionTemporal, setUbicacionTemporal] = useState<{ latitude: number, longitude: number } | null>(null);
   const [listaNombre, setListaNombre] = useState<string>(lista_nombre || '');
+
+  React.useEffect(() => {
+    if (paramTipoCarga) {
+      setFormData(prev => ({ ...prev, tipoCarga: paramTipoCarga }));
+    }
+  }, [paramTipoCarga]);
 
   React.useEffect(() => {
     if (lista_id) {
@@ -51,32 +59,13 @@ export default function NuevaTarjetaScreen() {
   }, []);
 
   const [formData, setFormData] = useState<Record<string, any>>({
-    fechaVenta: '',
-    vendedor: '',
-    tipoServicio: '',
-
-    nombreApellido: '',
-    tipoDocumento: '',
-    documentoIdentidad: '',
-    fechaNacimiento: '',
-    telefonoMovil: '',
-    telefonoAdicional: '',
-    telefonoResidencial: '',
-    correo: '',
-
-    estado: '', ciudad: '', zona: '', sector: '', calle: '',
-    urbanizacion: '', piso: '', edificio: '', referencia: '',
-    latitud: null as number | null, longitud: null as number | null,
-    direccionFiscal: '',
-
+    fechaVenta: '', vendedor: '', tipoServicio: '', nombreApellido: '', tipoDocumento: '', documentoIdentidad: '',
+    fechaNacimiento: '', telefonoMovil: '', telefonoAdicional: '', telefonoResidencial: '', correo: '',
+    estado: '', ciudad: '', zona: '', sector: '', calle: '', urbanizacion: '', piso: '', edificio: '', referencia: '',
+    latitud: null as number | null, longitud: null as number | null, direccionFiscal: '',
     phInstalacion: '', phConectados: '', phGamer: '', phCinefilos: '', phFamiliar: '',
     ppInstalacion: '', ppEmprendedores: '', ppComercios: '', ppOficinas: '', ppNegocios: '',
-
-    equipoAdicional: '',
-    nroAbonado: '',
-
-    cuentaConInternet: '',
-    dispuestoCambiar: ''
+    equipoAdicional: '', nroAbonado: '', cuentaConInternet: '', dispuestoCambiar: '', tipoCarga: ''
   });
 
   const updateForm = (key: string, value: any) => setFormData(prev => ({ ...prev, [key]: value }));
@@ -107,13 +96,17 @@ export default function NuevaTarjetaScreen() {
       return;
     }
 
-    const isMaterialesMode = ['Carga de Materiales'].includes(listaNombre || (lista_nombre as string) || '');
+    const isMaterialesMode = LISTAS_ALMACEN.includes(listaNombre || (lista_nombre as string) || '');
 
     if (isMaterialesMode) {
       const items = Array.isArray(formData.items) && formData.items.length > 0 ? formData.items : [formData];
       const hasValidItem = items.some((i: any) => i.codigoMaterial && i.nombreMaterial && i.cantidadRecibida);
-      if (!formData.nroOrdenEntrega || !formData.recibidoPor || !formData.entregadoPor || !hasValidItem) {
-        Alert.alert('Campos incompletos', 'Por favor, completa los campos obligatorios de la orden y al menos un material válido.');
+      if (!formData.nroOrdenEntrega || !formData.recibidoPor || !formData.entregadoPor || !formData.tipoCarga || !hasValidItem) {
+        Alert.alert('Campos incompletos', 'Por favor, completa los campos obligatorios de la orden, el tipo de carga y al menos un material válido.');
+        return;
+      }
+      if (formData.tipoCarga?.toUpperCase() === 'MATERIAL ASIGNADO' && !formData.asignadoA) {
+        Alert.alert('Campo incompleto', 'Por favor, selecciona el miembro o personal al cual se le va a asignar el material.');
         return;
       }
     } else if (listaNombre !== 'Censo') {
@@ -130,7 +123,7 @@ export default function NuevaTarjetaScreen() {
 
     setIsSubmitting(true);
     try {
-      const { data: currentLista } = await supabase.from('listas').select('tablero_id, nombre').eq('id', lista_id).single();
+      const { data: currentLista } = await supabase.from('listas').select('id, tablero_id, nombre').eq('id', lista_id).single();
 
       const payload = {
         lista_id: lista_id,
@@ -196,6 +189,57 @@ export default function NuevaTarjetaScreen() {
         runClone();
       }
 
+      if (isMaterialesMode && formData.tipoCarga && currentLista?.tablero_id && nuevaTarjeta) {
+        try {
+          const { data: tableroListas } = await supabase
+            .from('listas')
+            .select('id, nombre')
+            .eq('tablero_id', currentLista.tablero_id);
+
+          if (tableroListas && tableroListas.length > 0) {
+            const targetClean = formData.tipoCarga.toLowerCase().trim();
+            const targetList = tableroListas.find(l => l.nombre && l.nombre.toLowerCase().trim() === targetClean);
+
+            if (targetList && targetList.id !== currentLista.id) {
+              const { error: rpcError } = await supabase.rpc('mover_tarjeta_seguro', {
+                p_tarjeta_id: nuevaTarjeta.id,
+                p_lista_destino_id: targetList.id
+              });
+              if (rpcError) {
+                console.warn('mover_tarjeta_seguro falló en almacén, actualizando directamente:', rpcError.message);
+                await supabase.from('tarjetas').update({ lista_id: targetList.id }).eq('id', nuevaTarjeta.id);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error al mover tarjeta de almacén:', err);
+        }
+
+        const tipoUpper = (formData.tipoCarga || '').toUpperCase();
+        const isAsignado = tipoUpper === 'MATERIAL ASIGNADO';
+        const isDevolucion = tipoUpper === 'DEVOLUCIÓN DE ASIGNACIÓN' || tipoUpper === 'DEVOLUCION DE ASIGNACION';
+
+        if ((isAsignado || isDevolucion) && formData.asignadoA) {
+          try {
+            const { data: userProfile } = await supabase
+              .from('perfiles')
+              .select('id')
+              .eq('empresa_id', empresaId)
+              .ilike('nombre_completo', formData.asignadoA.trim())
+              .maybeSingle();
+
+            if (userProfile?.id) {
+              const itemsList = Array.isArray(formData.items) && formData.items.length > 0 ? formData.items : [formData];
+              const resumenItems = itemsList.map((it: any) => `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`).join(', ');
+              const mensaje = isDevolucion
+                ? `Se registró la devolución de ${resumenItems} al almacén correctamente.`
+                : `Mira, se te asignó ${resumenItems}, así que esto está en tu poder actualmente.`;
+              await supabase.from('notificaciones').insert({ usuario_id: userProfile.id, tarjeta_id: nuevaTarjeta.id, mensaje, leida: false });
+            }
+          } catch (errNotif) { console.error('Error notificacion:', errNotif); }
+        }
+      }
+
       const navigateBack = () => {
         if (router.canGoBack()) {
           router.back();
@@ -225,7 +269,7 @@ export default function NuevaTarjetaScreen() {
   };
 
   const isCensoMode = checkIsCensoFormat(listaNombre || lista_nombre);
-  const isMaterialesMode = ['Carga de Materiales'].includes(listaNombre || (lista_nombre as string) || '');
+  const isMaterialesMode = LISTAS_ALMACEN.includes(listaNombre || (lista_nombre as string) || '');
 
   return (
     <>

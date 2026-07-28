@@ -1,16 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { Package, Search, X, RefreshCw, ArrowUpRight, ArrowDownRight, SlidersHorizontal, ChevronDown } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
@@ -30,11 +19,15 @@ interface ModalInventarioAlmacenProps {
   onClose: () => void;
 }
 
+import { TablaStockAsignado } from './TablaStockAsignado';
+import { TablaStockGeneral } from './TablaStockGeneral';
+
 export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlmacenProps) {
   const { empresaId } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = width > 768;
 
+  const [activeTab, setActiveTab] = useState<'disponible' | 'asignado' | 'general'>('disponible');
   const [isLoading, setIsLoading] = useState(false);
   const [materiales, setMateriales] = useState<MaterialStockItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,6 +53,7 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
       const mapa: Record<string, MaterialStockItem> = {};
       data.forEach((row: any) => {
         const v = row.datos_valores || {};
+        const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
         const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
         itemsList.forEach((subItem: any) => {
           const cod = (subItem.codigoMaterial || '').trim().toUpperCase();
@@ -72,17 +66,24 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
               codigoMaterial: cod,
               nombreMaterial: (subItem.nombreMaterial || '—').toUpperCase(),
               modeloMaterial: (subItem.modeloMaterial || 'GENERAL').toUpperCase(),
-              stockTotal: cant,
-              numRegistros: 1,
+              stockTotal: 0,
+              numRegistros: 0,
               ultimoIngreso: fechaIngreso,
             };
-          } else {
-            mapa[cod].stockTotal += cant;
-            mapa[cod].numRegistros += 1;
-            if (subItem.nombreMaterial && mapa[cod].nombreMaterial === '—') {
-              mapa[cod].nombreMaterial = subItem.nombreMaterial.toUpperCase();
-            }
           }
+
+          mapa[cod].numRegistros += 1;
+          if (subItem.nombreMaterial && mapa[cod].nombreMaterial === '—') {
+            mapa[cod].nombreMaterial = subItem.nombreMaterial.toUpperCase();
+          }
+
+          let rec = 0, asig = 0;
+          if (tipo === 'MATERIAL ASIGNADO') asig += cant;
+          else if (tipo === 'DEVOLUCIÓN DE ASIGNACIÓN' || tipo === 'DEVOLUCION DE ASIGNACION') asig -= cant;
+          else if (tipo === 'DEVOLUCIÓN A ALMACÉN CENTRAL' || tipo === 'DEVOLUCION A ALMACEN CENTRAL') rec -= cant;
+          else rec += cant;
+
+          mapa[cod].stockTotal += (rec - asig);
         });
       });
       setMateriales(Object.values(mapa));
@@ -132,7 +133,7 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
           <View style={s.hdr}>
             <View>
               <Text style={s.hdrTitle}>Inventario y Control de Stock</Text>
-              <Text style={s.hdrSub}>{materiales.length} productos · {totalUnd} unidades en stock</Text>
+              <Text style={s.hdrSub}>{materiales.length} productos · {totalUnd} unidades disponibles</Text>
             </View>
             <View style={s.hdrActions}>
               <TouchableOpacity onPress={fetchStock} style={s.iconBtn}>
@@ -142,6 +143,19 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
                 <X size={18} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
+          </View>
+
+          {/* TAB SWITCHER */}
+          <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: '#0D1117', borderBottomWidth: 1, borderBottomColor: '#1F2937' }}>
+            <TouchableOpacity style={[{ paddingVertical: 7, paddingHorizontal: 12, borderRadius: 6 }, activeTab === 'disponible' ? { backgroundColor: '#1D4ED8' } : { backgroundColor: '#1F2937' }]} onPress={() => setActiveTab('disponible')}>
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: activeTab === 'disponible' ? '#FFF' : '#9CA3AF' }}>📦 Stock Disponible</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[{ paddingVertical: 7, paddingHorizontal: 12, borderRadius: 6 }, activeTab === 'asignado' ? { backgroundColor: '#1D4ED8' } : { backgroundColor: '#1F2937' }]} onPress={() => setActiveTab('asignado')}>
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: activeTab === 'asignado' ? '#FFF' : '#9CA3AF' }}>👤 Stock Asignado</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[{ paddingVertical: 7, paddingHorizontal: 12, borderRadius: 6 }, activeTab === 'general' ? { backgroundColor: '#1D4ED8' } : { backgroundColor: '#1F2937' }]} onPress={() => setActiveTab('general')}>
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: activeTab === 'general' ? '#FFF' : '#9CA3AF' }}>📊 Stock General</Text>
+            </TouchableOpacity>
           </View>
 
           {/* TOOLBAR CON BOTÓN PLEGABLE */}
@@ -217,62 +231,71 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
             </View>
           )}
 
-          {/* TABLE HEADER */}
-          <View style={s.thead}>
-            <Text style={[s.th, { width: 80 }]}>Código</Text>
-            <Text style={[s.th, { flex: 1 }]}>Material / Modelo</Text>
-            <Text style={[s.th, { width: 100, textAlign: 'center' }]}>Nivel</Text>
-            <Text style={[s.th, { width: 90, textAlign: 'right' }]}>Stock</Text>
-            <Text style={[s.th, { width: 60, textAlign: 'right' }]}>Rec.</Text>
-          </View>
-
-          {/* TABLE BODY */}
-          {isLoading ? (
-            <View style={s.center}>
-              <ActivityIndicator size="large" color="#3B82F6" />
-              <Text style={s.centerTxt}>Cargando inventario...</Text>
-            </View>
-          ) : filtered.length === 0 ? (
-            <View style={s.center}>
-              <Package size={32} color="#4B5563" />
-              <Text style={s.centerTxt}>Sin resultados para los filtros aplicados</Text>
-            </View>
+          {/* CONTENIDO DE PESTAÑA */}
+          {activeTab === 'asignado' ? (
+            <TablaStockAsignado empresaId={empresaId} searchQuery={searchQuery} />
+          ) : activeTab === 'general' ? (
+            <TablaStockGeneral empresaId={empresaId} searchQuery={searchQuery} />
           ) : (
-            <FlatList
-              data={filtered}
-              keyExtractor={(i) => i.codigoMaterial}
-              showsVerticalScrollIndicator={false}
-              renderItem={({ item, index }) => {
-                const bajo = item.stockTotal < 10;
-                return (
-                  <View style={[s.row, index % 2 === 0 && s.rowAlt]}>
-                    <View style={{ width: 80 }}>
-                      <Text style={s.codTxt}>{item.codigoMaterial}</Text>
-                    </View>
-                    <View style={{ flex: 1, paddingRight: 8 }}>
-                      <Text style={s.matName} numberOfLines={1}>{item.nombreMaterial}</Text>
-                      <Text style={s.matModel}>{item.modeloMaterial}</Text>
-                    </View>
-                    <View style={{ width: 100 }}>
-                      <StockBar value={item.stockTotal} />
-                    </View>
-                    <View style={{ width: 90, alignItems: 'flex-end' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        {bajo
-                          ? <ArrowDownRight size={12} color="#EF4444" style={{ marginRight: 2 }} />
-                          : <ArrowUpRight size={12} color="#22C55E" style={{ marginRight: 2 }} />
-                        }
-                        <Text style={[s.stockNum, bajo && { color: '#EF4444' }]}>{item.stockTotal}</Text>
+            <>
+              {/* TABLE HEADER */}
+              <View style={s.thead}>
+                <Text style={[s.th, { width: 80 }]}>Código</Text>
+                <Text style={[s.th, { flex: 1 }]}>Material / Modelo</Text>
+                <Text style={[s.th, { width: 100, textAlign: 'center' }]}>Nivel</Text>
+                <Text style={[s.th, { width: 90, textAlign: 'right' }]}>Stock</Text>
+                <Text style={[s.th, { width: 60, textAlign: 'right' }]}>Rec.</Text>
+              </View>
+
+              {/* TABLE BODY */}
+              {isLoading ? (
+                <View style={s.center}>
+                  <ActivityIndicator size="large" color="#3B82F6" />
+                  <Text style={s.centerTxt}>Cargando inventario...</Text>
+                </View>
+              ) : filtered.length === 0 ? (
+                <View style={s.center}>
+                  <Package size={32} color="#4B5563" />
+                  <Text style={s.centerTxt}>Sin resultados para los filtros aplicados</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={filtered}
+                  keyExtractor={(i) => i.codigoMaterial}
+                  showsVerticalScrollIndicator={false}
+                  renderItem={({ item, index }) => {
+                    const bajo = item.stockTotal < 10;
+                    return (
+                      <View style={[s.row, index % 2 === 0 && s.rowAlt]}>
+                        <View style={{ width: 80 }}>
+                          <Text style={s.codTxt}>{item.codigoMaterial}</Text>
+                        </View>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                          <Text style={s.matName} numberOfLines={1}>{item.nombreMaterial}</Text>
+                          <Text style={s.matModel}>{item.modeloMaterial}</Text>
+                        </View>
+                        <View style={{ width: 100 }}>
+                          <StockBar value={item.stockTotal} />
+                        </View>
+                        <View style={{ width: 90, alignItems: 'flex-end' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            {bajo
+                              ? <ArrowDownRight size={12} color="#EF4444" style={{ marginRight: 2 }} />
+                              : <ArrowUpRight size={12} color="#22C55E" style={{ marginRight: 2 }} />
+                            }
+                            <Text style={[s.stockNum, bajo && { color: '#EF4444' }]}>{item.stockTotal}</Text>
+                          </View>
+                          <Text style={s.stockUnd}>unidades</Text>
+                        </View>
+                        <View style={{ width: 60, alignItems: 'flex-end' }}>
+                          <Text style={s.recNum}>{item.numRegistros}</Text>
+                        </View>
                       </View>
-                      <Text style={s.stockUnd}>unidades</Text>
-                    </View>
-                    <View style={{ width: 60, alignItems: 'flex-end' }}>
-                      <Text style={s.recNum}>{item.numRegistros}</Text>
-                    </View>
-                  </View>
-                );
-              }}
-            />
+                    );
+                  }}
+                />
+              )}
+            </>
           )}
 
           {/* FOOTER */}
@@ -327,5 +350,5 @@ const s = StyleSheet.create({
   stockUnd: { fontSize: 9, color: '#6B7280' },
   recNum: { fontSize: 13, fontWeight: '500', color: '#9CA3AF', fontVariant: ['tabular-nums'] },
   footer: { paddingHorizontal: 20, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#1F2937', backgroundColor: '#0D1117' },
-  footerTxt: { fontSize: 11, color: '#6B7280' },
+  footerTxt: { fontSize: 11, color: '#6B7280' }
 });

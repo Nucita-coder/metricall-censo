@@ -208,9 +208,10 @@ const KanbanColumnComponent = ({
             contentContainerStyle={{ paddingBottom: 60, flexGrow: 1 }}
             ListFooterComponent={() => {
               if (!puedeCrear) return null;
-              if (!item.nombre) return null;
-              const nombreLower = item.nombre.toLowerCase();
-              if (!(nombreLower.includes('venta') || nombreLower.includes('censo') || nombreLower.includes('carga') || nombreLower.includes('material'))) return null;
+              const nombreLower = item.nombre ? item.nombre.toLowerCase().trim() : '';
+              const isDevolucionColumn = nombreLower.includes('devolución de asignación') || nombreLower.includes('devolucion de asignacion') || nombreLower.includes('devolucion');
+              const isEntryColumn = nombreLower.includes('venta') || nombreLower === 'censo' || nombreLower === 'carga de materiales' || isDevolucionColumn;
+              if (!puedeCrear || !isEntryColumn) return null;
 
               return (
                 <TouchableOpacity
@@ -228,12 +229,12 @@ const KanbanColumnComponent = ({
                     marginTop: 12,
                     marginBottom: 20
                   }}
-                  onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre } })}
+                  onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre, tipoCarga: isDevolucionColumn ? 'DEVOLUCIÓN DE ASIGNACIÓN' : undefined } })}
                   activeOpacity={0.6}
                 >
                   <Plus size={22} color="#111" strokeWidth={2} />
-                  <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 16, fontStyle: 'italic' }}>
-                    Añadir Tarjeta
+                  <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 15, fontStyle: 'italic' }}>
+                    {isDevolucionColumn ? '+ Devolución de Asignación' : 'Añadir Tarjeta'}
                   </Text>
                 </TouchableOpacity>
               );

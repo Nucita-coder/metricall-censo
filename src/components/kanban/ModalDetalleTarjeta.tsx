@@ -26,20 +26,10 @@ import { SeccionRegistro } from './detalle/SeccionRegistro';
 import { FaseProps } from './detalle/types';
 
 export interface ModalDetalleTarjetaProps {
-  tarjetaSeleccionada: Tarjeta | null;
-  setTarjetaSeleccionada: (t: Tarjeta | null) => void;
-  listas: any[];
-  miembros: any[];
-  onUpdateTarjeta: (nuevosDatos: Partial<TarjetaDatosValores>) => Promise<void>;
-  autoMoverTarjeta: (tarjeta: Tarjeta, lista: string) => Promise<void>;
-  nuevoComentario: string;
-  setNuevoComentario: (c: string) => void;
-  handleEnviarComentario: () => void;
-  onRemoveTarjetaLocal?: (tarjetaId: string) => void;
-  startInEditMode?: boolean;
-  onOpenReasignacion?: (t: Tarjeta) => void;
-  onOpenTrazabilidad?: (t: Tarjeta) => void;
-  isResaltada?: boolean;
+  tarjetaSeleccionada: Tarjeta | null; setTarjetaSeleccionada: (t: Tarjeta | null) => void; listas: any[]; miembros: any[];
+  onUpdateTarjeta: (nuevosDatos: Partial<TarjetaDatosValores>) => Promise<void>; autoMoverTarjeta: (tarjeta: Tarjeta, lista: string) => Promise<void>;
+  nuevoComentario: string; setNuevoComentario: (c: string) => void; handleEnviarComentario: () => void;
+  onRemoveTarjetaLocal?: (tarjetaId: string) => void; startInEditMode?: boolean; onOpenReasignacion?: (t: Tarjeta) => void; onOpenTrazabilidad?: (t: Tarjeta) => void; isResaltada?: boolean;
 }
 
 export const ModalDetalleTarjeta = ({
@@ -95,7 +85,7 @@ export const ModalDetalleTarjeta = ({
 
   const listaActualNombre = listas.find(l => l.id === tarjetaSeleccionada.lista_id)?.nombre || '';
   const isCensoFormat = ['Censo', 'si desea', 'no desea', 'es posible'].includes(listaActualNombre);
-  const isMaterialesFormat = ['Carga de Materiales'].includes(listaActualNombre) || tarjetaSeleccionada?.datos_valores?.codigoMaterial !== undefined || tarjetaSeleccionada?.datos_valores?.nroOrdenEntrega !== undefined;
+  const isMaterialesFormat = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'].includes(listaActualNombre) || tarjetaSeleccionada?.datos_valores?.codigoMaterial !== undefined || tarjetaSeleccionada?.datos_valores?.nroOrdenEntrega !== undefined;
 
   const faseProps: FaseProps = {
     tarjeta: tarjetaSeleccionada,
@@ -128,6 +118,23 @@ export const ModalDetalleTarjeta = ({
     setIsSaving(true);
     try {
       await onUpdateTarjeta(editFormData);
+      const tipoUpper = (editFormData.tipoCarga || '').toUpperCase();
+      const isAsignado = tipoUpper === 'MATERIAL ASIGNADO';
+      const isDevolucion = tipoUpper === 'DEVOLUCIÓN DE ASIGNACIÓN' || tipoUpper === 'DEVOLUCION DE ASIGNACION';
+
+      if (isMaterialesFormat && (isAsignado || isDevolucion) && editFormData.asignadoA) {
+        try {
+          const { data: userProfile } = await supabase.from('perfiles').select('id').eq('empresa_id', tarjetaSeleccionada.empresa_id).ilike('nombre_completo', editFormData.asignadoA.trim()).maybeSingle();
+          if (userProfile?.id) {
+            const itemsList = Array.isArray(editFormData.items) && editFormData.items.length > 0 ? editFormData.items : [editFormData];
+            const resumenItems = itemsList.map((it: any) => `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`).join(', ');
+            const mensaje = isDevolucion
+              ? `Se registró la devolución de ${resumenItems} al almacén correctamente.`
+              : `Mira, se te asignó ${resumenItems}, así que esto está en tu poder actualmente.`;
+            await supabase.from('notificaciones').insert({ usuario_id: userProfile.id, tarjeta_id: tarjetaSeleccionada.id, mensaje, leida: false });
+          }
+        } catch (errNotif) { console.error('Error notificacion:', errNotif); }
+      }
       setIsEditing(false);
     } catch (e: any) {
       alert('Error al guardar: ' + e.message);
@@ -296,7 +303,7 @@ export const ModalDetalleTarjeta = ({
                         </>
                       )}
 
-                      {!isCensoFormat && !isEditing && <SeccionAdjuntos {...faseProps} />}
+                      {!isCensoFormat && !isMaterialesFormat && !isEditing && <SeccionAdjuntos {...faseProps} />}
                       {!isEditing && renderFaseDinamica()}
                     </View>
                   </View>

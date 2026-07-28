@@ -23,7 +23,7 @@ export function BoardActionButtons({
   if (!tarjetaEnMovimiento) return null;
 
   const listaOrigen = listas.find((l) => l.id === tarjetaEnMovimiento.lista_id);
-  const isMaterialCard = listaOrigen?.nombre === 'Carga de Materiales' || tarjetaEnMovimiento.datos_valores?.codigoMaterial !== undefined || tarjetaEnMovimiento.datos_valores?.nroOrdenEntrega !== undefined || Array.isArray(tarjetaEnMovimiento.datos_valores?.items);
+  const isMaterialCard = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'].includes(listaOrigen?.nombre || '') || tarjetaEnMovimiento.datos_valores?.codigoMaterial !== undefined || tarjetaEnMovimiento.datos_valores?.nroOrdenEntrega !== undefined || Array.isArray(tarjetaEnMovimiento.datos_valores?.items);
   const puedeEditar = !isMaterialCard && (userRol === 'lider' || listaOrigen?.permisos_relacionales?.puede_editar === true);
   const puedeBorrar = userRol !== 'empleado' || listaOrigen?.permisos_relacionales?.puede_borrar === true;
 

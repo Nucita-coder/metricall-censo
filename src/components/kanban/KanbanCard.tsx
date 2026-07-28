@@ -77,7 +77,7 @@ const KanbanCardComponent = ({
   else if (tipoServicio === 'isp') { badgeBg = KANBAN_COLORS.badge.isp.bg; badgeColor = KANBAN_COLORS.badge.isp.text; }
 
   const isCensoFormat = ['Censo', 'si desea', 'no desea', 'es posible'].includes(listaNombre || '');
-  const isMaterialesFormat = ['Carga de Materiales'].includes(listaNombre || '') || data.codigoMaterial !== undefined || data.nroOrdenEntrega !== undefined;
+  const isMaterialesFormat = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'].includes(listaNombre || '') || data.codigoMaterial !== undefined || data.nroOrdenEntrega !== undefined;
   let cardBg = KANBAN_COLORS.card.defaultBg;
   if (listaNombre === 'si desea') cardBg = KANBAN_COLORS.card.censoInteresadosBg;
   else if (listaNombre === 'no desea') cardBg = KANBAN_COLORS.card.censoNoInteresadosBg;
@@ -205,6 +205,14 @@ const KanbanCardComponent = ({
                   </Text>
                 ) : null}
               </View>
+              {data.asignadoA ? (
+                <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(59, 130, 246, 0.15)', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, alignSelf: 'flex-start' }}>
+                  <User size={12} color="#60A5FA" style={{ marginRight: 4 }} />
+                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#93C5FD' }} numberOfLines={1}>
+                    Asignado a: {data.asignadoA}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           ) : isCensoFormat ? (
             <View>

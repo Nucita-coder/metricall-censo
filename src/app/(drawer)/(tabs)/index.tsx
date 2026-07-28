@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
-import { ArrowLeftRight, Building2, MoreVertical, Plus, Search, X } from 'lucide-react-native';
+import { ArrowLeftRight, Building2, MoreVertical, Package, Plus, Search, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
 import { useGlobalUi } from '../../../context/GlobalUiContext';
 import { supabase } from '../../../lib/supabase';
@@ -11,7 +11,7 @@ import { ModalOpcionesTablero } from '../../../components/dashboard/ModalOpcione
 import { DashboardBoardCard } from '../../../components/dashboard/DashboardBoardCard';
 
 export default function DashboardScreen() {
-  const { userRol, empresaId } = useAuth();
+  const { userRol, empresaId, nombreCompleto } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const { searchQuery, setSearchQuery, createTrigger } = useGlobalUi();
@@ -41,6 +41,65 @@ export default function DashboardScreen() {
   const [isSwappingMode, setIsSwappingMode] = useState(false);
   const [boardToSwap, setBoardToSwap] = useState<Tablero | null>(null);
 
+  // Mi Material en Custodia
+  const [miCustodia, setMiCustodia] = useState<Array<{ codigo: string; nombre: string; modelo: string; cantidad: number }>>([]);
+  const [loadingCustodia, setLoadingCustodia] = useState(false);
+
+  const fetchMiCustodia = useCallback(async () => {
+    if (!empresaId || !nombreCompleto) return;
+    setLoadingCustodia(true);
+    try {
+      const { data, error } = await supabase
+        .from('tarjetas')
+        .select('datos_valores')
+        .eq('empresa_id', empresaId);
+      if (error) throw error;
+      if (!data) return;
+
+      const targetName = nombreCompleto.trim().toUpperCase();
+      const mapa: Record<string, { codigo: string; nombre: string; modelo: string; cantidad: number }> = {};
+
+      data.forEach((row: any) => {
+        const v = row.datos_valores || {};
+        const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
+        const miembro = (v.asignadoA || v.recibidoPor || '').toString().trim().toUpperCase();
+
+        const matchMiembro = miembro === targetName || (targetName && miembro && (miembro.includes(targetName) || targetName.includes(miembro)));
+        if (!matchMiembro) return;
+
+        const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
+        const isAsignado = !isDevolucion && (tipo.includes('ASIGNA') || Boolean(v.asignadoA && v.asignadoA.toString().trim()));
+
+        if (!isAsignado && !isDevolucion) return;
+
+        const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
+        itemsList.forEach((subItem: any) => {
+          const cod = (subItem.codigoMaterial || '').trim().toUpperCase();
+          if (!cod) return;
+          const cant = parseFloat(subItem.cantidadRecibida || '0') || 0;
+
+          if (!mapa[cod]) {
+            mapa[cod] = {
+              codigo: cod,
+              nombre: (subItem.nombreMaterial || 'Material').toUpperCase(),
+              modelo: (subItem.modeloMaterial || 'GENERAL').toUpperCase(),
+              cantidad: 0,
+            };
+          }
+
+          if (isAsignado) mapa[cod].cantidad += cant;
+          else if (isDevolucion) mapa[cod].cantidad -= cant;
+        });
+      });
+
+      setMiCustodia(Object.values(mapa).filter(m => m.cantidad > 0));
+    } catch (e) {
+      console.error('Error al cargar mi custodia:', e);
+    } finally {
+      setLoadingCustodia(false);
+    }
+  }, [empresaId, nombreCompleto]);
+
   useEffect(() => {
     if (createTrigger > 0) openCreateModal('sucursal');
   }, [createTrigger]);
@@ -48,7 +107,8 @@ export default function DashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchDashboardData(true);
-    }, [empresaId])
+      fetchMiCustodia();
+    }, [empresaId, fetchMiCustodia])
   );
 
   const openCreateModal = (type: 'sucursal' | 'tablero', sucursalId?: string) => {
@@ -220,6 +280,39 @@ export default function DashboardScreen() {
               />
             ) : null}
           </View>
+
+          {/* MI MATERIAL EN CUSTODIA */}
+          {miCustodia.length > 0 && (
+            <View style={styles.custodiaSection}>
+              <View style={styles.custodiaHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Package size={18} color="#F59E0B" />
+                  <Text style={styles.custodiaTitle}>Mi Material en Custodia</Text>
+                </View>
+                <View style={styles.custodiaBadge}>
+                  <Text style={styles.custodiaBadgeText}>{miCustodia.reduce((s, m) => s + m.cantidad, 0)} und.</Text>
+                </View>
+              </View>
+              {miCustodia.map((item) => (
+                <View key={item.codigo} style={styles.custodiaRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.custodiaCod}>{item.codigo}</Text>
+                    <Text style={styles.custodiaName}>{item.nombre}</Text>
+                    <Text style={styles.custodiaModel}>{item.modelo}</Text>
+                  </View>
+                  <View style={styles.custodiaQty}>
+                    <Text style={styles.custodiaQtyText}>{item.cantidad} und.</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+          {loadingCustodia && miCustodia.length === 0 && (
+            <View style={[styles.custodiaSection, { alignItems: 'center', paddingVertical: 20 }]}>
+              <ActivityIndicator size="small" color="#F59E0B" />
+              <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 6 }}>Cargando tu material...</Text>
+            </View>
+          )}
 
           {!isDesktop && sucursales.length > 0 && (
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#22272B', borderRadius: 8, paddingHorizontal: 12, height: 44, marginBottom: 24, marginTop: 4, borderWidth: 1, borderColor: '#384148', marginHorizontal: 24 }}>
@@ -394,4 +487,54 @@ const styles = StyleSheet.create({
   },
   swappingBanner: { position: 'absolute', bottom: 24, left: 24, right: 24, backgroundColor: 'rgba(0,0,0,0.85)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, borderRadius: 16, zIndex: 100 },
   swappingBannerText: { flex: 1, marginLeft: 12, fontSize: 14, color: '#FFF', fontWeight: '600' },
+  custodiaSection: {
+    marginHorizontal: 24,
+    marginBottom: 24,
+    backgroundColor: '#22272B',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    overflow: 'hidden',
+  },
+  custodiaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  custodiaTitle: { fontSize: 14, fontWeight: '700', color: '#FBBF24' },
+  custodiaBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  custodiaBadgeText: { fontSize: 12, fontWeight: 'bold', color: '#FBBF24' },
+  custodiaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2C333A',
+  },
+  custodiaCod: { fontSize: 11, fontWeight: '700', color: '#60A5FA' },
+  custodiaName: { fontSize: 13, fontWeight: '500', color: '#E5E7EB', marginTop: 1 },
+  custodiaModel: { fontSize: 10, color: '#6B7280', marginTop: 1 },
+  custodiaQty: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  custodiaQtyText: { fontSize: 13, fontWeight: 'bold', color: '#FBBF24' },
 });

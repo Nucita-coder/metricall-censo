@@ -122,13 +122,17 @@ export const ModalDetalleTarjeta = ({
       const isDevolucion = tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN');
       const isAsignado = !isDevolucion && (tipoUpper.includes('ASIGNA') || Boolean(editFormData.asignadoA && editFormData.asignadoA.trim()));
 
-      if (isMaterialesFormat && (isAsignado || isDevolucion) && editFormData.asignadoA) {
+      if (isMaterialesFormat && (isAsignado || isDevolucion) && editFormData.asignadoA && editFormData.asignadoA.trim()) {
         try {
           const targetName = editFormData.asignadoA.trim().toLowerCase();
-          const { data: perfiles } = await supabase
+          const { data: perfiles, error: perfilError } = await supabase
             .from('perfiles')
             .select('id, nombre_completo')
             .eq('empresa_id', tarjetaSeleccionada.empresa_id);
+
+          if (perfilError) {
+            console.error('Error al buscar perfiles para notificación:', perfilError);
+          }
 
           const matchedProfile = perfiles?.find(p => {
             const pName = (p.nombre_completo || '').trim().toLowerCase();
@@ -140,8 +144,13 @@ export const ModalDetalleTarjeta = ({
             const resumenItems = itemsList.map((it: any) => `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`).join(', ');
             const mensaje = isDevolucion
               ? `Se registró la devolución de ${resumenItems} al almacén correctamente.`
-              : `Mira, se te asignó ${resumenItems}, así que esto está en tu poder actualmente.`;
-            await supabase.from('notificaciones').insert({ usuario_id: matchedProfile.id, tarjeta_id: tarjetaSeleccionada.id, mensaje, leida: false });
+              : `Se te asignó ${resumenItems}. Este material está ahora en tu custodia.`;
+            const { error: notifError } = await supabase.from('notificaciones').insert({ usuario_id: matchedProfile.id, tarjeta_id: tarjetaSeleccionada.id, mensaje, leida: false });
+            if (notifError) {
+              console.error('Error al insertar notificación:', notifError);
+            }
+          } else {
+            console.warn('Perfil no encontrado para notificación. Nombre buscado:', editFormData.asignadoA);
           }
         } catch (errNotif) { console.error('Error notificacion:', errNotif); }
       }

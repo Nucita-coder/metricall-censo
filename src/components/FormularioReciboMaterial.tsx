@@ -18,8 +18,9 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
   const [miembrosList, setMiembrosList] = useState<string[]>([]);
   const [stockDisponibles, setStockDisponibles] = useState<Array<{ codigo: string; nombre: string; modelo: string; stock: number }>>([]);
   const [stockCustodiaMiembro, setStockCustodiaMiembro] = useState<Array<{ codigo: string; nombre: string; modelo: string; stock: number }>>([]);
-  const isAsignadoMode = formData.tipoCarga?.toUpperCase() === 'MATERIAL ASIGNADO';
-  const isDevolucionMode = formData.tipoCarga?.toUpperCase() === 'DEVOLUCIÓN DE ASIGNACIÓN' || formData.tipoCarga?.toUpperCase() === 'DEVOLUCION DE ASIGNACION';
+  const tipoUpper = (formData.tipoCarga || '').toUpperCase();
+  const isDevolucionMode = tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN');
+  const isAsignadoMode = !isDevolucionMode && (tipoUpper.includes('ASIGNA') || Boolean(formData.asignadoA && formData.asignadoA.trim()));
 
   useEffect(() => {
     if (isDevolucionMode && handleChange) {
@@ -41,21 +42,35 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
       const mapa: Record<string, { codigo: string; nombre: string; modelo: string; stock: number }> = {};
       data.forEach((row: any) => {
         const v = row.datos_valores || {};
+        const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
+        const isDevolucionAsig = tipo.includes('DEVOLUCIÓN DE ASIGNACIÓN') || tipo.includes('DEVOLUCION DE ASIGNACION');
+        const isDevolucionAlmacen = tipo.includes('ALMACÉN CENTRAL') || tipo.includes('ALMACEN CENTRAL');
+        const isAsignado = !isDevolucionAsig && !isDevolucionAlmacen && (tipo.includes('ASIGNA') || Boolean(v.asignadoA && v.asignadoA.toString().trim()));
+
         const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
         itemsList.forEach((subItem: any) => {
           const cod = (subItem.codigoMaterial || '').trim().toUpperCase();
           if (!cod) return;
           const cant = parseFloat(subItem.cantidadRecibida || '0') || 0;
-          if (!mapa[cod]) mapa[cod] = { codigo: cod, nombre: (subItem.nombreMaterial || '').toUpperCase(), modelo: (subItem.modeloMaterial || '').toUpperCase(), stock: cant };
-          else mapa[cod].stock += cant;
+          if (!mapa[cod]) mapa[cod] = { codigo: cod, nombre: (subItem.nombreMaterial || '').toUpperCase(), modelo: (subItem.modeloMaterial || '').toUpperCase(), stock: 0 };
+          
+          if (isAsignado) {
+            mapa[cod].stock -= cant;
+          } else if (isDevolucionAsig) {
+            mapa[cod].stock += cant;
+          } else if (isDevolucionAlmacen) {
+            mapa[cod].stock -= cant;
+          } else {
+            mapa[cod].stock += cant;
+          }
         });
       });
-      setStockDisponibles(Object.values(mapa));
+      setStockDisponibles(Object.values(mapa).filter(m => m.stock > 0));
     });
   }, [empresaId]);
 
   useEffect(() => {
-    if (empresaId && isDevolucionMode && (formData.asignadoA || nombreCompleto)) {
+    if (empresaId && isDevolucionMode) {
       const targetMiembro = (formData.asignadoA || nombreCompleto || '').trim().toUpperCase();
       supabase.from('tarjetas').select('datos_valores').eq('empresa_id', empresaId).then(({ data }) => {
         if (!data) return;
@@ -64,8 +79,14 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
           const v = row.datos_valores || {};
           const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
           const miembro = (v.asignadoA || v.recibidoPor || '').toString().trim().toUpperCase();
-          const matchMiembro = miembro === targetMiembro || (targetMiembro && (miembro.includes(targetMiembro) || targetMiembro.includes(miembro)));
+          
+          const matchMiembro = targetMiembro === '' || miembro === targetMiembro || (targetMiembro && miembro && (miembro.includes(targetMiembro) || targetMiembro.includes(miembro)));
           if (!matchMiembro) return;
+
+          const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
+          const isAsignado = !isDevolucion && (tipo.includes('ASIGNA') || Boolean(v.asignadoA && v.asignadoA.toString().trim()));
+
+          if (!isAsignado && !isDevolucion) return;
 
           const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
           itemsList.forEach((subItem: any) => {
@@ -73,8 +94,12 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
             if (!cod) return;
             const cant = parseFloat(subItem.cantidadRecibida || '0') || 0;
             if (!mapa[cod]) mapa[cod] = { codigo: cod, nombre: (subItem.nombreMaterial || '').toUpperCase(), modelo: (subItem.modeloMaterial || '').toUpperCase(), stock: 0 };
-            if (tipo === 'MATERIAL ASIGNADO' || (!tipo && v.asignadoA)) mapa[cod].stock += cant;
-            else if (tipo === 'DEVOLUCIÓN DE ASIGNACIÓN' || tipo === 'DEVOLUCION DE ASIGNACION') mapa[cod].stock -= cant;
+            
+            if (isAsignado) {
+              mapa[cod].stock += cant;
+            } else if (isDevolucion) {
+              mapa[cod].stock -= cant;
+            }
           });
         });
         setStockCustodiaMiembro(Object.values(mapa).filter(m => m.stock > 0));

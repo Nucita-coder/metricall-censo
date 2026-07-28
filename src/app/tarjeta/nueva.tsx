@@ -219,13 +219,17 @@ export default function NuevaTarjetaScreen() {
         const isDevolucion = tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN');
         const isAsignado = !isDevolucion && (tipoUpper.includes('ASIGNA') || Boolean(formData.asignadoA && formData.asignadoA.trim()));
 
-        if ((isAsignado || isDevolucion) && formData.asignadoA) {
+        if ((isAsignado || isDevolucion) && formData.asignadoA && formData.asignadoA.trim()) {
           try {
             const targetName = formData.asignadoA.trim().toLowerCase();
-            const { data: perfiles } = await supabase
+            const { data: perfiles, error: perfilError } = await supabase
               .from('perfiles')
               .select('id, nombre_completo')
               .eq('empresa_id', empresaId);
+
+            if (perfilError) {
+              console.error('Error al buscar perfiles para notificación:', perfilError);
+            }
 
             const matchedProfile = perfiles?.find(p => {
               const pName = (p.nombre_completo || '').trim().toLowerCase();
@@ -233,14 +237,22 @@ export default function NuevaTarjetaScreen() {
             });
 
             if (matchedProfile?.id) {
+              // Guardar también asignado_a UUID en datos_valores para compatibilidad RLS y triggers
+              await supabase.from('tarjetas').update({
+                datos_valores: { ...formData, asignado_a: matchedProfile.id }
+              }).eq('id', nuevaTarjeta.id);
+
               const itemsList = Array.isArray(formData.items) && formData.items.length > 0 ? formData.items : [formData];
               const resumenItems = itemsList.map((it: any) => `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`).join(', ');
               const mensaje = isDevolucion
                 ? `Se registró la devolución de ${resumenItems} al almacén correctamente.`
-                : `Mira, se te asignó ${resumenItems}, así que esto está en tu poder actualmente.`;
-              await supabase.from('notificaciones').insert({ usuario_id: matchedProfile.id, tarjeta_id: nuevaTarjeta.id, mensaje, leida: false });
+                : `Se te asignó ${resumenItems}. Este material está ahora en tu custodia.`;
+              const { error: notifError } = await supabase.from('notificaciones').insert({ usuario_id: matchedProfile.id, tarjeta_id: nuevaTarjeta.id, mensaje, leida: false });
+              if (notifError) {
+                console.error('Error al insertar notificación:', notifError);
+              }
             } else {
-              console.warn('Perfil no encontrado para notificacion:', formData.asignadoA);
+              console.warn('Perfil no encontrado para notificación. Nombre buscado:', formData.asignadoA, 'Perfiles disponibles:', perfiles?.map(p => p.nombre_completo));
             }
           } catch (errNotif) { console.error('Error notificacion:', errNotif); }
         }

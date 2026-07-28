@@ -34,8 +34,10 @@ DROP POLICY IF EXISTS "Actualización de notificaciones propias" ON notificacion
 CREATE POLICY "Actualización de notificaciones propias" ON notificaciones
     FOR UPDATE USING (usuario_id = auth.uid());
 
--- Permitir inserción interna mediante triggers (Service Role o functions bypass RLS)
--- No se requiere política de INSERT porque los inserts los hace el trigger SECURITY DEFINER
+-- Permitir inserción desde el frontend (usuarios autenticados pueden crear notificaciones para otros)
+DROP POLICY IF EXISTS "Inserción de notificaciones" ON notificaciones;
+CREATE POLICY "Inserción de notificaciones" ON notificaciones
+    FOR INSERT WITH CHECK (true);
 
 -- 3. Habilitar Realtime para la tabla notificaciones (Requerido para React Native subs)
 DO $$

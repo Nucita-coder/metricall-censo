@@ -119,19 +119,29 @@ export const ModalDetalleTarjeta = ({
     try {
       await onUpdateTarjeta(editFormData);
       const tipoUpper = (editFormData.tipoCarga || '').toUpperCase();
-      const isAsignado = tipoUpper === 'MATERIAL ASIGNADO';
-      const isDevolucion = tipoUpper === 'DEVOLUCIÓN DE ASIGNACIÓN' || tipoUpper === 'DEVOLUCION DE ASIGNACION';
+      const isDevolucion = tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN');
+      const isAsignado = !isDevolucion && (tipoUpper.includes('ASIGNA') || Boolean(editFormData.asignadoA && editFormData.asignadoA.trim()));
 
       if (isMaterialesFormat && (isAsignado || isDevolucion) && editFormData.asignadoA) {
         try {
-          const { data: userProfile } = await supabase.from('perfiles').select('id').eq('empresa_id', tarjetaSeleccionada.empresa_id).ilike('nombre_completo', editFormData.asignadoA.trim()).maybeSingle();
-          if (userProfile?.id) {
+          const targetName = editFormData.asignadoA.trim().toLowerCase();
+          const { data: perfiles } = await supabase
+            .from('perfiles')
+            .select('id, nombre_completo')
+            .eq('empresa_id', tarjetaSeleccionada.empresa_id);
+
+          const matchedProfile = perfiles?.find(p => {
+            const pName = (p.nombre_completo || '').trim().toLowerCase();
+            return pName === targetName || (pName && targetName && (pName.includes(targetName) || targetName.includes(pName)));
+          });
+
+          if (matchedProfile?.id) {
             const itemsList = Array.isArray(editFormData.items) && editFormData.items.length > 0 ? editFormData.items : [editFormData];
             const resumenItems = itemsList.map((it: any) => `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`).join(', ');
             const mensaje = isDevolucion
               ? `Se registró la devolución de ${resumenItems} al almacén correctamente.`
               : `Mira, se te asignó ${resumenItems}, así que esto está en tu poder actualmente.`;
-            await supabase.from('notificaciones').insert({ usuario_id: userProfile.id, tarjeta_id: tarjetaSeleccionada.id, mensaje, leida: false });
+            await supabase.from('notificaciones').insert({ usuario_id: matchedProfile.id, tarjeta_id: tarjetaSeleccionada.id, mensaje, leida: false });
           }
         } catch (errNotif) { console.error('Error notificacion:', errNotif); }
       }

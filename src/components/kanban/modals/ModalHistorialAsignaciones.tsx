@@ -61,8 +61,9 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
         const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
         const asignadoA = (v.asignadoA || v.recibidoPor || '').toString().trim().toUpperCase();
 
-        const isDevolucion = tipo === 'DEVOLUCIÓN DE ASIGNACIÓN' || tipo === 'DEVOLUCION DE ASIGNACION';
-        const isAsignacion = tipo === 'MATERIAL ASIGNADO' || (!tipo && v.asignadoA);
+        const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
+        const hasAsignadoA = Boolean(v.asignadoA && v.asignadoA.toString().trim() !== '' && v.asignadoA.toString().trim() !== '—');
+        const isAsignacion = !isDevolucion && (tipo.includes('ASIGNA') || hasAsignadoA);
 
         if (isDevolucion || isAsignacion) {
           if (asignadoA === targetName || (targetName && (asignadoA.includes(targetName) || targetName.includes(asignadoA)))) {

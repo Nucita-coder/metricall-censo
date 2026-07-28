@@ -45,11 +45,14 @@ export function TablaStockAsignado({ empresaId, searchQuery }: TablaStockAsignad
       data.forEach((row: any) => {
         const v = row.datos_valores || {};
         const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
-        const isDevolucion = tipo === 'DEVOLUCIÓN DE ASIGNACIÓN' || tipo === 'DEVOLUCION DE ASIGNACION';
-        const isAsignado = tipo === 'MATERIAL ASIGNADO' || (!tipo && v.asignadoA);
+        const rawMiembro = (v.asignadoA || v.recibidoPor || '').toString().trim();
+        const hasAsignadoA = Boolean(rawMiembro && rawMiembro.toUpperCase() !== 'SIN ASIGNAR' && rawMiembro !== '—');
+
+        const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
+        const isAsignado = !isDevolucion && (tipo.includes('ASIGNA') || hasAsignadoA);
 
         if (isAsignado || isDevolucion) {
-          const miembro = (v.asignadoA || v.recibidoPor || 'Sin asignar').toString().trim().toUpperCase();
+          const miembro = rawMiembro.toUpperCase() || 'SIN ASIGNAR';
           const fecha = v.fechaRecibido || row.created_at?.split('T')[0] || '';
           const nroOrden = v.nroOrdenEntrega || '—';
 

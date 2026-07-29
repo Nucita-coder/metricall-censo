@@ -48,12 +48,13 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
       const { data, error } = await supabase
         .from('tarjetas')
         .select('id, datos_valores, created_at')
-        .eq('empresa_id', empresaId);
+        .eq('empresa_id', empresaId)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       if (!data) return;
 
-      const results: AssignmentHistoryItem[] = [];
+      const results: Array<AssignmentHistoryItem & { createdAt: string }> = [];
       const targetName = (miembroNombre || '').trim().toUpperCase();
 
       data.forEach((row: any) => {
@@ -90,6 +91,7 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
               cardId: row.id,
               nroOrden: v.nroOrdenEntrega || 'S/N',
               fecha: v.fechaRecibido || row.created_at?.split('T')[0] || '—',
+              createdAt: row.created_at || '',
               motivo: v.motivoAsignacion || (isDevolucion ? 'Devolución de Material' : 'Asignación de Material'),
               tipoCarga: isDevolucion ? 'DEVOLUCION' : 'ASIGNACION',
               entregadoPor: (v.entregadoPor || '—').toUpperCase(),
@@ -101,7 +103,30 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
         }
       });
 
-      results.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+      const getTimestamp = (item: { createdAt?: string; fecha?: string }): number => {
+        if (item.createdAt) {
+          const t = new Date(item.createdAt).getTime();
+          if (!isNaN(t) && t > 0) return t;
+        }
+        if (item.fecha && item.fecha.includes('/')) {
+          const parts = item.fecha.split('/');
+          if (parts.length === 3) {
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const year = parseInt(parts[2], 10);
+            if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+              return new Date(year, month, day).getTime();
+            }
+          }
+        }
+        if (item.fecha && item.fecha !== '—') {
+          const t = new Date(item.fecha).getTime();
+          if (!isNaN(t)) return t;
+        }
+        return 0;
+      };
+
+      results.sort((a, b) => getTimestamp(b) - getTimestamp(a));
       setHistoryList(results);
     } catch (e) {
       console.error('Error al cargar historial de asignaciones:', e);

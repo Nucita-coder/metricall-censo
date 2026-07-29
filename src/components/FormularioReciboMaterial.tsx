@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Paperclip, Plus, Trash2, X } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ImageBackground, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -19,18 +19,20 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
   const [stockDisponibles, setStockDisponibles] = useState<Array<{ codigo: string; nombre: string; modelo: string; stock: number }>>([]);
   const [stockCustodiaMiembro, setStockCustodiaMiembro] = useState<Array<{ codigo: string; nombre: string; modelo: string; stock: number }>>([]);
   const tipoUpper = (formData.tipoCarga || '').toUpperCase();
-  const isDevolucionMode = tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN');
+  const isDevolucionCentralMode = tipoUpper.includes('ALMACÉN CENTRAL') || tipoUpper.includes('ALMACEN CENTRAL');
+  const isDevolucionAsignacionMode = (tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN')) && !isDevolucionCentralMode;
+  const isDevolucionMode = isDevolucionCentralMode || isDevolucionAsignacionMode;
   const isAsignadoMode = !isDevolucionMode && (tipoUpper.includes('ASIGNA') || Boolean(formData.asignadoA && formData.asignadoA.trim()));
 
   useEffect(() => {
     if (isDevolucionMode && handleChange) {
       if (!formData.fechaRecibido) handleChange('fechaRecibido', new Date().toISOString().split('T')[0]);
       if (nombreCompleto) {
-        if (formData.asignadoA !== nombreCompleto) handleChange('asignadoA', nombreCompleto);
+        if (isDevolucionAsignacionMode && formData.asignadoA !== nombreCompleto) handleChange('asignadoA', nombreCompleto);
         if (formData.entregadoPor !== nombreCompleto) handleChange('entregadoPor', nombreCompleto);
       }
     }
-  }, [isDevolucionMode, nombreCompleto]);
+  }, [isDevolucionMode, isDevolucionAsignacionMode, nombreCompleto]);
 
   useEffect(() => {
     if (!empresaId) return;
@@ -53,7 +55,7 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
           if (!cod) return;
           const cant = parseFloat(subItem.cantidadRecibida || '0') || 0;
           if (!mapa[cod]) mapa[cod] = { codigo: cod, nombre: (subItem.nombreMaterial || '').toUpperCase(), modelo: (subItem.modeloMaterial || '').toUpperCase(), stock: 0 };
-          
+
           if (isAsignado) {
             mapa[cod].stock -= cant;
           } else if (isDevolucionAsig) {
@@ -79,7 +81,7 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
           const v = row.datos_valores || {};
           const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
           const miembro = (v.asignadoA || v.recibidoPor || '').toString().trim().toUpperCase();
-          
+
           const matchMiembro = targetMiembro === '' || miembro === targetMiembro || (targetMiembro && miembro && (miembro.includes(targetMiembro) || targetMiembro.includes(miembro)));
           if (!matchMiembro) return;
 
@@ -94,7 +96,7 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
             if (!cod) return;
             const cant = parseFloat(subItem.cantidadRecibida || '0') || 0;
             if (!mapa[cod]) mapa[cod] = { codigo: cod, nombre: (subItem.nombreMaterial || '').toUpperCase(), modelo: (subItem.modeloMaterial || '').toUpperCase(), stock: 0 };
-            
+
             if (isAsignado) {
               mapa[cod].stock += cant;
             } else if (isDevolucion) {
@@ -258,25 +260,42 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
             label="Tipo de Carga"
             value={formData.tipoCarga}
             onSelect={(v) => updateHeaderField('tipoCarga', v)}
-            options={['Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados']}
+            options={['Material Recibido', 'Material Asignado', 'Recuperados']}
             placeholder="Seleccionar tipo de carga..."
             isRequired
             disabled={readOnly}
           />
         ) : (
-          <InputTexto label="Tipo de Carga" value="DEVOLUCIÓN DE ASIGNACIÓN" isRequired readOnly />
+          <InputTexto label="Tipo de Carga" value={isDevolucionCentralMode ? "DEVOLUCIÓN A ALMACÉN CENTRAL" : "DEVOLUCIÓN DE ASIGNACIÓN"} isRequired readOnly />
         )}
         {isAsignadoMode && (
           <SelectDropdown label="Personal / Miembro Asignado" value={formData.asignadoA} onSelect={(v) => { updateHeaderField('asignadoA', v); updateHeaderField('recibidoPor', v); }} options={miembrosList.length > 0 ? miembrosList : ['No hay miembros registrados']} placeholder="Seleccionar miembro a asignar..." isRequired disabled={readOnly} />
         )}
-        {isDevolucionMode && (
+        {isDevolucionAsignacionMode && (
           <InputTexto label="Personal / Miembro que Devuelve" value={formData.asignadoA || nombreCompleto} isRequired readOnly />
+        )}
+        {isDevolucionCentralMode && (
+          <InputTexto label="Sede / Almacén Central de Destino" value={formData.asignadoA || 'Almacén Central (Sede Matriz)'} onChangeText={(v) => updateHeaderField('asignadoA', v)} isRequired readOnly={readOnly} />
         )}
       </View>
 
       {/* 2. INSUMOS / MATERIALES */}
       <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>{isDevolucionMode ? '2. MATERIALES EN CUSTODIA A DEVOLVER' : isAsignadoMode ? '2. MATERIALES A ASIGNAR (DESDE ALMACÉN)' : '2. MATERIALES RECIBIDOS'} ({items.length})</Text>
+        <Text style={styles.sectionTitle}>
+          {isDevolucionCentralMode
+            ? '2. MATERIALES A DEVOLVER A ALMACÉN CENTRAL'
+            : isDevolucionAsignacionMode
+              ? '2. MATERIALES EN CUSTODIA A DEVOLVER'
+              : isAsignadoMode
+                ? '2. MATERIALES A ASIGNAR (DESDE ALMACÉN)'
+                : '2. MATERIALES RECIBIDOS'} ({items.length})
+        </Text>
+        {(isAsignadoMode || isDevolucionCentralMode) && !readOnly && stockDisponibles.length === 0 && (
+          <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#F87171' }}>⚠️ Sin Stock Disponible en Almacén</Text>
+            <Text style={{ fontSize: 12, color: '#D1D5DB', marginTop: 4 }}>No hay materiales en el almacén local para procesar esta operación.</Text>
+          </View>
+        )}
         {items.map((item, idx) => {
           const info = stockInfoMap[idx];
           return (
@@ -289,20 +308,41 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
                   </TouchableOpacity>
                 )}
               </View>
-              {isAsignadoMode && !readOnly && stockDisponibles.length > 0 && (
-                <SelectDropdown label="Seleccionar Material de Almacén" value={item.codigoMaterial ? `${item.codigoMaterial} - ${item.nombreMaterial}` : ''} onSelect={(sel: string) => { const found = stockDisponibles.find(s => sel.startsWith(s.codigo)); if (found) { updateMultipleItemFields(idx, { codigoMaterial: found.codigo, nombreMaterial: found.nombre, modeloMaterial: found.modelo }); setStockInfoMap(prev => ({ ...prev, [idx]: { stockExistente: found.stock, esNuevoCodigo: false, isSearching: false } })); } }} options={stockDisponibles.map(s => `${s.codigo} - ${s.nombre} (Stock: ${s.stock} und.)`)} placeholder="Buscar / Seleccionar material..." isRequired />
+              {(isAsignadoMode || isDevolucionCentralMode) && !readOnly && (
+                <SelectDropdown
+                  label={isDevolucionCentralMode ? "Seleccionar Material de Almacén a Devolver" : "Seleccionar Material de Almacén"}
+                  value={item.codigoMaterial ? `${item.codigoMaterial} - ${item.nombreMaterial}` : ''}
+                  onSelect={(sel: string) => {
+                    const found = stockDisponibles.find(s => sel.startsWith(s.codigo));
+                    if (found) {
+                      updateMultipleItemFields(idx, { codigoMaterial: found.codigo, nombreMaterial: found.nombre, modeloMaterial: found.modelo });
+                      setStockInfoMap(prev => ({ ...prev, [idx]: { stockExistente: found.stock, esNuevoCodigo: false, isSearching: false } }));
+                    }
+                  }}
+                  options={stockDisponibles.map(s => `${s.codigo} - ${s.nombre} (Stock: ${s.stock} und.)`)}
+                  placeholder={stockDisponibles.length > 0 ? "Buscar / Seleccionar material..." : "No hay stock disponible en almacén"}
+                  isRequired
+                  disabled={stockDisponibles.length === 0}
+                />
               )}
-              {isDevolucionMode && !readOnly && (
+              {isDevolucionAsignacionMode && !readOnly && (
                 <SelectDropdown label="Seleccionar Material en Custodia a Devolver" value={item.codigoMaterial ? `${item.codigoMaterial} - ${item.nombreMaterial}` : ''} onSelect={(sel: string) => { const found = stockCustodiaMiembro.find(s => sel.startsWith(s.codigo)); if (found) { updateMultipleItemFields(idx, { codigoMaterial: found.codigo, nombreMaterial: found.nombre, modeloMaterial: found.modelo }); setStockInfoMap(prev => ({ ...prev, [idx]: { stockExistente: found.stock, esNuevoCodigo: false, isSearching: false } })); } }} options={stockCustodiaMiembro.map(s => `${s.codigo} - ${s.nombre} (${s.stock} und. en custodia)`)} placeholder={stockCustodiaMiembro.length > 0 ? "Seleccionar material en tu poder..." : "No posees materiales en custodia"} isRequired />
               )}
-              <InputTexto label="Código Material" value={item.codigoMaterial} onChangeText={(v) => handleCodigoChangeForItem(idx, v)} placeholder="Ej. MAT-0982" isRequired readOnly={readOnly || isDevolucionMode} />
+              <InputTexto label="Código Material" value={item.codigoMaterial} onChangeText={(v) => handleCodigoChangeForItem(idx, v)} placeholder="Ej. MAT-0982" isRequired readOnly={readOnly || isDevolucionMode || isAsignadoMode} />
               {info?.isSearching && <Text style={styles.helperText}>Buscando stock e información...</Text>}
               {!info?.isSearching && info?.stockExistente !== null && info?.stockExistente !== undefined && (
                 <View style={styles.stockBadgeExistente}>
-                  <Text style={styles.stockBadgeText}>{isDevolucionMode ? '✓ En tu poder / custodia: ' : '✓ Stock disponible en almacén: '}<Text style={{ fontWeight: 'bold', color: '#FFF' }}>{info.stockExistente} und.</Text></Text>
+                  <Text style={styles.stockBadgeText}>
+                    {isDevolucionCentralMode
+                      ? '✓ Stock disponible en almacén local: '
+                      : isDevolucionAsignacionMode
+                        ? '✓ En tu poder / custodia: '
+                        : '✓ Stock disponible en almacén: '}
+                    <Text style={{ fontWeight: 'bold', color: '#FFF' }}>{info.stockExistente} und.</Text>
+                  </Text>
                 </View>
               )}
-              {!info?.isSearching && info?.esNuevoCodigo === true && (
+              {!info?.isSearching && info?.esNuevoCodigo === true && !isAsignadoMode && !isDevolucionCentralMode && (
                 <View style={styles.stockBadgeNuevo}>
                   <Text style={styles.stockBadgeTextNuevo}>+ Código nuevo. Se registrará este nuevo material.</Text>
                 </View>
@@ -310,29 +350,35 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
               <View style={styles.row}>
                 <View style={styles.flex1}>
                   <InputTexto label={isDevolucionMode ? "Cantidad a Devolver" : isAsignadoMode ? "Cantidad a Asignar" : "Cantidad Recibida"} value={item.cantidadRecibida} onChangeText={(v) => updateItemField(idx, 'cantidadRecibida', v)} placeholder="Ej. 50" keyboardType="numeric" isRequired readOnly={readOnly} />
-                  {isDevolucionMode && info?.stockExistente !== null && info?.stockExistente !== undefined && parseFloat(item.cantidadRecibida || '0') > info.stockExistente && (
+                  {isDevolucionCentralMode && info?.stockExistente !== null && info?.stockExistente !== undefined && parseFloat(item.cantidadRecibida || '0') > info.stockExistente && (
+                    <Text style={{ fontSize: 10, color: '#F87171', fontWeight: 'bold', marginTop: 2 }}>⚠️ Excede las {info.stockExistente} und. disponibles en almacén local</Text>
+                  )}
+                  {isDevolucionAsignacionMode && info?.stockExistente !== null && info?.stockExistente !== undefined && parseFloat(item.cantidadRecibida || '0') > info.stockExistente && (
                     <Text style={{ fontSize: 10, color: '#F87171', fontWeight: 'bold', marginTop: 2 }}>⚠️ Excede las {info.stockExistente} und. en tu poder</Text>
+                  )}
+                  {isAsignadoMode && info?.stockExistente !== null && info?.stockExistente !== undefined && parseFloat(item.cantidadRecibida || '0') > info.stockExistente && (
+                    <Text style={{ fontSize: 10, color: '#F87171', fontWeight: 'bold', marginTop: 2 }}>⚠️ Excede las {info.stockExistente} und. disponibles en almacén</Text>
                   )}
                 </View>
                 <View style={styles.flex1}>
-                  <InputTexto label="Modelo Material" value={item.modeloMaterial} onChangeText={(v) => updateItemField(idx, 'modeloMaterial', v)} placeholder="Ej. G657A2" readOnly={readOnly} />
+                  <InputTexto label="Modelo Material" value={item.modeloMaterial} onChangeText={(v) => updateItemField(idx, 'modeloMaterial', v)} placeholder="Ej. G657A2" readOnly={readOnly || isAsignadoMode || isDevolucionMode} />
                 </View>
               </View>
-              <InputTexto label="Nombre de Material" value={item.nombreMaterial} onChangeText={(v) => updateItemField(idx, 'nombreMaterial', v)} placeholder="Ej. Cable Fibra Óptica Drop 2 Hilos" isRequired readOnly={readOnly} />
+              <InputTexto label="Nombre de Material" value={item.nombreMaterial} onChangeText={(v) => updateItemField(idx, 'nombreMaterial', v)} placeholder="Ej. Cable Fibra Óptica Drop 2 Hilos" isRequired readOnly={readOnly || isAsignadoMode || isDevolucionMode} />
               <InputTexto label="Serial Material (Opcional)" value={item.serialMaterial} onChangeText={(v) => updateItemField(idx, 'serialMaterial', v)} placeholder="Ej. SN-8839201" readOnly={readOnly} />
             </View>
           );
         })}
         {!readOnly && (
           <TouchableOpacity style={styles.addItemBtn} onPress={handleAddItem}>
-            <Plus size={16} color="#0C66E4" /><Text style={styles.addItemBtnText}>+ Añadir otro material</Text>
+            <Plus size={16} color="#0C66E4" /><Text style={styles.addItemBtnText}>Añadir otro material</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* 3. ADJUNTAR EVIDENCIAS Y FACTURAS */}
+      {/* 3. ADJUNTO */}
       <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>3. ADJUNTAR EVIDENCIAS Y FACTURAS</Text>
+        <Text style={styles.sectionTitle}>3. ADJUNTO</Text>
         <Text style={{ fontSize: 11, color: '#8C9BAB', marginBottom: 12 }}>Sube fotos de la nota de entrega, guía o estado de la devolución.</Text>
         {!readOnly && (
           <TouchableOpacity style={styles.attachBtn} onPress={handleAdjuntarFotoFactura} disabled={subiendoImagen}>

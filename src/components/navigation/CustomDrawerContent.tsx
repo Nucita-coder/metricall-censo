@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePathname, useRouter } from 'expo-router';
-import { BarChart3, FolderKanban, LifeBuoy, MessageSquare, Settings, Users } from 'lucide-react-native';
+import { BarChart3, FolderKanban, LifeBuoy, MessageSquare, Package, Settings, Users } from 'lucide-react-native';
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGlobalUi } from '../../context/GlobalUiContext';
@@ -42,6 +42,7 @@ export function CustomDrawerContent(props: any) {
       {!isDesktop && (
         <>
           <MenuItem label="Operaciones" icon={FolderKanban} route="/(drawer)/(tabs)" />
+          <MenuItem label="Mis Materiales" icon={Package} route="/(drawer)/(tabs)/materiales" />
           {isAdmin && <MenuItem label="Métricas" icon={BarChart3} route="/(drawer)/(tabs)/metricas" />}
           <MenuItem label="Messenger" icon={MessageSquare} route="/(drawer)/(tabs)/mensajes" />
           <MenuItem label="Soporte Técnico" icon={LifeBuoy} onPress={() => triggerSoporteModal()} />
@@ -52,6 +53,7 @@ export function CustomDrawerContent(props: any) {
       {isDesktop && (
         <>
           <MenuItem label="Operaciones" icon={FolderKanban} route="/(drawer)/(tabs)" />
+          <MenuItem label="Mis Materiales" icon={Package} route="/(drawer)/(tabs)/materiales" />
           {isAdmin && <MenuItem label="Métricas" icon={BarChart3} route="/(drawer)/(tabs)/metricas" />}
           <MenuItem label="Messenger" icon={MessageSquare} route="/(drawer)/(tabs)/mensajes" />
           {currentRol !== 'empleado' && <MenuItem label="Equipo" icon={Users} route="/(drawer)/(tabs)/equipo" />}

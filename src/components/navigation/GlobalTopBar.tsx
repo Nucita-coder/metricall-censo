@@ -75,7 +75,15 @@ export function GlobalTopBar() {
           <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(drawer)/(tabs)/mensajes' as any)}>
             <MessageSquare size={20} color="#9FADBC" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => setShowNotificaciones(true)}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => {
+              setShowNotificaciones(true);
+              if (unreadCount > 0) {
+                marcarTodasComoLeidas();
+              }
+            }}
+          >
             <Bell size={20} color="#9FADBC" />
             {unreadCount > 0 && (
               <View style={styles.unreadBadge}>

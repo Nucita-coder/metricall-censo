@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
-import { Package, Search, X, RefreshCw, ArrowUpRight, ArrowDownRight, SlidersHorizontal, ChevronDown } from 'lucide-react-native';
+import { Package, Search, X, RefreshCw, ArrowUpRight, ArrowDownRight, SlidersHorizontal, ChevronDown, BarChart3, UserCheck, History } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { WEB_MODAL_CONTAINER } from '../../../constants/theme';
@@ -21,13 +21,14 @@ interface ModalInventarioAlmacenProps {
 
 import { TablaStockAsignado } from './TablaStockAsignado';
 import { TablaStockGeneral } from './TablaStockGeneral';
+import { TablaHistorialCargas } from './TablaHistorialCargas';
 
 export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlmacenProps) {
   const { empresaId } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = width > 768;
 
-  const [activeTab, setActiveTab] = useState<'disponible' | 'asignado' | 'general'>('disponible');
+  const [activeTab, setActiveTab] = useState<'disponible' | 'asignado' | 'historial' | 'general'>('disponible');
   const [isLoading, setIsLoading] = useState(false);
   const [materiales, setMateriales] = useState<MaterialStockItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -147,14 +148,36 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
 
           {/* TAB SWITCHER */}
           <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: '#0D1117', borderBottomWidth: 1, borderBottomColor: '#1F2937' }}>
-            <TouchableOpacity style={[{ paddingVertical: 7, paddingHorizontal: 12, borderRadius: 6 }, activeTab === 'disponible' ? { backgroundColor: '#1D4ED8' } : { backgroundColor: '#1F2937' }]} onPress={() => setActiveTab('disponible')}>
-              <Text style={{ fontSize: 11, fontWeight: 'bold', color: activeTab === 'disponible' ? '#FFF' : '#9CA3AF' }}>📦 Stock Disponible</Text>
+            <TouchableOpacity
+              style={[{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 6 }, activeTab === 'disponible' ? { backgroundColor: '#1D4ED8' } : { backgroundColor: '#1F2937' }]}
+              onPress={() => setActiveTab('disponible')}
+            >
+              <Package size={14} color={activeTab === 'disponible' ? '#FFF' : '#9CA3AF'} />
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: activeTab === 'disponible' ? '#FFF' : '#9CA3AF' }}>Stock Disponible</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[{ paddingVertical: 7, paddingHorizontal: 12, borderRadius: 6 }, activeTab === 'asignado' ? { backgroundColor: '#1D4ED8' } : { backgroundColor: '#1F2937' }]} onPress={() => setActiveTab('asignado')}>
-              <Text style={{ fontSize: 11, fontWeight: 'bold', color: activeTab === 'asignado' ? '#FFF' : '#9CA3AF' }}>👤 Stock Asignado</Text>
+
+            <TouchableOpacity
+              style={[{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 6 }, activeTab === 'asignado' ? { backgroundColor: '#1D4ED8' } : { backgroundColor: '#1F2937' }]}
+              onPress={() => setActiveTab('asignado')}
+            >
+              <UserCheck size={14} color={activeTab === 'asignado' ? '#FFF' : '#9CA3AF'} />
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: activeTab === 'asignado' ? '#FFF' : '#9CA3AF' }}>Stock Asignado</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[{ paddingVertical: 7, paddingHorizontal: 12, borderRadius: 6 }, activeTab === 'general' ? { backgroundColor: '#1D4ED8' } : { backgroundColor: '#1F2937' }]} onPress={() => setActiveTab('general')}>
-              <Text style={{ fontSize: 11, fontWeight: 'bold', color: activeTab === 'general' ? '#FFF' : '#9CA3AF' }}>📊 Stock General</Text>
+
+            <TouchableOpacity
+              style={[{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 6 }, activeTab === 'historial' ? { backgroundColor: '#1D4ED8' } : { backgroundColor: '#1F2937' }]}
+              onPress={() => setActiveTab('historial')}
+            >
+              <History size={14} color={activeTab === 'historial' ? '#FFF' : '#9CA3AF'} />
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: activeTab === 'historial' ? '#FFF' : '#9CA3AF' }}>Historial Cargas</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 6 }, activeTab === 'general' ? { backgroundColor: '#1D4ED8' } : { backgroundColor: '#1F2937' }]}
+              onPress={() => setActiveTab('general')}
+            >
+              <BarChart3 size={14} color={activeTab === 'general' ? '#FFF' : '#9CA3AF'} />
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: activeTab === 'general' ? '#FFF' : '#9CA3AF' }}>Stock General</Text>
             </TouchableOpacity>
           </View>
 
@@ -234,6 +257,8 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
           {/* CONTENIDO DE PESTAÑA */}
           {activeTab === 'asignado' ? (
             <TablaStockAsignado empresaId={empresaId} searchQuery={searchQuery} />
+          ) : activeTab === 'historial' ? (
+            <TablaHistorialCargas empresaId={empresaId} searchQuery={searchQuery} />
           ) : activeTab === 'general' ? (
             <TablaStockGeneral empresaId={empresaId} searchQuery={searchQuery} />
           ) : (

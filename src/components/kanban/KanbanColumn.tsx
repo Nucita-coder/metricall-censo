@@ -209,9 +209,23 @@ const KanbanColumnComponent = ({
             ListFooterComponent={() => {
               if (!puedeCrear) return null;
               const nombreLower = item.nombre ? item.nombre.toLowerCase().trim() : '';
-              const isDevolucionColumn = nombreLower.includes('devolución de asignación') || nombreLower.includes('devolucion de asignacion') || nombreLower.includes('devolucion');
+              const isDevolucionCentralColumn = nombreLower.includes('almacén central') || nombreLower.includes('almacen central');
+              const isDevolucionAsignacionColumn = !isDevolucionCentralColumn && (nombreLower.includes('devolución de asignación') || nombreLower.includes('devolucion de asignacion') || nombreLower.includes('devolucion'));
+              const isDevolucionColumn = isDevolucionCentralColumn || isDevolucionAsignacionColumn;
               const isEntryColumn = nombreLower.includes('venta') || nombreLower === 'censo' || nombreLower === 'carga de materiales' || isDevolucionColumn;
               if (!puedeCrear || !isEntryColumn) return null;
+
+              const buttonTipoCarga = isDevolucionCentralColumn
+                ? 'DEVOLUCIÓN A ALMACÉN CENTRAL'
+                : isDevolucionAsignacionColumn
+                  ? 'DEVOLUCIÓN DE ASIGNACIÓN'
+                  : undefined;
+
+              const buttonText = isDevolucionCentralColumn
+                ? 'Devolución a Almacén Central'
+                : isDevolucionAsignacionColumn
+                  ? 'Devolución de Asignación'
+                  : 'Añadir Tarjeta';
 
               return (
                 <TouchableOpacity
@@ -229,12 +243,12 @@ const KanbanColumnComponent = ({
                     marginTop: 12,
                     marginBottom: 20
                   }}
-                  onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre, tipoCarga: isDevolucionColumn ? 'DEVOLUCIÓN DE ASIGNACIÓN' : undefined } })}
+                  onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre, tipoCarga: buttonTipoCarga } })}
                   activeOpacity={0.6}
                 >
                   <Plus size={22} color="#111" strokeWidth={2} />
                   <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 15, fontStyle: 'italic' }}>
-                    {isDevolucionColumn ? '+ Devolución de Asignación' : 'Añadir Tarjeta'}
+                    {buttonText}
                   </Text>
                 </TouchableOpacity>
               );

@@ -5,18 +5,36 @@ import { Save } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import FormularioCenso from '../../components/FormularioCenso';
-import FormularioVenta from '../../components/FormularioVenta';
 import FormularioReciboMaterial from '../../components/FormularioReciboMaterial';
+import FormularioVenta from '../../components/FormularioVenta';
+import { checkIsCensoFormat } from '../../components/kanban/detalle/types';
 import CardLayoutWrapper from '../../components/layout/CardLayoutWrapper';
 import { ModalMapaUbicacion } from '../../components/tarjetas/ModalMapaUbicacion';
-import { checkIsCensoFormat } from '../../components/kanban/detalle/types';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 
 const LISTAS_ALMACEN = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'];
 
 export default function NuevaTarjetaScreen() {
-  const { lista_id, lista_nombre, tipoCarga: paramTipoCarga } = useLocalSearchParams<{ lista_id: string, lista_nombre?: string, tipoCarga?: string }>();
+  const {
+    lista_id,
+    lista_nombre,
+    tipoCarga: paramTipoCarga,
+    codigoMaterial: paramCodigo,
+    nombreMaterial: paramNombre,
+    modeloMaterial: paramModelo,
+    serialMaterial: paramSerial,
+    cantidad: paramCantidad
+  } = useLocalSearchParams<{
+    lista_id: string;
+    lista_nombre?: string;
+    tipoCarga?: string;
+    codigoMaterial?: string;
+    nombreMaterial?: string;
+    modeloMaterial?: string;
+    serialMaterial?: string;
+    cantidad?: string;
+  }>();
   const { session, empresaId } = useAuth();
 
   const [isLocating, setIsLocating] = useState(false);
@@ -26,10 +44,25 @@ export default function NuevaTarjetaScreen() {
   const [listaNombre, setListaNombre] = useState<string>(lista_nombre || '');
 
   React.useEffect(() => {
-    if (paramTipoCarga) {
-      setFormData(prev => ({ ...prev, tipoCarga: paramTipoCarga }));
-    }
-  }, [paramTipoCarga]);
+    setFormData(prev => ({
+      ...prev,
+      ...(paramTipoCarga ? { tipoCarga: paramTipoCarga } : {}),
+      ...(paramCodigo ? { codigoMaterial: paramCodigo } : {}),
+      ...(paramNombre ? { nombreMaterial: paramNombre } : {}),
+      ...(paramModelo ? { modeloMaterial: paramModelo } : {}),
+      ...(paramSerial ? { serialMaterial: paramSerial } : {}),
+      ...(paramCantidad ? { cantidadRecibida: paramCantidad } : {}),
+      ...(paramCodigo || paramNombre ? {
+        items: [{
+          codigoMaterial: paramCodigo || '',
+          nombreMaterial: paramNombre || '',
+          modeloMaterial: paramModelo || '',
+          serialMaterial: paramSerial || '',
+          cantidadRecibida: paramCantidad || '1',
+        }]
+      } : {})
+    }));
+  }, [paramTipoCarga, paramCodigo, paramNombre, paramModelo, paramSerial, paramCantidad]);
 
   React.useEffect(() => {
     if (lista_id) {
@@ -105,9 +138,16 @@ export default function NuevaTarjetaScreen() {
         Alert.alert('Campos incompletos', 'Por favor, completa los campos obligatorios de la orden, el tipo de carga y al menos un material válido.');
         return;
       }
-      if (formData.tipoCarga?.toUpperCase() === 'MATERIAL ASIGNADO' && !formData.asignadoA) {
-        Alert.alert('Campo incompleto', 'Por favor, selecciona el miembro o personal al cual se le va a asignar el material.');
-        return;
+      if (formData.tipoCarga?.toUpperCase() === 'MATERIAL ASIGNADO') {
+        if (!formData.asignadoA) {
+          Alert.alert('Campo incompleto', 'Por favor, selecciona el miembro o personal al cual se le va a asignar el material.');
+          return;
+        }
+        const hasUnselectedItem = items.some((i: any) => !i.codigoMaterial || !i.codigoMaterial.trim());
+        if (hasUnselectedItem) {
+          Alert.alert('Material no seleccionado', 'Por favor, selecciona el material de Almacén a asignar utilizando el menú desplegable.');
+          return;
+        }
       }
     } else if (listaNombre !== 'Censo') {
       if (!formData.tipoServicio || !formData.nombreApellido || !formData.tipoDocumento || !formData.documentoIdentidad) {
@@ -271,8 +311,8 @@ export default function NuevaTarjetaScreen() {
       const mensajeExito = isMaterialesMode
         ? 'Carga de material registrada correctamente.'
         : isCensoMode
-        ? 'Censo registrado correctamente.'
-        : 'Venta registrada correctamente.';
+          ? 'Censo registrado correctamente.'
+          : 'Venta registrada correctamente.';
 
       if (Platform.OS === 'web') {
         navigateBack();

@@ -28,6 +28,7 @@ import { ModalPantallaDividida } from '../../components/kanban/modals/ModalPanta
 import { ModalInventarioAlmacen } from '../../components/kanban/modals/ModalInventarioAlmacen';
 import { ModalDetalleTarjeta } from '../../components/kanban/ModalDetalleTarjeta';
 import { ModalTrazabilidad } from '../../components/kanban/ModalTrazabilidad';
+import { ModalFiltrosTablero, FiltrosTableroEstado, FILTROS_DEFAULT } from '../../components/kanban/modals/ModalFiltrosTablero';
 import { BoardHeader } from '../../components/kanban/BoardHeader';
 import { BoardActionButtons } from '../../components/kanban/BoardActionButtons';
 
@@ -96,7 +97,8 @@ export default function KanbanTableroScreen() {
   const [showSplitMenu, setShowSplitMenu] = useState(false);
   const [secondaryBoardId, setSecondaryBoardId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterPagosPendientes, setFilterPagosPendientes] = useState(false);
+  const [filtrosTablero, setFiltrosTablero] = useState<FiltrosTableroEstado>(FILTROS_DEFAULT);
+  const [modalFiltrosVisible, setModalFiltrosVisible] = useState(false);
   const [isMobileSearchActive, setIsMobileSearchActive] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean, x: number, y: number, tarjeta: Tarjeta | null }>({ visible: false, x: 0, y: 0, tarjeta: null });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -382,34 +384,40 @@ export default function KanbanTableroScreen() {
     return n.includes('cobranza') || n.includes('recupero');
   });
 
-  const pendingPagosCount = useMemo(() => {
-    if (!isCobranzaBoard) return 0;
-    let count = 0;
-    listas.forEach(lista => {
-      const nombreClean = (lista.nombre || '').toLowerCase();
-      const esNegativa = nombreClean.includes('negativa');
-      const esEfectiva = nombreClean.includes('efectiva');
+  const isFiltroActivo = useMemo(() => {
+    return (
+      filtrosTablero.estadoCobro !== 'todos' ||
+      filtrosTablero.flujo !== 'todos' ||
+      filtrosTablero.resultadoEspecifico !== 'todos' ||
+      filtrosTablero.tipoContacto !== 'todos'
+    );
+  }, [filtrosTablero]);
 
-      (lista.tarjetas || []).forEach(t => {
-        const vals = t.datos_valores || {};
-        const res = (vals.resultadoContacto || vals.resultado || '').trim().toUpperCase();
-
-        if (esNegativa) {
-          count++;
-        } else if (esEfectiva && RESULTADOS_PENDIENTES_COBRO.includes(res)) {
-          count++;
-        } else if (!esEfectiva && !esNegativa) {
-          count++;
-        }
-      });
-    });
-    return count;
-  }, [listas, isCobranzaBoard, RESULTADOS_PENDIENTES_COBRO]);
+  const resumenFiltro = useMemo(() => {
+    if (filtrosTablero.estadoCobro === 'pendientes') return 'Pagos Pendientes';
+    if (filtrosTablero.estadoCobro === 'cobrados') return 'Pagos Liquidados';
+    if (filtrosTablero.flujo !== 'todos') return `Flujo ${filtrosTablero.flujo.toUpperCase()}`;
+    if (filtrosTablero.resultadoEspecifico !== 'todos') return filtrosTablero.resultadoEspecifico;
+    if (filtrosTablero.tipoContacto !== 'todos') return filtrosTablero.tipoContacto;
+    return 'Activos';
+  }, [filtrosTablero]);
 
   const filteredListas = useMemo(() => {
     let baseListas = listas;
     if (userRol === 'empleado') baseListas = listas.filter(lista => lista.permisos_relacionales?.puede_ver === true);
-    if (!searchQuery.trim() && !filterPagosPendientes) return baseListas;
+
+    // 1. Filtro por Flujo (Cobranza vs Recupero)
+    if (filtrosTablero.flujo === 'cobranza') {
+      baseListas = baseListas.filter(lista => {
+        const n = (lista.nombre || '').toLowerCase();
+        return n.includes('cobranza') || (n.includes('efectiva') && !n.includes('recupero')) || (n.includes('negativa') && !n.includes('recupero'));
+      });
+    } else if (filtrosTablero.flujo === 'recupero') {
+      baseListas = baseListas.filter(lista => {
+        const n = (lista.nombre || '').toLowerCase();
+        return n.includes('recupero');
+      });
+    }
 
     const q = searchQuery.toLowerCase().trim();
 
@@ -421,6 +429,7 @@ export default function KanbanTableroScreen() {
       const tarjetasFiltradas = (lista.tarjetas || []).filter(t => {
         const vals = t.datos_valores || {};
 
+        // A. Búsqueda por texto (nombre, cédula, abonado, id)
         if (q) {
           const nombre = (vals.nombreApellido || vals.nombre || vals.cliente || '').toLowerCase();
           const cedula = (vals.cedula || vals.documento || vals.rif || '').toLowerCase();
@@ -430,11 +439,35 @@ export default function KanbanTableroScreen() {
           if (!matches) return false;
         }
 
-        if (filterPagosPendientes) {
+        // B. Estado de Cobro / Pago (pendientes vs cobrados)
+        if (filtrosTablero.estadoCobro === 'pendientes') {
           const res = (vals.resultadoContacto || vals.resultado || '').trim().toUpperCase();
-          if (esNegativa) return true;
-          if (esEfectiva) return RESULTADOS_PENDIENTES_COBRO.includes(res);
-          return true;
+          if (esNegativa) {
+            // Acción negativa siempre es pago no concretado / pendiente
+          } else if (esEfectiva) {
+            if (!RESULTADOS_PENDIENTES_COBRO.includes(res)) return false;
+          }
+        } else if (filtrosTablero.estadoCobro === 'cobrados') {
+          const res = (vals.resultadoContacto || vals.resultado || '').trim().toUpperCase();
+          if (!esEfectiva || (res !== 'COBRO EFECTIVO' && res !== 'RECUPERADO')) {
+            return false;
+          }
+        }
+
+        // C. Tipo de Contacto específico
+        if (filtrosTablero.tipoContacto !== 'todos') {
+          const tipoCard = (vals.tipoContacto || vals['TIPO DE CONTACTO'] || '').trim().toUpperCase();
+          if (tipoCard !== filtrosTablero.tipoContacto.trim().toUpperCase()) {
+            return false;
+          }
+        }
+
+        // D. Resultado / Causa Específica
+        if (filtrosTablero.resultadoEspecifico !== 'todos') {
+          const resCard = (vals.resultadoContacto || vals.resultado || vals.RESULTADO || '').trim().toUpperCase();
+          if (resCard !== filtrosTablero.resultadoEspecifico.trim().toUpperCase()) {
+            return false;
+          }
         }
 
         return true;
@@ -445,7 +478,7 @@ export default function KanbanTableroScreen() {
         tarjetas: tarjetasFiltradas,
       };
     });
-  }, [listas, searchQuery, filterPagosPendientes, userRol, permisosEspeciales, RESULTADOS_PENDIENTES_COBRO]);
+  }, [listas, searchQuery, filtrosTablero, userRol, permisosEspeciales, RESULTADOS_PENDIENTES_COBRO]);
 
   const handleArchiveCard = async (tarjeta: Tarjeta) => {
     try {
@@ -575,9 +608,9 @@ export default function KanbanTableroScreen() {
         width={width}
         id={id}
         onOpenInventario={tableroInfo?.tipo === 'almacen' || listas.some(l => l.nombre === 'Carga de Materiales') ? () => setModalInventarioVisible(true) : undefined}
-        filterPagosPendientes={filterPagosPendientes}
-        setFilterPagosPendientes={isCobranzaBoard ? setFilterPagosPendientes : undefined}
-        pendingPagosCount={pendingPagosCount}
+        onOpenFiltros={isCobranzaBoard ? () => setModalFiltrosVisible(true) : undefined}
+        isFiltroActivo={isFiltroActivo}
+        resumenFiltro={resumenFiltro}
       />
       {listas.length === 0 ? (
         <View style={styles.centerContainer}>
@@ -718,6 +751,14 @@ export default function KanbanTableroScreen() {
       <ModalDetalleTarjeta tarjetaSeleccionada={tarjetaSeleccionada} setTarjetaSeleccionada={(t) => { setTarjetaSeleccionada(t); if (!t) setStartInEditMode(false); }} startInEditMode={startInEditMode} listas={listas} miembros={miembros} onUpdateTarjeta={onUpdateTarjetaSeleccionada} autoMoverTarjeta={autoMoverTarjeta} nuevoComentario={nuevoComentario} setNuevoComentario={setNuevoComentario} handleEnviarComentario={handleEnviarComentario} onOpenTrazabilidad={(t) => setTarjetaTrazabilidad(t)} isResaltada={!!activeHighlightTarjeta} />
       <ModalAuditoria visible={!!tarjetaAuditoria} tarjetaAuditoria={tarjetaAuditoria} onClose={() => setTarjetaAuditoria(null)} />
       <ModalTrazabilidad visible={!!tarjetaTrazabilidad} tarjeta={tarjetaTrazabilidad} onClose={() => setTarjetaTrazabilidad(null)} />
+      <ModalFiltrosTablero
+        visible={modalFiltrosVisible}
+        onClose={() => setModalFiltrosVisible(false)}
+        filtros={filtrosTablero}
+        setFiltros={setFiltrosTablero}
+        onLimpiar={() => setFiltrosTablero(FILTROS_DEFAULT)}
+        isCobranzaBoard={isCobranzaBoard}
+      />
       <ModalCambiarTablero
         visible={showBoardMenu}
         onClose={() => setShowBoardMenu(false)}

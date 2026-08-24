@@ -215,9 +215,15 @@ const KanbanColumnComponent = ({
               const isDevolucionCentralColumn = nombreLower.includes('almacén central') || nombreLower.includes('almacen central');
               const isDevolucionAsignacionColumn = !isDevolucionCentralColumn && (nombreLower.includes('devolución de asignación') || nombreLower.includes('devolucion de asignacion') || nombreLower.includes('devolucion'));
               const isDevolucionColumn = isDevolucionCentralColumn || isDevolucionAsignacionColumn;
-              const isCobranzaColumn = nombreLower.includes('cobranza') || nombreLower.includes('cortado') || nombreLower.includes('recupero') || nombreLower.includes('churn');
-              const isEntryColumn = nombreLower.includes('venta') || nombreLower === 'censo' || nombreLower === 'carga de materiales' || isDevolucionColumn || isCobranzaColumn;
-              if (!puedeCrear || !isEntryColumn) return null;
+              const isAccionResultColumn = nombreLower.includes('efectiva') || nombreLower.includes('negativa');
+              const isCobranzaExcelColumn = (
+                nombreLower.includes('carga') ||
+                nombreLower.includes('cortado') ||
+                nombreLower === 'recupero'
+              ) && !isAccionResultColumn;
+
+              const isEntryColumn = nombreLower.includes('venta') || nombreLower === 'censo' || nombreLower === 'carga de materiales' || isDevolucionColumn || isCobranzaExcelColumn;
+              if (!puedeCrear || (!isEntryColumn && !isCobranzaExcelColumn)) return null;
 
               const buttonTipoCarga = isDevolucionCentralColumn
                 ? 'DEVOLUCIÓN A ALMACÉN CENTRAL'
@@ -233,7 +239,7 @@ const KanbanColumnComponent = ({
 
               return (
                 <View style={{ marginTop: 12, marginBottom: 20, gap: 10 }}>
-                  {isCobranzaColumn && (
+                  {isCobranzaExcelColumn && (
                     <BotonImportarExcel
                       listaId={item.id}
                       listaNombre={item.nombre}

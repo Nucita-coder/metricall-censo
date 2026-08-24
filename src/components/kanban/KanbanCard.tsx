@@ -79,8 +79,8 @@ const KanbanCardComponent = ({
   const isCensoFormat = ['Censo', 'si desea', 'no desea', 'es posible'].includes(listaNombre || '');
   const isMaterialesFormat = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'].includes(listaNombre || '') || data.codigoMaterial !== undefined || data.nroOrdenEntrega !== undefined;
   let cardBg = KANBAN_COLORS.card.defaultBg;
-  if (listaNombre === 'si desea' || listaNombre === 'Acción efectiva') cardBg = KANBAN_COLORS.card.censoInteresadosBg;
-  else if (listaNombre === 'no desea' || listaNombre === 'Acción negativa') cardBg = KANBAN_COLORS.card.censoNoInteresadosBg;
+  if (listaNombre === 'si desea' || listaNombre === 'Acción efectiva' || listaNombre === 'Acción efectiva (Recupero)') cardBg = KANBAN_COLORS.card.censoInteresadosBg;
+  else if (listaNombre === 'no desea' || listaNombre === 'Acción negativa' || listaNombre === 'Acción negativa (Recupero)') cardBg = KANBAN_COLORS.card.censoNoInteresadosBg;
   else if (listaNombre === 'es posible') cardBg = KANBAN_COLORS.card.censoPosiblesBg;
 
   if (isBloqueada) {

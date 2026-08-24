@@ -96,6 +96,7 @@ export default function KanbanTableroScreen() {
   const [showSplitMenu, setShowSplitMenu] = useState(false);
   const [secondaryBoardId, setSecondaryBoardId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterPagosPendientes, setFilterPagosPendientes] = useState(false);
   const [isMobileSearchActive, setIsMobileSearchActive] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean, x: number, y: number, tarjeta: Tarjeta | null }>({ visible: false, x: 0, y: 0, tarjeta: null });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -368,21 +369,83 @@ export default function KanbanTableroScreen() {
 
   useFocusEffect(useCallback(() => { fetchKanbanData(); }, [id, userRol, permisosEspeciales, session?.user?.id]));
 
+  const RESULTADOS_PENDIENTES_COBRO = useMemo(() => [
+    'CONVENIO DE PAGO',
+    'ABONO PARCIALMENTE',
+    'LUEGO PASA POR OFIC',
+    'PIDE AJUSTE DE PLAN',
+    'NO CONTESTO',
+  ], []);
+
+  const isCobranzaBoard = tableroInfo?.tipo === 'cobranza' || listas.some(l => {
+    const n = (l.nombre || '').toLowerCase();
+    return n.includes('cobranza') || n.includes('recupero');
+  });
+
+  const pendingPagosCount = useMemo(() => {
+    if (!isCobranzaBoard) return 0;
+    let count = 0;
+    listas.forEach(lista => {
+      const nombreClean = (lista.nombre || '').toLowerCase();
+      const esNegativa = nombreClean.includes('negativa');
+      const esEfectiva = nombreClean.includes('efectiva');
+
+      (lista.tarjetas || []).forEach(t => {
+        const vals = t.datos_valores || {};
+        const res = (vals.resultadoContacto || vals.resultado || '').trim().toUpperCase();
+
+        if (esNegativa) {
+          count++;
+        } else if (esEfectiva && RESULTADOS_PENDIENTES_COBRO.includes(res)) {
+          count++;
+        } else if (!esEfectiva && !esNegativa) {
+          count++;
+        }
+      });
+    });
+    return count;
+  }, [listas, isCobranzaBoard, RESULTADOS_PENDIENTES_COBRO]);
+
   const filteredListas = useMemo(() => {
     let baseListas = listas;
     if (userRol === 'empleado') baseListas = listas.filter(lista => lista.permisos_relacionales?.puede_ver === true);
-    if (!searchQuery.trim()) return baseListas;
-    const q = searchQuery.toLowerCase();
-    return baseListas.map(lista => ({
-      ...lista,
-      tarjetas: lista.tarjetas.filter(t => {
+    if (!searchQuery.trim() && !filterPagosPendientes) return baseListas;
+
+    const q = searchQuery.toLowerCase().trim();
+
+    return baseListas.map(lista => {
+      const nombreClean = (lista.nombre || '').toLowerCase();
+      const esNegativa = nombreClean.includes('negativa');
+      const esEfectiva = nombreClean.includes('efectiva');
+
+      const tarjetasFiltradas = (lista.tarjetas || []).filter(t => {
         const vals = t.datos_valores || {};
-        const nombre = (vals.nombreApellido || vals.nombre || vals.cliente || '').toLowerCase();
-        const cedula = (vals.cedula || vals.documento || vals.rif || '').toLowerCase();
-        return nombre.includes(q) || cedula.includes(q) || String(t.id).toLowerCase().includes(q);
-      })
-    }));
-  }, [listas, searchQuery, userRol, permisosEspeciales]);
+
+        if (q) {
+          const nombre = (vals.nombreApellido || vals.nombre || vals.cliente || '').toLowerCase();
+          const cedula = (vals.cedula || vals.documento || vals.rif || '').toLowerCase();
+          const abonado = String(vals.nroAbonado || vals['NRO SUSCRIPTOR'] || vals.abonado || '').toLowerCase();
+          const idStr = String(t.id).toLowerCase();
+          const matches = nombre.includes(q) || cedula.includes(q) || abonado.includes(q) || idStr.includes(q);
+          if (!matches) return false;
+        }
+
+        if (filterPagosPendientes) {
+          const res = (vals.resultadoContacto || vals.resultado || '').trim().toUpperCase();
+          if (esNegativa) return true;
+          if (esEfectiva) return RESULTADOS_PENDIENTES_COBRO.includes(res);
+          return true;
+        }
+
+        return true;
+      });
+
+      return {
+        ...lista,
+        tarjetas: tarjetasFiltradas,
+      };
+    });
+  }, [listas, searchQuery, filterPagosPendientes, userRol, permisosEspeciales, RESULTADOS_PENDIENTES_COBRO]);
 
   const handleArchiveCard = async (tarjeta: Tarjeta) => {
     try {
@@ -512,6 +575,9 @@ export default function KanbanTableroScreen() {
         width={width}
         id={id}
         onOpenInventario={tableroInfo?.tipo === 'almacen' || listas.some(l => l.nombre === 'Carga de Materiales') ? () => setModalInventarioVisible(true) : undefined}
+        filterPagosPendientes={filterPagosPendientes}
+        setFilterPagosPendientes={isCobranzaBoard ? setFilterPagosPendientes : undefined}
+        pendingPagosCount={pendingPagosCount}
       />
       {listas.length === 0 ? (
         <View style={styles.centerContainer}>

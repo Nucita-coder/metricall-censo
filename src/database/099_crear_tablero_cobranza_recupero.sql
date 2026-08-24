@@ -30,12 +30,15 @@ BEGIN
         END IF;
 
         IF v_tablero_id IS NOT NULL THEN
-            -- Crear las listas del flujo de cobranza (3 listas únicamente)
+            -- Crear las listas del flujo de Cobranza y Recupero (6 listas en total)
             INSERT INTO public.listas (empresa_id, tablero_id, nombre, orden, color_fondo)
             VALUES 
                 (v_empresa_id, v_tablero_id, 'Carga de cobranza clientes cortados', 1, 'rgba(255, 255, 255, 0.85)'),
                 (v_empresa_id, v_tablero_id, 'Acción efectiva', 2, 'rgba(255, 255, 255, 0.85)'),
-                (v_empresa_id, v_tablero_id, 'Acción negativa', 3, 'rgba(255, 255, 255, 0.85)')
+                (v_empresa_id, v_tablero_id, 'Acción negativa', 3, 'rgba(255, 255, 255, 0.85)'),
+                (v_empresa_id, v_tablero_id, 'Recupero', 4, 'rgba(255, 255, 255, 0.85)'),
+                (v_empresa_id, v_tablero_id, 'Acción efectiva (Recupero)', 5, 'rgba(255, 255, 255, 0.85)'),
+                (v_empresa_id, v_tablero_id, 'Acción negativa (Recupero)', 6, 'rgba(255, 255, 255, 0.85)')
             ON CONFLICT DO NOTHING;
         END IF;
     END IF;

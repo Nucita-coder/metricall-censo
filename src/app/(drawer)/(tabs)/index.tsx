@@ -166,7 +166,7 @@ export default function DashboardScreen() {
             : tipoTablero === 'censo'
               ? ['Censo', 'si desea', 'no desea', 'es posible']
               : tipoTablero === 'cobranza'
-                ? ['Carga de cobranza clientes cortados', 'Acción efectiva', 'Acción negativa']
+                ? ['Carga de cobranza clientes cortados', 'Acción efectiva', 'Acción negativa', 'Recupero', 'Acción efectiva (Recupero)', 'Acción negativa (Recupero)']
                 : ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'];
 
           const defaultListas = nombresListas.map((nombre, index) => ({

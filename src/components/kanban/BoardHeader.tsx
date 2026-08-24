@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ChevronDown, ChevronLeft, CloudUpload, Columns, Search, Settings, X, Boxes } from 'lucide-react-native';
+import { ChevronDown, ChevronLeft, CloudUpload, Columns, Search, Settings, X, Boxes, Clock } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { TableroInfo } from '../../types/kanban';
 
@@ -20,6 +20,9 @@ interface BoardHeaderProps {
   width: number;
   id: string;
   onOpenInventario?: () => void;
+  filterPagosPendientes?: boolean;
+  setFilterPagosPendientes?: (val: boolean) => void;
+  pendingPagosCount?: number;
 }
 
 export function BoardHeader({
@@ -38,6 +41,9 @@ export function BoardHeader({
   width,
   id,
   onOpenInventario,
+  filterPagosPendientes = false,
+  setFilterPagosPendientes,
+  pendingPagosCount = 0,
 }: BoardHeaderProps) {
   return (
     <View style={styles.header}>
@@ -81,6 +87,35 @@ export function BoardHeader({
           </View>
 
           <View style={styles.headerActions}>
+            {setFilterPagosPendientes && (
+              <TouchableOpacity
+                onPress={() => setFilterPagosPendientes(!filterPagosPendientes)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: filterPagosPendientes ? 'rgba(245, 158, 11, 0.25)' : 'rgba(0, 0, 0, 0.35)',
+                  borderWidth: 1,
+                  borderColor: filterPagosPendientes ? '#F59E0B' : 'rgba(255, 255, 255, 0.25)',
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  marginRight: 8,
+                }}
+              >
+                <Clock size={15} color={filterPagosPendientes ? '#FBBF24' : '#E5E7EB'} />
+                <Text
+                  style={{
+                    color: filterPagosPendientes ? '#FBBF24' : '#E5E7EB',
+                    fontWeight: 'bold',
+                    fontSize: 12,
+                    marginLeft: 6,
+                  }}
+                >
+                  ⏳ Pagos Pendientes {pendingPagosCount > 0 ? `(${pendingPagosCount})` : ''}
+                </Text>
+              </TouchableOpacity>
+            )}
+
             {onOpenInventario && (
               <TouchableOpacity
                 onPress={onOpenInventario}

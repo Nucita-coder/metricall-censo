@@ -99,14 +99,22 @@ export function FaseCobranza({
 
       await onUpdateTarjeta(updates);
 
-      // Auto-mover tarjeta según el resultado a Acción efectiva o Acción negativa
+      // Determinar si la tarjeta pertenece al flujo de Recupero o de Cobranza
+      const listaActual = listasGlobales?.find(l => l.id === tarjeta.lista_id);
+      const nombreListaActual = (listaActual?.nombre || '').toLowerCase();
+      const esFlujoRecupero = nombreListaActual.includes('recupero');
+
+      const nombreTargetEfectiva = esFlujoRecupero ? 'Acción efectiva (Recupero)' : 'Acción efectiva';
+      const nombreTargetNegativa = esFlujoRecupero ? 'Acción negativa (Recupero)' : 'Acción negativa';
+
+      // Auto-mover tarjeta según el resultado a la lista correspondiente de su flujo
       if (RESULTADOS_EFECTIVOS.includes(resultado)) {
-        const listaDestino = findListaTarget(listasGlobales, 'Acción efectiva');
+        const listaDestino = findListaTarget(listasGlobales, nombreTargetEfectiva);
         if (listaDestino && listaDestino.id !== tarjeta.lista_id) {
           await autoMoverTarjeta(tarjeta, listaDestino.id);
         }
       } else {
-        const listaDestino = findListaTarget(listasGlobales, 'Acción negativa');
+        const listaDestino = findListaTarget(listasGlobales, nombreTargetNegativa);
         if (listaDestino && listaDestino.id !== tarjeta.lista_id) {
           await autoMoverTarjeta(tarjeta, listaDestino.id);
         }

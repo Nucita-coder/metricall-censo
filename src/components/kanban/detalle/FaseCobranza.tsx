@@ -13,36 +13,42 @@ export const OPCIONES_TIPO_CONTACTO_COBRANZA = [
   'VISITA RESIDENCIAL',
 ];
 
+// ✅ POSITIVOS → mueven a "Acción efectiva" (Imagen 1)
 export const OPCIONES_RESULTADO_COBRANZA = [
+  // --- ACCIÓN EFECTIVA (8 opciones) ---
   'COBRO EFECTIVO',
   'CONVENIO DE PAGO',
   'ABONO PARCIALMENTE',
   'RECUPERADO',
   'NO CONTESTO',
   'LUEGO PASA POR OFIC',
-  'PIDE RETIRO',
   'FUERA DE ZONA',
+  'PIDE AJUSTE DE PLAN',
+  // --- ACCIÓN NEGATIVA (9 opciones) ---
+  'PIDE RETIRO',
   'RECHAZO A PAGAR POR DIAS SIN SERVICIO',
   'TIENE FALLA',
   'INCONFORMIDAD CON MONTO',
   'NO RECONOCE DEUDA',
   'REHUSA ENTREGAR EQUIPO',
   'PUERTO LIBERADO',
-  'PIDE AJUSTE DE PLAN',
   'TIENE OTRO SERVICIO',
   'NO DESEA PAGAR',
 ];
 
+// Positivos → Auto-mover a "Acción efectiva"
 export const RESULTADOS_EFECTIVOS = [
   'COBRO EFECTIVO',
   'CONVENIO DE PAGO',
   'ABONO PARCIALMENTE',
   'RECUPERADO',
+  'NO CONTESTO',
   'LUEGO PASA POR OFIC',
   'FUERA DE ZONA',
-  'NO CONTESTO',
   'PIDE AJUSTE DE PLAN',
 ];
+
+// Negativos → Auto-mover a "Acción negativa" (todo lo que NO está en RESULTADOS_EFECTIVOS)
 
 export function FaseCobranza({
   tarjeta,

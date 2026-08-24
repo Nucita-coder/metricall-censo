@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { Package, Search, X, RefreshCw, ArrowUpRight, ArrowDownRight, SlidersHorizontal, ChevronDown, BarChart3, UserCheck, History } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
+import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
 import { useAuth } from '../../../context/AuthContext';
 import { WEB_MODAL_CONTAINER } from '../../../constants/theme';
 
@@ -44,11 +45,10 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
   const fetchStock = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('tarjetas')
-        .select('datos_valores, created_at')
-        .eq('empresa_id', empresaId);
-      if (error) throw error;
+      const data = await fetchTodasLasTarjetas({
+        empresaId,
+        select: 'datos_valores, created_at',
+      });
       if (!data) return;
 
       const mapa: Record<string, MaterialStockItem> = {};

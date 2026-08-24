@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { Calendar, History, Package, User } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { User, Package, Calendar, History } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
+import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
 import { ModalHistorialAsignaciones } from './ModalHistorialAsignaciones';
 
 export interface AssignedStockRecord {
@@ -32,12 +33,11 @@ export function TablaStockAsignado({ empresaId, searchQuery }: TablaStockAsignad
   const fetchAssignedStock = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('tarjetas')
-        .select('id, datos_valores, created_at')
-        .eq('empresa_id', empresaId);
+      const data = await fetchTodasLasTarjetas({
+        empresaId,
+        select: 'id, datos_valores, created_at',
+      });
 
-      if (error) throw error;
       if (!data) return;
 
       const mapa: Record<string, AssignedStockRecord> = {};

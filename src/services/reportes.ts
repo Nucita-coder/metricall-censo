@@ -72,12 +72,19 @@ export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
   
   const excludeKeys = ['geofotos', 'adjuntos', 'lch_imagen', 'comentarios', 'motivoFactibilidad', 'observaciones', 'motivoRetorno', 'ultimoMotivoRetorno', 'comentario_instalacion', 'materiales', 'historial_auditoria', 'gestiones'];
   
+  const camposOmitidos: string[] = [];
+
   const renderGroup = (keys: string[], title: string) => {
     let html = '';
     keys.forEach(k => {
       excludeKeys.push(k);
       const val = formatValue(datos[k]);
-      if (val !== null) html += `<tr><th>${formatKey(k)}</th><td>${val}</td></tr>`;
+      if (val !== null && val !== '') {
+        html += `<tr><th>${formatKey(k)}</th><td style="color: #2B6CB0; font-weight: bold;">${val}</td></tr>`;
+      } else {
+        html += `<tr><th>${formatKey(k)}</th><td style="color: #A0AEC0; font-style: italic; background-color: #F7FAFC;">⚠️ Sin registrar / Dejado de lado</td></tr>`;
+        camposOmitidos.push(formatKey(k));
+      }
     });
     if (html) {
       return `
@@ -104,8 +111,11 @@ export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
       val = `<a href="https://www.google.com/maps/search/?api=1&query=${datos[key].lat},${datos[key].lng}" style="color: #3182CE; text-decoration: none;"><strong>Ver en Google Maps (${Number(datos[key].lat).toFixed(6)}, ${Number(datos[key].lng).toFixed(6)})</strong></a>`;
     }
     
-    if (val !== null) {
-      otrosHtml += `<tr><th>${formatKey(key)}</th><td>${val}</td></tr>`;
+    if (val !== null && val !== '') {
+      otrosHtml += `<tr><th>${formatKey(key)}</th><td style="color: #2B6CB0; font-weight: bold;">${val}</td></tr>`;
+    } else {
+      otrosHtml += `<tr><th>${formatKey(key)}</th><td style="color: #A0AEC0; font-style: italic; background-color: #F7FAFC;">⚠️ Sin registrar / Dejado de lado</td></tr>`;
+      camposOmitidos.push(formatKey(key));
     }
   });
   if (otrosHtml) {
@@ -121,8 +131,11 @@ export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
   if (datos.materiales && typeof datos.materiales === 'object') {
     Object.keys(datos.materiales).forEach(key => {
       const val = formatValue(datos.materiales[key]);
-      if (val !== null && val !== '0') { // Omit 0 quantities
-        materialesHtml += `<tr><th>${formatKey(key)}</th><td>${val}</td></tr>`;
+      if (val !== null && val !== '0' && val !== '') {
+        materialesHtml += `<tr><th>${formatKey(key)}</th><td style="color: #2B6CB0; font-weight: bold;">${val}</td></tr>`;
+      } else {
+        materialesHtml += `<tr><th>${formatKey(key)}</th><td style="color: #A0AEC0; font-style: italic; background-color: #F7FAFC;">0 (Sin consumo)</td></tr>`;
+        camposOmitidos.push(`Material: ${formatKey(key)}`);
       }
     });
     if (materialesHtml) {
@@ -160,6 +173,17 @@ export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
       </div>`;
   }
 
+  let omitidosSectionHtml = '';
+  if (camposOmitidos.length > 0) {
+    const listBadges = camposOmitidos.map(c => `<span style="display: inline-block; background-color: #FFF5F5; color: #E53E3E; border: 1px solid #FEB2B2; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin: 3px; font-weight: bold;">⚠️ ${c}</span>`).join(' ');
+    omitidosSectionHtml = `
+      <div class="section" style="background-color: #FFF5F5; border: 1px solid #FEB2B2; padding: 15px; border-radius: 8px; margin-bottom: 24px;">
+        <h3 style="color: #C53030; border-bottom: 1px solid #FEB2B2; margin-top: 0; padding-bottom: 6px;">RESUMEN DE CAMPOS DEJADOS DE LADO / NO LLENADOS (${camposOmitidos.length})</h3>
+        <p style="font-size: 13px; color: #742A2A; margin-top: 0; margin-bottom: 10px;">Los siguientes campos no fueron completados o no registraron datos/consumo en esta tarjeta:</p>
+        <div>${listBadges}</div>
+      </div>`;
+  }
+
   return `
     <html>
       <head>
@@ -191,6 +215,7 @@ export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
         ${otrosHtml}
         ${materialesHtml}
         ${gestionesHtml}
+        ${omitidosSectionHtml}
 
         <div class="section">
           <h3>7. HISTORIAL DE COMENTARIOS</h3>

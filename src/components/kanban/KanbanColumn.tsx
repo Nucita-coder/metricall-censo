@@ -6,6 +6,7 @@ import Reanimated, { LinearTransition } from 'react-native-reanimated';
 import { KANBAN_THEME } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { Lista, Tarjeta } from '../../types/kanban';
+import { BotonImportarExcel } from './BotonImportarExcel';
 import { KanbanCard } from './KanbanCard';
 
 export interface KanbanColumnProps {
@@ -23,6 +24,7 @@ export interface KanbanColumnProps {
   onRightClickCard?: (item: Tarjeta, x: number, y: number) => void;
   resaltadaListaId?: string | null;
   resaltadaTarjetaId?: string | null;
+  onRefreshKanbanData?: () => void;
 }
 
 const KanbanColumnComponent = ({
@@ -40,6 +42,7 @@ const KanbanColumnComponent = ({
   onRightClickCard,
   resaltadaListaId,
   resaltadaTarjetaId,
+  onRefreshKanbanData,
 }: KanbanColumnProps) => {
   const isMoveMode = tarjetaEnMovimiento !== null;
   const isSourceColumn = isMoveMode && tarjetaEnMovimiento.lista_id === item.id;
@@ -212,7 +215,8 @@ const KanbanColumnComponent = ({
               const isDevolucionCentralColumn = nombreLower.includes('almacén central') || nombreLower.includes('almacen central');
               const isDevolucionAsignacionColumn = !isDevolucionCentralColumn && (nombreLower.includes('devolución de asignación') || nombreLower.includes('devolucion de asignacion') || nombreLower.includes('devolucion'));
               const isDevolucionColumn = isDevolucionCentralColumn || isDevolucionAsignacionColumn;
-              const isEntryColumn = nombreLower.includes('venta') || nombreLower === 'censo' || nombreLower === 'carga de materiales' || isDevolucionColumn;
+              const isCobranzaColumn = nombreLower.includes('cobranza') || nombreLower.includes('cortado') || nombreLower.includes('recupero') || nombreLower.includes('churn');
+              const isEntryColumn = nombreLower.includes('venta') || nombreLower === 'censo' || nombreLower === 'carga de materiales' || isDevolucionColumn || isCobranzaColumn;
               if (!puedeCrear || !isEntryColumn) return null;
 
               const buttonTipoCarga = isDevolucionCentralColumn
@@ -228,29 +232,38 @@ const KanbanColumnComponent = ({
                   : 'Añadir Tarjeta';
 
               return (
-                <TouchableOpacity
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingVertical: 16,
-                    paddingHorizontal: 12,
-                    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                    borderRadius: 12,
-                    borderWidth: 1.5,
-                    borderColor: '#333',
-                    borderStyle: 'dashed',
-                    marginTop: 12,
-                    marginBottom: 20
-                  }}
-                  onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre, tipoCarga: buttonTipoCarga } })}
-                  activeOpacity={0.6}
-                >
-                  <Plus size={22} color="#111" strokeWidth={2} />
-                  <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 15, fontStyle: 'italic' }}>
-                    {buttonText}
-                  </Text>
-                </TouchableOpacity>
+                <View style={{ marginTop: 12, marginBottom: 20, gap: 10 }}>
+                  {isCobranzaColumn && (
+                    <BotonImportarExcel
+                      listaId={item.id}
+                      listaNombre={item.nombre}
+                      onImportComplete={() => {
+                        if (onRefreshKanbanData) onRefreshKanbanData();
+                      }}
+                    />
+                  )}
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 14,
+                      paddingHorizontal: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                      borderRadius: 12,
+                      borderWidth: 1.5,
+                      borderColor: '#333',
+                      borderStyle: 'dashed',
+                    }}
+                    onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre, tipoCarga: buttonTipoCarga } })}
+                    activeOpacity={0.6}
+                  >
+                    <Plus size={20} color="#111" strokeWidth={2} />
+                    <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 14, fontStyle: 'italic' }}>
+                      {buttonText}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               );
             }}
           />

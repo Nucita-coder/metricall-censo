@@ -31,7 +31,7 @@ export default function DashboardScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [createType, setCreateType] = useState<'sucursal' | 'tablero'>('sucursal');
   const [targetSucursalId, setTargetSucursalId] = useState<string | null>(null);
-  const [tipoTablero, setTipoTablero] = useState<'instalaciones' | 'censo' | 'almacen'>('instalaciones');
+  const [tipoTablero, setTipoTablero] = useState<'instalaciones' | 'censo' | 'almacen' | 'cobranza'>('instalaciones');
   const [inputNombre, setInputNombre] = useState('');
   const [inputSecundario, setInputSecundario] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -165,7 +165,9 @@ export default function DashboardScreen() {
             ? ['Venta', 'Factibilidad', 'Por Instalar', 'Asignado A', 'Liberada', 'En Proceso', 'Por Activar', 'Cliente Activo']
             : tipoTablero === 'censo'
               ? ['Censo', 'si desea', 'no desea', 'es posible']
-              : ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'];
+              : tipoTablero === 'cobranza'
+                ? ['Carga de cobranza clientes cortados', 'Acción efectiva', 'Acción negativa']
+                : ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'];
 
           const defaultListas = nombresListas.map((nombre, index) => ({
             empresa_id: perfilData?.empresa_id,

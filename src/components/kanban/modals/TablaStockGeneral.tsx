@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { Package } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
+import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
 
 export interface GeneralStockItem {
   codigoMaterial: string;
@@ -29,12 +30,11 @@ export function TablaStockGeneral({ empresaId, searchQuery = '' }: TablaStockGen
   const fetchGeneralStock = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('tarjetas')
-        .select('datos_valores')
-        .eq('empresa_id', empresaId);
+      const data = await fetchTodasLasTarjetas({
+        empresaId,
+        select: 'datos_valores',
+      });
 
-      if (error) throw error;
       if (!data) return;
 
       const mapa: Record<string, GeneralStockItem> = {};

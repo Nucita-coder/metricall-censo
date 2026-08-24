@@ -1,19 +1,39 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Paperclip, Plus, Trash2, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ImageBackground, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { uploadImageToSupabase } from '../services/uploadImage';
 import { DatePickerInput, InputTexto, SelectDropdown } from './venta/CamposVenta';
 
 export interface MaterialRowItem { codigoMaterial: string; nombreMaterial: string; modeloMaterial: string; serialMaterial: string; cantidadRecibida: string; }
+
+export const INSUMOS_PRECARGADOS: Array<{ nombre: string; codigo: string; modelo: string }> = [
+  { nombre: 'TENSOR PLÁSTICO', codigo: 'MAT-TENSOR-PLASTICO', modelo: 'GENERAL' },
+  { nombre: 'TENSOR HIERRO', codigo: 'MAT-TENSOR-HIERRO', modelo: 'GENERAL' },
+  { nombre: 'GRAPAS', codigo: 'MAT-GRAPAS', modelo: 'GENERAL' },
+  { nombre: 'TIRRAP', codigo: 'MAT-TIRRAP', modelo: 'GENERAL' },
+  { nombre: 'PACH CORD APC', codigo: 'MAT-PACH-APC', modelo: 'APC' },
+  { nombre: 'PACH CORD UPC', codigo: 'MAT-PACH-UPC', modelo: 'UPC' },
+  { nombre: 'PACH CORD APC/UPC', codigo: 'MAT-PACH-APC-UPC', modelo: 'APC/UPC' },
+  { nombre: 'CAJA TERM. CON ACCESORIOS', codigo: 'MAT-CAJA-TERM-CON', modelo: 'CON ACCESORIOS' },
+  { nombre: 'CAJA TERM. SIN ACCESORIOS', codigo: 'MAT-CAJA-TERM-SIN', modelo: 'SIN ACCESORIOS' },
+  { nombre: 'CONECTOR/ACOPLE H-H', codigo: 'MAT-CONECTOR-ACOPLE-HH', modelo: 'H-H' },
+  { nombre: 'CONECTOR MECÁNICO APC', codigo: 'MAT-CONECTOR-MEC-APC', modelo: 'APC' },
+  { nombre: 'CONECTOR MECÁNICO UPC', codigo: 'MAT-CONECTOR-MEC-UPC', modelo: 'UPC' },
+  { nombre: 'PRECINTO', codigo: 'MAT-PRECINTO', modelo: 'GENERAL' },
+  { nombre: 'CABLE PRECONECTORIZADO', codigo: 'MAT-CABLE-PRECONECTORIZADO', modelo: 'PRECONECTORIZADO' },
+  { nombre: 'CABLE DROP', codigo: 'MAT-CABLE-DROP', modelo: 'DROP' },
+];
+
 interface StockInfo { stockExistente: number | null; esNuevoCodigo: boolean | null; isSearching: boolean; }
 interface FormularioReciboMaterialProps { formData: any; handleChange?: (campo: string, valor: any) => void; readOnly?: boolean; }
 
 export default function FormularioReciboMaterial({ formData, handleChange, readOnly = false }: FormularioReciboMaterialProps) {
   const { empresaId, nombreCompleto } = useAuth();
   const [stockInfoMap, setStockInfoMap] = useState<Record<number, StockInfo>>({});
+  const [modalPrecargadosIndex, setModalPrecargadosIndex] = useState<number | null>(null);
   const [subiendoImagen, setSubiendoImagen] = useState(false);
   const [miembrosList, setMiembrosList] = useState<string[]>([]);
   const [stockDisponibles, setStockDisponibles] = useState<Array<{ codigo: string; nombre: string; modelo: string; stock: number }>>([]);
@@ -168,10 +188,8 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
   const handleAddItem = () => { if (!readOnly) updateRootAndItems([...items, { codigoMaterial: '', nombreMaterial: '', modeloMaterial: '', serialMaterial: '', cantidadRecibida: '' }]); };
   const handleRemoveItem = (index: number) => { if (!readOnly && items.length > 1) updateRootAndItems(items.filter((_, i) => i !== index)); };
 
-  const handleCodigoChangeForItem = async (index: number, codigo: string) => {
-    const upperCodigo = codigo ? codigo.toUpperCase() : '';
-    updateItemField(index, 'codigoMaterial', upperCodigo);
-    const cleanCodigo = upperCodigo.trim();
+  const checkStockForCodigo = async (index: number, codigo: string) => {
+    const cleanCodigo = (codigo || '').trim().toUpperCase();
     if (!cleanCodigo || cleanCodigo.length < 2 || !empresaId || readOnly) {
       setStockInfoMap((prev) => ({ ...prev, [index]: { stockExistente: null, esNuevoCodigo: null, isSearching: false } }));
       return;
@@ -209,6 +227,12 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
     } catch (e) {
       setStockInfoMap((prev) => ({ ...prev, [index]: { ...(prev[index] || { stockExistente: null, esNuevoCodigo: null }), isSearching: false } }));
     }
+  };
+
+  const handleCodigoChangeForItem = (index: number, codigo: string) => {
+    const upperCodigo = codigo ? codigo.toUpperCase() : '';
+    updateItemField(index, 'codigoMaterial', upperCodigo);
+    checkStockForCodigo(index, upperCodigo);
   };
 
   const handleAdjuntarFotoFactura = async () => {
@@ -364,7 +388,27 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
                   <InputTexto label="Modelo Material" value={item.modeloMaterial} onChangeText={(v) => updateItemField(idx, 'modeloMaterial', v)} placeholder="Ej. G657A2" readOnly={readOnly || isAsignadoMode || isDevolucionMode} />
                 </View>
               </View>
-              <InputTexto label="Nombre de Material" value={item.nombreMaterial} onChangeText={(v) => updateItemField(idx, 'nombreMaterial', v)} placeholder="Ej. Cable Fibra Óptica Drop 2 Hilos" isRequired readOnly={readOnly || isAsignadoMode || isDevolucionMode} />
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <InputTexto label="Nombre de Material" value={item.nombreMaterial} onChangeText={(v) => updateItemField(idx, 'nombreMaterial', v)} placeholder="Ej. Cable Fibra Óptica Drop 2 Hilos" isRequired readOnly={readOnly || isDevolucionMode || isAsignadoMode} />
+                </View>
+                {!readOnly && !isDevolucionMode && !isAsignadoMode && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#0C66E4',
+                      width: 44,
+                      height: 42,
+                      borderRadius: 8,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      marginBottom: 16,
+                    }}
+                    onPress={() => setModalPrecargadosIndex(idx)}
+                  >
+                    <Plus size={22} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
               <InputTexto label="Serial Material (Opcional)" value={item.serialMaterial} onChangeText={(v) => updateItemField(idx, 'serialMaterial', v)} placeholder="Ej. SN-8839201" readOnly={readOnly} />
             </View>
           );
@@ -415,6 +459,42 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
         </View>
         <SelectDropdown label={isDevolucionMode ? "Motivo de Devolución" : "Motivo de Asignación"} value={formData.motivoAsignacion} onSelect={(v) => updateHeaderField('motivoAsignacion', v)} options={isDevolucionMode ? ['Sobrante de Instalación', 'Material Defectuoso', 'Cambio de Equipo', 'Fin de Proyecto', 'Otras'] : ['Instalaciones', 'Construcción', 'Verticales', 'Fallas FTTH', 'Fallas FTTX', 'Otras']} placeholder="Seleccionar motivo..." isRequired disabled={readOnly} />
       </View>
+
+      {/* MODAL DE INSUMOS PRECARGADOS */}
+      <Modal visible={modalPrecargadosIndex !== null} transparent animationType="fade" onRequestClose={() => setModalPrecargadosIndex(null)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalPrecargadosIndex(null)}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Insumos Precargados</Text>
+              <TouchableOpacity onPress={() => setModalPrecargadosIndex(null)} style={{ padding: 4 }}>
+                <X size={18} color="#B6C2CF" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={true}>
+              {INSUMOS_PRECARGADOS.map((p: { nombre: string; codigo: string; modelo: string }, i: number) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.modalOption}
+                  onPress={() => {
+                    if (modalPrecargadosIndex !== null) {
+                      updateMultipleItemFields(modalPrecargadosIndex, {
+                        codigoMaterial: p.codigo,
+                        nombreMaterial: p.nombre,
+                        modeloMaterial: p.modelo,
+                      });
+                      checkStockForCodigo(modalPrecargadosIndex, p.codigo);
+                    }
+                    setModalPrecargadosIndex(null);
+                  }}
+                >
+                  <Text style={styles.modalOptionTitle}>{p.nombre}</Text>
+                  <Text style={styles.modalOptionSub}>{p.codigo} ({p.modelo})</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 }
@@ -438,5 +518,12 @@ const styles = StyleSheet.create({
   stockBadgeExistente: { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderWidth: 1, borderColor: '#22C55E', borderRadius: 6, padding: 8, marginTop: 2, marginBottom: 10 },
   stockBadgeText: { fontSize: 11, color: '#4ADE80' },
   stockBadgeNuevo: { backgroundColor: 'rgba(12, 102, 228, 0.15)', borderWidth: 1, borderColor: '#0C66E4', borderRadius: 6, padding: 8, marginTop: 2, marginBottom: 10 },
-  stockBadgeTextNuevo: { fontSize: 11, color: '#579DFF', fontWeight: '600' }
+  stockBadgeTextNuevo: { fontSize: 11, color: '#579DFF', fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#22272B', borderRadius: 12, width: '100%', maxWidth: 340, padding: 16, borderWidth: 1, borderColor: '#384148' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#384148' },
+  modalTitle: { fontSize: 15, fontWeight: 'bold', color: '#B6C2CF' },
+  modalOption: { paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#2C333A' },
+  modalOptionTitle: { fontSize: 13, fontWeight: 'bold', color: '#579DFF' },
+  modalOptionSub: { fontSize: 11, color: '#8C9BAB', marginTop: 2 },
 });

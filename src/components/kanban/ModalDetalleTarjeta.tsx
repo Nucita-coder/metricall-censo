@@ -17,6 +17,7 @@ import { FaseFactibilidad } from './detalle/FaseFactibilidad';
 import { FaseLiberada } from './detalle/FaseLiberada';
 import { FasePorActivar } from './detalle/FasePorActivar';
 import { FasePorInstalar } from './detalle/FasePorInstalar';
+import { FaseCobranza } from './detalle/FaseCobranza';
 import { FaseVenta } from './detalle/FaseVenta';
 import { FormularioConversionVenta } from './detalle/FormularioConversionVenta';
 import { SeccionAdjuntos } from './detalle/SeccionAdjuntos';
@@ -103,6 +104,9 @@ export const ModalDetalleTarjeta = ({
 
   const renderFaseDinamica = () => {
     const clean = listaActualNombre.toLowerCase().trim().replace(/_/g, ' ');
+    if (clean.includes('cobranza') || clean.includes('efectiva') || clean.includes('negativa') || tarjetaSeleccionada?.datos_valores?.origenImportacion === 'COBRANZA-RECUPERO-CHURN' || tarjetaSeleccionada?.datos_valores?.nroAbonado !== undefined) {
+      return <FaseCobranza {...faseProps} />;
+    }
     if (clean.includes('factibilidad')) return <FaseFactibilidad {...faseProps} />;
     if (clean.includes('venta')) return <FaseVenta {...faseProps} />;
     if (clean.includes('por instalar') || clean.includes('instalar')) return <FasePorInstalar {...faseProps} />;

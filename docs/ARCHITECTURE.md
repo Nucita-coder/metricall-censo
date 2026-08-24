@@ -15,8 +15,10 @@ Para optimizar el RLS y evitar JOINs costosos (anti-patrón), el `empresa_id` (T
 5. **Tarjetas**: Registros finales. FK `lista_id`, FK `empresa_id`. `datos_valores` (JSONB).
 
 ## Sistema Híbrido de Jerarquía y Permisos Dinámicos
-1. **Capa 1: Jerarquía Base (`rol` ENUM)**: `lider`, `lider_sucursal`, `supervisor`, `empleado`.
-2. **Capa 2: Privilegios Granulares (`permisos_especiales` JSONB)**: Interruptores booleanos (`{"puede_borrar_tarjetas": true}`).
+1. **Modelado Práctico de 2 Niveles de Acceso**:
+   - **Administradores / Gestión (`rol != 'empleado'`)**: Engloba `lider`, `lider_sucursal` y `supervisor`. Poseen acceso total (bypass RLS) a sucursales, tableros, listas y tarjetas sin pasar por restricciones de matriz.
+   - **Empleados Operativos (`rol == 'empleado'`)**: Su acceso está 100% restringido y regulado por la matriz de permisos (`permisos_especiales` JSONB y `empleado_lista_permisos`).
+2. **Etiquetas Operativas (`etiquetas TEXT[]`)**: Clasificadores de función o especialidad laboral (ej. "Supervisor", "Técnico", "Asesor") utilizados únicamente en la UI para filtrado y asignación de tareas en el Kanban, sin otorgar permisos de base de datos.
 3. **Lógica de Ascenso**: Un rol superior solo puede ascender/modificar a alguien de menor jerarquía en su misma jurisdicción.
 
 ## Reglas de Componentes UI y Formularios Globales

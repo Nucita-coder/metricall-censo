@@ -62,7 +62,7 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
 
     const getValue = (k: string) => {
       const v = data[k];
-      return (v !== null && v !== undefined && v !== '') ? String(v) : '-';
+      return (v !== null && v !== undefined && v !== '') ? String(v) : 'Sin registrar';
     };
 
     const groupsUI = GROUPS.map((group, idx) => {
@@ -73,7 +73,7 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
 
       // Lógica especial para Paquetes y Equipos: Solo mostrar los que tienen valor
       if (group.title.includes('Paquetes y Equipos')) {
-        fieldsToRender = fieldsToRender.filter(field => field.value !== '-');
+        fieldsToRender = fieldsToRender.filter(field => field.value !== 'Sin registrar');
       }
 
       if (fieldsToRender.length === 0) return null;
@@ -83,12 +83,17 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
           <Text style={{ fontSize: 13, color: '#8C9BAB', fontWeight: '900', marginBottom: 12, textTransform: 'uppercase' }}>
             {group.title}
           </Text>
-          {fieldsToRender.map((field, fIdx) => (
-             <View key={fIdx} style={{ flexDirection: 'column', borderBottomWidth: fIdx === fieldsToRender.length - 1 && !group.title.includes('Dirección') ? 0 : 1, borderBottomColor: '#384148', paddingBottom: 8, marginBottom: 8 }}>
-               <Text style={{ fontSize: 11, color: '#8C9BAB', fontWeight: '500', marginBottom: 2 }}>{field.key.toUpperCase()}</Text>
-               <Text style={{ fontSize: 15, color: '#FFF', fontWeight: 'bold' }}>{field.value}</Text>
-             </View>
-          ))}
+          {fieldsToRender.map((field, fIdx) => {
+            const isEmp = field.value === 'Sin registrar';
+            return (
+              <View key={fIdx} style={{ flexDirection: 'column', borderBottomWidth: fIdx === fieldsToRender.length - 1 && !group.title.includes('Dirección') ? 0 : 1, borderBottomColor: '#384148', paddingBottom: 8, marginBottom: 8 }}>
+                <Text style={{ fontSize: 11, color: '#8C9BAB', fontWeight: '500', marginBottom: 2 }}>{field.key.toUpperCase()}</Text>
+                <Text style={{ fontSize: isEmp ? 13 : 15, color: isEmp ? '#8C9BAB' : '#FFF', fontWeight: isEmp ? 'normal' : 'bold', fontStyle: isEmp ? 'italic' : 'normal' }}>
+                  {field.value}
+                </Text>
+              </View>
+            );
+          })}
           {/* Ubicación Integrada en el Grupo 3 */}
           {group.title.includes('Dirección') && data.latitud && data.longitud && (
              <View style={{ flexDirection: 'column', paddingTop: 4 }}>

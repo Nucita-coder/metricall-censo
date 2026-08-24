@@ -4,12 +4,16 @@ import { ChevronDown, MapPin, Image as ImageIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { captureRef } from 'react-native-view-shot';
+import { useEffect } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { supabase } from '../../../lib/supabase';
 import { FaseProps, findListaTarget } from './types';
 import { renderSection } from './SeccionRegistro';
 import { uploadImageToSupabase } from '../../../services/uploadImage';
 import { GeofotoTool } from './GeofotoTool';
 
 export const FaseEnProceso = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSaving, setIsSaving, listasGlobales = [] }: FaseProps) => {
+  const { nombreCompleto, empresaId } = useAuth();
   const data = tarjeta.datos_valores || {};
 
   const [tipoInstalacion, setTipoInstalacion] = useState(data.tipoInstalacion || '');
@@ -45,6 +49,76 @@ export const FaseEnProceso = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSa
     cablePreconectorizado: ''
   });
 
+  const [stockCustodia, setStockCustodia] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const targetTecnico = (data.tecnicoAsignado || data.asignadoA || nombreCompleto || '').toString().trim().toUpperCase();
+    const targetEmpresa = tarjeta.empresa_id || empresaId;
+    if (!targetEmpresa || !targetTecnico) return;
+
+    supabase.from('tarjetas').select('id, datos_valores').eq('empresa_id', targetEmpresa).then(({ data: rows }) => {
+      if (!rows) return;
+      const mapaStock: Record<string, number> = {};
+
+      rows.forEach((row: any) => {
+        const v = row.datos_valores || {};
+        const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
+        const miembro = (v.asignadoA || v.recibidoPor || '').toString().trim().toUpperCase();
+        const isMatch = miembro === targetTecnico || (miembro && targetTecnico && (miembro.includes(targetTecnico) || targetTecnico.includes(miembro)));
+
+        const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
+        const isAsignado = !isDevolucion && (tipo.includes('ASIGNA') || Boolean(v.asignadoA && v.asignadoA.toString().trim()));
+
+        if (isMatch && (isAsignado || isDevolucion)) {
+          const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
+          itemsList.forEach((item: any) => {
+            const cod = (item.codigoMaterial || '').trim().toUpperCase();
+            const nom = (item.nombreMaterial || '').trim().toUpperCase();
+            const cant = parseFloat(item.cantidadRecibida || '0') || 0;
+            const key = cod || nom;
+            if (key) {
+              if (!mapaStock[key]) mapaStock[key] = 0;
+              if (isAsignado) mapaStock[key] += cant;
+              else if (isDevolucion) mapaStock[key] -= cant;
+            }
+          });
+        }
+
+        const tecCard = (v.tecnicoAsignado || v.asignadoA || v.creadorNombre || '').toString().trim().toUpperCase();
+        const matchTec = tecCard === targetTecnico || (tecCard && targetTecnico && (tecCard.includes(targetTecnico) || targetTecnico.includes(miembro)));
+        if (matchTec && row.id !== tarjeta.id && v.materiales && typeof v.materiales === 'object') {
+          const fieldMap: Record<string, string> = {
+            tensorPlastico: 'MAT-TENSOR-PLASTICO',
+            tensorHierro: 'MAT-TENSOR-HIERRO',
+            grapas: 'MAT-GRAPAS',
+            tirrap: 'MAT-TIRRAP',
+            pachCordApc: 'MAT-PACH-APC',
+            pachCordUpc: 'MAT-PACH-UPC',
+            pachCordApcUpc: 'MAT-PACH-APC-UPC',
+            cajaTerminalCon: 'MAT-CAJA-TERM-CON',
+            cajaTerminalSin: 'MAT-CAJA-TERM-SIN',
+            conectorAcople: 'MAT-CONECTOR-ACOPLE-HH',
+            conectorMecanicoApc: 'MAT-CONECTOR-MEC-APC',
+            conectorMecanicoUpc: 'MAT-CONECTOR-MEC-UPC',
+            precinto: 'MAT-PRECINTO',
+            cablePreconectorizado: 'MAT-CABLE-PRECONECTORIZADO',
+            cableDrop: 'MAT-CABLE-DROP'
+          };
+
+          Object.keys(v.materiales).forEach((fk) => {
+            const cantUsed = parseFloat(v.materiales[fk] || '0') || 0;
+            if (cantUsed > 0 && fieldMap[fk]) {
+              const k = fieldMap[fk];
+              if (mapaStock[k] !== undefined) mapaStock[k] -= cantUsed;
+            }
+          });
+        }
+      });
+
+      setStockCustodia(mapaStock);
+    });
+  }, [tarjeta.id, tarjeta.empresa_id, empresaId, nombreCompleto, data.tecnicoAsignado, data.asignadoA]);
+
   return (
     <View>
       {renderSection("Reporte de Instalación", (
@@ -76,31 +150,58 @@ export const FaseEnProceso = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSa
 
           <View style={{ flexWrap: 'wrap', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
             {[
-              { key: 'tensorPlastico', label: 'Tensor Plástico' },
-              { key: 'tensorHierro', label: 'Tensor Hierro' },
-              { key: 'grapas', label: 'Grapas' },
-              { key: 'tirrap', label: 'Tirrap' },
-              { key: 'pachCordApc', label: 'Pach Cord APC' },
-              { key: 'pachCordUpc', label: 'Pach Cord UPC' },
-              { key: 'pachCordApcUpc', label: 'Pach Cord APC/UPC' },
-              { key: 'cajaTerminalCon', label: 'Caja Term. Con Accesorios' },
-              { key: 'cajaTerminalSin', label: 'Caja Term. Sin Accesorios' },
-              { key: 'conectorAcople', label: 'Conector/Acople H-H' },
-              { key: 'conectorMecanicoApc', label: 'Conector Mecánico APC' },
-              { key: 'conectorMecanicoUpc', label: 'Conector Mecánico UPC' },
-              { key: 'precinto', label: 'Precinto' },
-            ].map(item => (
-              <View key={item.key} style={{ width: '48%', marginBottom: 12 }}>
-                <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' }}>{item.label}</Text>
-                <TextInput
-                  style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }}
-                  keyboardType="numeric"
-                  value={String(materiales[item.key as keyof typeof materiales] || '')}
-                  onChangeText={val => setMateriales((p: any) => ({ ...p, [item.key]: val }))}
-                  editable={!isSaving}
-                />
-              </View>
-            ))}
+              { key: 'tensorPlastico', label: 'Tensor Plástico', cod: 'MAT-TENSOR-PLASTICO' },
+              { key: 'tensorHierro', label: 'Tensor Hierro', cod: 'MAT-TENSOR-HIERRO' },
+              { key: 'grapas', label: 'Grapas', cod: 'MAT-GRAPAS' },
+              { key: 'tirrap', label: 'Tirrap', cod: 'MAT-TIRRAP' },
+              { key: 'pachCordApc', label: 'Pach Cord APC', cod: 'MAT-PACH-APC' },
+              { key: 'pachCordUpc', label: 'Pach Cord UPC', cod: 'MAT-PACH-UPC' },
+              { key: 'pachCordApcUpc', label: 'Pach Cord APC/UPC', cod: 'MAT-PACH-APC-UPC' },
+              { key: 'cajaTerminalCon', label: 'Caja Term. Con Accesorios', cod: 'MAT-CAJA-TERM-CON' },
+              { key: 'cajaTerminalSin', label: 'Caja Term. Sin Accesorios', cod: 'MAT-CAJA-TERM-SIN' },
+              { key: 'conectorAcople', label: 'Conector/Acople H-H', cod: 'MAT-CONECTOR-ACOPLE-HH' },
+              { key: 'conectorMecanicoApc', label: 'Conector Mecánico APC', cod: 'MAT-CONECTOR-MEC-APC' },
+              { key: 'conectorMecanicoUpc', label: 'Conector Mecánico UPC', cod: 'MAT-CONECTOR-MEC-UPC' },
+              { key: 'precinto', label: 'Precinto', cod: 'MAT-PRECINTO' },
+            ].map(item => {
+              const disp = stockCustodia[item.cod] !== undefined ? stockCustodia[item.cod] : (stockCustodia[item.label.toUpperCase()] || 0);
+              const numVal = parseFloat(materiales[item.key as keyof typeof materiales] || '0') || 0;
+              return (
+                <View key={item.key} style={{ width: '48%', marginBottom: 12 }}>
+                  <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' }}>{item.label}</Text>
+                  <TextInput
+                    style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: numVal > disp && disp > 0 ? '#F87171' : '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }}
+                    keyboardType="numeric"
+                    value={String(materiales[item.key as keyof typeof materiales] || '')}
+                    onChangeText={val => {
+                      const cleaned = val.replace(/[^0-9]/g, '');
+                      if (!cleaned) {
+                        setMateriales((p: any) => ({ ...p, [item.key]: '' }));
+                        return;
+                      }
+                      const inputNum = parseInt(cleaned, 10);
+                      if (inputNum > 0 && inputNum > disp) {
+                        Alert.alert(
+                          "Acción no permitida",
+                          `No posees suficiente stock de ${item.label} en tu custodia (Disponible: ${disp} und.). Solicita una carga a Almacén.`
+                        );
+                        setMateriales((p: any) => ({ ...p, [item.key]: '' }));
+                        return;
+                      }
+                      setMateriales((p: any) => ({ ...p, [item.key]: cleaned }));
+                    }}
+                    editable={!isSaving}
+                  />
+                  {disp > 0 ? (
+                    <Text style={{ fontSize: 9, color: numVal > disp ? '#F87171' : '#4ADE80', marginTop: 2, fontWeight: numVal > disp ? 'bold' : 'normal' }}>
+                      {numVal > disp ? `⚠️ Excede tu stock (${disp} und.)` : `✓ En custodia: ${disp} und.`}
+                    </Text>
+                  ) : (
+                    <Text style={{ fontSize: 9, color: '#8C9BAB', marginTop: 2, fontStyle: 'italic' }}>Sin stock asignado</Text>
+                  )}
+                </View>
+              );
+            })}
           </View>
 
           <View style={{ marginBottom: 16 }}>
@@ -123,6 +224,16 @@ export const FaseEnProceso = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSa
                     key={opcion}
                     style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#384148' }}
                     onPress={() => {
+                      const dispCable = stockCustodia['MAT-CABLE-PRECONECTORIZADO'] !== undefined ? stockCustodia['MAT-CABLE-PRECONECTORIZADO'] : (stockCustodia['CABLE PRECONECTORIZADO'] || 0);
+                      const cantCable = parseFloat(opcion) || 0;
+                      if (cantCable > dispCable) {
+                        Alert.alert(
+                          "Acción no permitida",
+                          `No posees suficiente stock de Cable Preconectorizado de ${opcion}m en tu custodia (Disponible: ${dispCable} und.).`
+                        );
+                        setMostrarDropdownCable(false);
+                        return;
+                      }
                       setMateriales((p: any) => ({ ...p, cablePreconectorizado: opcion }));
                       setMostrarDropdownCable(false);
                     }}

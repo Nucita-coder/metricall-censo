@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { History, Package, Calendar, User, FileText, ArrowDownRight, ArrowUpRight } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
+import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
 
 export interface LoadHistoryRecord {
   id: string;
@@ -36,13 +37,13 @@ export function TablaHistorialCargas({ empresaId, searchQuery }: TablaHistorialC
   const fetchLoadHistory = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('tarjetas')
-        .select('id, datos_valores, created_at')
-        .eq('empresa_id', empresaId)
-        .order('created_at', { ascending: false });
+      const data = await fetchTodasLasTarjetas({
+        empresaId,
+        select: 'id, datos_valores, created_at',
+        orderBy: 'created_at',
+        ascending: false,
+      });
 
-      if (error) throw error;
       if (!data) return;
 
       const list: Array<LoadHistoryRecord & { createdAt: string }> = [];

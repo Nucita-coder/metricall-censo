@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { fetchTodasLasTarjetas } from '../services/tarjetasService';
 import { Lista, TableroInfo } from '../types/kanban';
 
 interface UseKanbanDataLoaderProps {
@@ -62,14 +63,15 @@ export function useKanbanDataLoader({ id, session, userRol, permisosEspeciales, 
       };
 
       if (listaIds.length > 0) {
-        const { data: tData, error: tError } = await supabase
-          .from('tarjetas')
-          .select('*, perfiles(nombre_completo)')
-          .in('lista_id', listaIds)
-          .order('created_at', { ascending: false });
+        const tData = await fetchTodasLasTarjetas({
+          listaIds,
+          estadoArchivo: false,
+          select: '*, perfiles(nombre_completo)',
+          orderBy: 'created_at',
+          ascending: false,
+        });
 
-        if (tError) throw tError;
-        const tarjetasData = (tData as any[]).filter((t: any) => t.estado_archivo !== true);
+        const tarjetasData = tData;
 
         const listasAgrupadas: Lista[] = listasActivas.map((lista: any) => ({
           ...lista,

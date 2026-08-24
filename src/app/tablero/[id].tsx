@@ -12,6 +12,7 @@ import { useLocation } from '../../context/LocationContext';
 import { useKanbanCanvasPan } from '../../hooks/useKanbanCanvasPan';
 import { useKanbanDataLoader } from '../../hooks/useKanbanDataLoader';
 import { supabase } from '../../lib/supabase';
+import { fetchTodasLasTarjetas } from '../../services/tarjetasService';
 import { Lista, Tarjeta } from '../../types/kanban';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadImageToSupabase } from '../../services/uploadImage';
@@ -543,6 +544,7 @@ export default function KanbanTableroScreen() {
               onRightClickCard={(tarjeta, x, y) => setContextMenu({ visible: true, x, y, tarjeta })}
               resaltadaListaId={activeHighlightLista}
               resaltadaTarjetaId={activeHighlightTarjeta}
+              onRefreshKanbanData={fetchKanbanData}
             />
           )}
           contentContainerStyle={{ paddingVertical: 16, paddingHorizontal: 16 }}
@@ -603,7 +605,11 @@ export default function KanbanTableroScreen() {
         tempDesc={tempDesc}
         setTempDesc={setTempDesc}
         fetchArchivedCards={async () => {
-          const { data: dataCards } = await supabase.from('tarjetas').select('*, perfiles(nombre_completo)').in('lista_id', listas.map(l => l.id)).eq('estado_archivo', true);
+          const dataCards = await fetchTodasLasTarjetas({
+            listaIds: listas.map(l => l.id),
+            estadoArchivo: true,
+            select: '*, perfiles(nombre_completo)',
+          });
           setTarjetasArchivadas(dataCards || []);
 
           const { data: dataLists } = await supabase.from('listas').select('*').eq('tablero_id', id).eq('estado_archivo', true);

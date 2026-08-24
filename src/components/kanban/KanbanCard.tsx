@@ -1,8 +1,8 @@
-import { Phone, User } from 'lucide-react-native';
+import { Hash, Phone, User } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
-import { KANBAN_COLORS, KANBAN_THEME } from '../../constants/theme';
+import { KANBAN_COLORS, KANBAN_THEME, getResultadoColor } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { Lista, Tarjeta } from '../../types/kanban';
 
@@ -79,8 +79,8 @@ const KanbanCardComponent = ({
   const isCensoFormat = ['Censo', 'si desea', 'no desea', 'es posible'].includes(listaNombre || '');
   const isMaterialesFormat = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'].includes(listaNombre || '') || data.codigoMaterial !== undefined || data.nroOrdenEntrega !== undefined;
   let cardBg = KANBAN_COLORS.card.defaultBg;
-  if (listaNombre === 'si desea') cardBg = KANBAN_COLORS.card.censoInteresadosBg;
-  else if (listaNombre === 'no desea') cardBg = KANBAN_COLORS.card.censoNoInteresadosBg;
+  if (listaNombre === 'si desea' || listaNombre === 'Acción efectiva') cardBg = KANBAN_COLORS.card.censoInteresadosBg;
+  else if (listaNombre === 'no desea' || listaNombre === 'Acción negativa') cardBg = KANBAN_COLORS.card.censoNoInteresadosBg;
   else if (listaNombre === 'es posible') cardBg = KANBAN_COLORS.card.censoPosiblesBg;
 
   if (isBloqueada) {
@@ -257,6 +257,14 @@ const KanbanCardComponent = ({
                   {data.nombreApellido}
                 </Text>
                 <View style={styles.contactInfoRow}>
+                  {data.nroAbonado || data['NRO SUSCRIPTOR'] || data.abonado ? (
+                    <View style={styles.contactInfoItem}>
+                      <Hash size={11} color="#38BDF8" style={{ marginRight: 3 }} />
+                      <Text style={[styles.contactInfoText, { color: '#38BDF8', fontWeight: 'bold', marginRight: 6 }]}>
+                        {data.nroAbonado || data['NRO SUSCRIPTOR'] || data.abonado}
+                      </Text>
+                    </View>
+                  ) : null}
                   {data.documentoIdentidad || data.nroIdentidad ? (
                     <View style={styles.contactInfoItem}>
                       <User size={11} color="#A0AEC0" style={{ marginRight: 4 }} />
@@ -270,6 +278,29 @@ const KanbanCardComponent = ({
                     </View>
                   ) : null}
                 </View>
+                {(data.tipoContacto || data.resultadoContacto) && (
+                  <View style={{ marginTop: 6, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {data.tipoContacto ? (
+                      <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.3)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 10, color: '#38BDF8', fontWeight: 'bold' }}>
+                          {data.tipoContacto}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {data.resultadoContacto ? (
+                      (() => {
+                        const resColor = getResultadoColor(data.resultadoContacto);
+                        return (
+                          <View style={{ backgroundColor: resColor.bg, borderWidth: 1, borderColor: resColor.border, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ fontSize: 10, color: resColor.text, fontWeight: 'bold' }}>
+                              {data.resultadoContacto}
+                            </Text>
+                          </View>
+                        );
+                      })()
+                    ) : null}
+                  </View>
+                )}
               </>
             )
           )}

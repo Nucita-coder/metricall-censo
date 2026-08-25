@@ -73,8 +73,8 @@ export default function MetricasScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
-  // Subtab activo: 'vendedores' | 'censos' | 'tecnicos' | 'almacen' | 'cobranza'
-  const [subTab, setSubTab] = useState<'vendedores' | 'censos' | 'tecnicos' | 'almacen' | 'cobranza'>('vendedores');
+  // Subtab activo: 'vendedores' | 'censos' | 'tecnicos' | 'cobranza'
+  const [subTab, setSubTab] = useState<'vendedores' | 'censos' | 'tecnicos' | 'cobranza'>('vendedores');
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -465,7 +465,7 @@ export default function MetricasScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0C66E4" />}
       >
-        {/* SELECTOR DE SUBTAB (Módulos de la plataforma) */}
+        {/* SELECTOR DE SUBTAB (Módulos activos de la plataforma) */}
         <View style={styles.subTabRow}>
           <TouchableOpacity
             style={[styles.subTabButton, subTab === 'vendedores' && styles.subTabButtonActive]}
@@ -476,7 +476,7 @@ export default function MetricasScreen() {
           >
             <Users size={16} color={subTab === 'vendedores' ? '#FFF' : '#8C9BAB'} />
             <Text style={[styles.subTabText, subTab === 'vendedores' && styles.subTabTextActive]}>
-              Ventas e Instalaciones
+              Ventas
             </Text>
           </TouchableOpacity>
 
@@ -503,19 +503,6 @@ export default function MetricasScreen() {
             <Wrench size={16} color={subTab === 'tecnicos' ? '#FFF' : '#8C9BAB'} />
             <Text style={[styles.subTabText, subTab === 'tecnicos' && styles.subTabTextActive]}>
               Técnicos
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.subTabButton, subTab === 'almacen' && styles.subTabButtonActive]}
-            onPress={() => {
-              setSubTab('almacen');
-              setExpandidoId(null);
-            }}
-          >
-            <Package size={16} color={subTab === 'almacen' ? '#FFF' : '#8C9BAB'} />
-            <Text style={[styles.subTabText, subTab === 'almacen' && styles.subTabTextActive]}>
-              Almacén
             </Text>
           </TouchableOpacity>
 
@@ -1060,19 +1047,6 @@ export default function MetricasScreen() {
               </View>
             )}
           </>
-        )}
-
-        {/* ============================================================== */}
-        {/* MODULO 4: ALMACÉN */}
-        {/* ============================================================== */}
-        {subTab === 'almacen' && (
-          <View style={styles.emptyContainer}>
-            <Package size={48} color="#0C66E4" style={{ marginBottom: 12 }} />
-            <Text style={styles.emptyTitle}>Módulo de Métricas de Almacén</Text>
-            <Text style={styles.emptySubtitle}>
-              Pestaña lista para recibir las instrucciones y visualizaciones de gestión de materiales e inventario.
-            </Text>
-          </View>
         )}
 
         {/* ============================================================== */}

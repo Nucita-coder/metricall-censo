@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  TouchableOpacity,
   Platform,
   useWindowDimensions,
 } from 'react-native';
@@ -16,6 +17,8 @@ import {
   BarChart3,
   Calendar,
   Layers,
+  AlertCircle,
+  Clock,
 } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { Tarjeta } from '../../types/kanban';
@@ -32,17 +35,19 @@ export interface MesCobranzaData {
   nombreCorto: string;
   totalEfectivos: number;
   totalNegativos: number;
-  totalEnProceso: number;
+  totalSinAtender: number;
   totalGeneral: number;
   tasaEfectividad: number;
+  tasaSinAtender: number;
 }
 
 export interface CobranzaStats {
   totalCortados: number;
   totalEfectivos: number;
   totalNegativos: number;
-  totalEnProceso: number;
+  totalSinAtender: number;
   tasaRecuperacion: number;
+  tasaSinAtender: number;
   serie12Meses: MesCobranzaData[];
 }
 
@@ -50,13 +55,15 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
+  const [periodoLocal, setPeriodoLocal] = useState<'todo' | 'hoy' | '7dias' | 'mes'>(filtroPeriodo || 'todo');
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<CobranzaStats>({
     totalCortados: 0,
     totalEfectivos: 0,
     totalNegativos: 0,
-    totalEnProceso: 0,
+    totalSinAtender: 0,
     tasaRecuperacion: 0,
+    tasaSinAtender: 0,
     serie12Meses: [],
   });
 
@@ -77,20 +84,24 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         return;
       }
 
-      // 2. Cargar tableros de tipo cobranza (activos Y archivados para historial completo)
+      // 2. Cargar tableros (coincidencia por tipo 'cobranza' O por nombre que contenga cobranza/recupero/cortado)
       const { data: tableros } = await supabase
         .from('tableros')
         .select('id, nombre, tipo, archivado, mes_periodo')
-        .in('sucursal_id', sucursalIds)
-        .eq('tipo', 'cobranza');
+        .in('sucursal_id', sucursalIds);
 
-      const tableroIds = (tableros || []).map(t => t.id);
+      const tablerosCobranza = (tableros || []).filter(t => {
+        const n = (t.nombre || '').toLowerCase();
+        return t.tipo === 'cobranza' || n.includes('cobranza') || n.includes('recupero') || n.includes('cortado');
+      });
+
+      const tableroIds = tablerosCobranza.map(t => t.id);
       if (tableroIds.length === 0) {
         setIsLoading(false);
         return;
       }
 
-      // 3. Cargar listas de cobranza y recupero
+      // 3. Cargar listas de los tableros de cobranza
       const { data: listas } = await supabase
         .from('listas')
         .select('id, nombre, tablero_id')
@@ -101,17 +112,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         return;
       }
 
-      const listasCobranza = listas.filter(l => {
-        const n = (l.nombre || '').toLowerCase();
-        return (
-          n.includes('cobranza') ||
-          n.includes('recupero') ||
-          n.includes('cortado') ||
-          n.includes('efectiva') ||
-          n.includes('negativa')
-        );
-      });
-
+      const listasCobranza = listas;
       const listaIdsCobranza = listasCobranza.map(l => l.id);
       if (listaIdsCobranza.length === 0) {
         setIsLoading(false);
@@ -123,25 +124,27 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         .from('tarjetas')
         .select('*')
         .in('lista_id', listaIdsCobranza);
-        // No filtramos por estado_archivo para incluir todos los datos históricos
 
       if (error) throw error;
       const tarjetas = (tarjetasData || []) as Tarjeta[];
 
-      // 5. Filtrar por periodo
+      // 5. Filtrar por periodo seleccionado
       const ahora = new Date();
       const tarjetasFiltradas = tarjetas.filter(t => {
-        if (!t.created_at) return true;
-        const fechaTarjeta = new Date(t.created_at);
+        if (periodoLocal === 'todo') return true;
+        const data = t.datos_valores || {};
+        const fechaStr = data.fechaCobroReconciliacion || t.created_at || t.updated_at;
+        if (!fechaStr) return true;
+        const fechaTarjeta = new Date(fechaStr);
 
-        if (filtroPeriodo === 'hoy') {
+        if (periodoLocal === 'hoy') {
           return fechaTarjeta.toDateString() === ahora.toDateString();
         }
-        if (filtroPeriodo === '7dias') {
+        if (periodoLocal === '7dias') {
           const hace7 = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
           return fechaTarjeta >= hace7;
         }
-        if (filtroPeriodo === 'mes') {
+        if (periodoLocal === 'mes') {
           return (
             fechaTarjeta.getMonth() === ahora.getMonth() &&
             fechaTarjeta.getFullYear() === ahora.getFullYear()
@@ -153,7 +156,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
       // 6. Procesar métricas numéricas globales
       let efectivos = 0;
       let negativos = 0;
-      let enProceso = 0;
+      let sinAtender = 0;
 
       const mapMeses = new Map<string, MesCobranzaData>();
       const mesesCortos = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -181,7 +184,8 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         } else if (esNegativa) {
           negativos++;
         } else {
-          enProceso++;
+          // Caso que se quedó en la lista de carga únicamente y nunca pasó a acción efectiva o negativa (Caso Sin Atender)
+          sinAtender++;
         }
 
         // Agrupación mensual por fecha
@@ -200,9 +204,10 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
             nombreCorto,
             totalEfectivos: 0,
             totalNegativos: 0,
-            totalEnProceso: 0,
+            totalSinAtender: 0,
             totalGeneral: 0,
             tasaEfectividad: 0,
+            tasaSinAtender: 0,
           });
         }
 
@@ -213,12 +218,13 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         } else if (esNegativa) {
           mData.totalNegativos++;
         } else {
-          mData.totalEnProceso++;
+          mData.totalSinAtender++;
         }
       });
 
       const totalTotal = tarjetasFiltradas.length;
-      const tasa = totalTotal > 0 ? Math.round((efectivos / totalTotal) * 100) : 0;
+      const tasaEfectivaGeneral = totalTotal > 0 ? Math.round((efectivos / totalTotal) * 100) : 0;
+      const tasaSinAtenderGeneral = totalTotal > 0 ? Math.round((sinAtender / totalTotal) * 100) : 0;
 
       // Generar serie de 12 meses cronológicos del año actual
       const yearActual = ahora.getFullYear();
@@ -227,7 +233,8 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         const mData = mapMeses.get(claveMes);
         if (mData) {
           const tasaM = mData.totalGeneral > 0 ? Math.round((mData.totalEfectivos / mData.totalGeneral) * 100) : 0;
-          return { ...mData, tasaEfectividad: tasaM };
+          const tasaSA = mData.totalGeneral > 0 ? Math.round((mData.totalSinAtender / mData.totalGeneral) * 100) : 0;
+          return { ...mData, tasaEfectividad: tasaM, tasaSinAtender: tasaSA };
         }
         return {
           claveMes,
@@ -235,9 +242,10 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
           nombreCorto: corto,
           totalEfectivos: 0,
           totalNegativos: 0,
-          totalEnProceso: 0,
+          totalSinAtender: 0,
           totalGeneral: 0,
           tasaEfectividad: 0,
+          tasaSinAtender: 0,
         };
       });
 
@@ -245,8 +253,9 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         totalCortados: totalTotal,
         totalEfectivos: efectivos,
         totalNegativos: negativos,
-        totalEnProceso: enProceso,
-        tasaRecuperacion: tasa,
+        totalSinAtender: sinAtender,
+        tasaRecuperacion: tasaEfectivaGeneral,
+        tasaSinAtender: tasaSinAtenderGeneral,
         serie12Meses,
       });
     } catch (err) {
@@ -254,7 +263,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
     } finally {
       setIsLoading(false);
     }
-  }, [empresaId, filtroPeriodo]);
+  }, [empresaId, periodoLocal]);
 
   useEffect(() => {
     cargarDatosCobranza();
@@ -274,6 +283,42 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
 
   return (
     <View style={styles.container}>
+      {/* FILTROS DE PERÍODO LOCAL */}
+      <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={[styles.filterChip, periodoLocal === 'todo' && styles.filterChipActive]}
+          onPress={() => setPeriodoLocal('todo')}
+        >
+          <Text style={[styles.filterChipText, periodoLocal === 'todo' && styles.filterChipTextActive]}>
+            Todo el Historial
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, periodoLocal === 'mes' && styles.filterChipActive]}
+          onPress={() => setPeriodoLocal('mes')}
+        >
+          <Text style={[styles.filterChipText, periodoLocal === 'mes' && styles.filterChipTextActive]}>
+            Este Mes
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, periodoLocal === '7dias' && styles.filterChipActive]}
+          onPress={() => setPeriodoLocal('7dias')}
+        >
+          <Text style={[styles.filterChipText, periodoLocal === '7dias' && styles.filterChipTextActive]}>
+            Últimos 7 días
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, periodoLocal === 'hoy' && styles.filterChipActive]}
+          onPress={() => setPeriodoLocal('hoy')}
+        >
+          <Text style={[styles.filterChipText, periodoLocal === 'hoy' && styles.filterChipTextActive]}>
+            Hoy
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* TARJETAS DE KPIS NUMÉRICOS EXCLUSIVAMENTE */}
       <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
         <View style={[styles.kpiCard, { borderColor: '#7C3AED' }]}>
@@ -294,13 +339,22 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
           <Text style={styles.kpiSubtext}>Total de clientes no recuperados</Text>
         </View>
 
-        <View style={[styles.kpiCard, { borderColor: '#0C66E4' }]}>
+        <View style={[styles.kpiCard, { borderColor: '#F59E0B' }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={styles.kpiLabel}>En Proceso / Pendientes</Text>
-            <Layers size={22} color="#0C66E4" />
+            <Text style={styles.kpiLabel}>Casos Sin Atender</Text>
+            <AlertCircle size={22} color="#F59E0B" />
           </View>
-          <Text style={[styles.kpiValue, { color: '#579DFF' }]}>{stats.totalEnProceso}</Text>
-          <Text style={styles.kpiSubtext}>Total de clientes pendientes de gestión</Text>
+          <Text style={[styles.kpiValue, { color: '#FBBF24' }]}>{stats.totalSinAtender}</Text>
+          <Text style={styles.kpiSubtext}>Permanecieron en carga sin pasar a acción</Text>
+        </View>
+
+        <View style={[styles.kpiCard, { borderColor: '#3B82F6' }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.kpiLabel}>% Casos Sin Atender</Text>
+            <Clock size={22} color="#3B82F6" />
+          </View>
+          <Text style={[styles.kpiValue, { color: '#60A5FA' }]}>{stats.tasaSinAtender}%</Text>
+          <Text style={styles.kpiSubtext}>Porcentaje de casos que no se atendieron</Text>
         </View>
 
         <View style={[styles.kpiCard, { borderColor: '#DD6B20' }]}>
@@ -384,15 +438,16 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
       {/* RESUMEN CUANTITATIVO TABULAR MENSUAL */}
       <View style={styles.tableCard}>
         <View style={styles.tableHeader}>
-          <Text style={styles.tableTitle}>Desglose Numérico por Mes</Text>
+          <Text style={styles.tableTitle}>Desglose Numérico y Porcentual por Mes</Text>
         </View>
 
         <View style={styles.tableHeadRow}>
           <Text style={[styles.thCell, { flex: 2 }]}>Mes</Text>
-          <Text style={[styles.thCell, { flex: 1.5, textAlign: 'center' }]}>Cobro Efectivo</Text>
-          <Text style={[styles.thCell, { flex: 1.5, textAlign: 'center' }]}>Sin Cobro (Negativo)</Text>
-          <Text style={[styles.thCell, { flex: 1.5, textAlign: 'center' }]}>En Proceso</Text>
+          <Text style={[styles.thCell, { flex: 1.4, textAlign: 'center' }]}>Cobro Efectivo</Text>
+          <Text style={[styles.thCell, { flex: 1.4, textAlign: 'center' }]}>Sin Cobro (Negativo)</Text>
+          <Text style={[styles.thCell, { flex: 1.4, textAlign: 'center' }]}>Sin Atender</Text>
           <Text style={[styles.thCell, { flex: 1.2, textAlign: 'right' }]}>% Efectividad</Text>
+          <Text style={[styles.thCell, { flex: 1.2, textAlign: 'right' }]}>% Sin Atender</Text>
         </View>
 
         {stats.serie12Meses.map((m, index) => (
@@ -404,17 +459,20 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
             ]}
           >
             <Text style={[styles.tdCellBold, { flex: 2 }]}>{m.nombreMes}</Text>
-            <Text style={[styles.tdCellNumberSuccess, { flex: 1.5, textAlign: 'center' }]}>
+            <Text style={[styles.tdCellNumberSuccess, { flex: 1.4, textAlign: 'center' }]}>
               {m.totalEfectivos}
             </Text>
-            <Text style={[styles.tdCellNumberDanger, { flex: 1.5, textAlign: 'center' }]}>
+            <Text style={[styles.tdCellNumberDanger, { flex: 1.4, textAlign: 'center' }]}>
               {m.totalNegativos}
             </Text>
-            <Text style={[styles.tdCellNumberInfo, { flex: 1.5, textAlign: 'center' }]}>
-              {m.totalEnProceso}
+            <Text style={[styles.tdCellNumberWarning, { flex: 1.4, textAlign: 'center' }]}>
+              {m.totalSinAtender}
             </Text>
             <Text style={[styles.tdCellBadge, { flex: 1.2, textAlign: 'right' }]}>
               {m.tasaEfectividad}%
+            </Text>
+            <Text style={[styles.tdCellBadgeWarning, { flex: 1.2, textAlign: 'right' }]}>
+              {m.tasaSinAtender}%
             </Text>
           </View>
         ))}
@@ -426,6 +484,32 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+    flexWrap: 'wrap',
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#22272B',
+    borderWidth: 1,
+    borderColor: '#384148',
+  },
+  filterChipActive: {
+    backgroundColor: '#1C2B3A',
+    borderColor: '#0C66E4',
+  },
+  filterChipText: {
+    color: '#8C9BAB',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  filterChipTextActive: {
+    color: '#579DFF',
   },
   loadingContainer: {
     alignItems: 'center',
@@ -641,8 +725,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 13,
   },
+  tdCellNumberWarning: {
+    color: '#FBBF24',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
   tdCellBadge: {
     color: '#F6AD55',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  tdCellBadgeWarning: {
+    color: '#60A5FA',
     fontWeight: '900',
     fontSize: 13,
   },

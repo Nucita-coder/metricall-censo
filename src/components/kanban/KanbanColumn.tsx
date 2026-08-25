@@ -210,6 +210,19 @@ const KanbanColumnComponent = ({
             </TouchableOpacity>
           </View>
 
+          {/* Botón Cargar Clientes Excel ubicado justo debajo del título de la lista */}
+          {puedeCrear && esListaCargaExcel(item.nombre) && (
+            <View style={{ marginBottom: 12 }}>
+              <BotonImportarExcel
+                listaId={item.id}
+                listaNombre={item.nombre}
+                onImportComplete={() => {
+                  if (onRefreshKanbanData) onRefreshKanbanData();
+                }}
+              />
+            </View>
+          )}
+
           <Reanimated.FlatList
             itemLayoutAnimation={LinearTransition.duration(200)}
             style={{ flex: 1 }}
@@ -237,13 +250,10 @@ const KanbanColumnComponent = ({
             directionalLockEnabled={true}
             contentContainerStyle={{ paddingBottom: 60, flexGrow: 1 }}
             ListFooterComponent={() => {
-              if (!puedeCrear) return null;
+              if (!puedeCrear || isCobranzaBoard) return null;
               const nombreLower = item.nombre ? item.nombre.toLowerCase().trim() : '';
               const isDevolucionCentralColumn = nombreLower.includes('almacén central') || nombreLower.includes('almacen central');
               const isDevolucionAsignacionColumn = !isDevolucionCentralColumn && (nombreLower.includes('devolución de asignación') || nombreLower.includes('devolucion de asignacion') || nombreLower.includes('devolucion'));
-
-              const showExcelButton = esListaCargaExcel(item.nombre);
-              const showAddCardButton = !isCobranzaBoard;
 
               const buttonTipoCarga = isDevolucionCentralColumn
                 ? 'DEVOLUCIÓN A ALMACÉN CENTRAL'
@@ -257,42 +267,29 @@ const KanbanColumnComponent = ({
                   ? 'Devolución de Asignación'
                   : 'Añadir Tarjeta';
 
-              if (!showExcelButton && !showAddCardButton) return null;
-
               return (
-                <View style={{ marginTop: 12, marginBottom: 20, gap: 10 }}>
-                  {showExcelButton && (
-                    <BotonImportarExcel
-                      listaId={item.id}
-                      listaNombre={item.nombre}
-                      onImportComplete={() => {
-                        if (onRefreshKanbanData) onRefreshKanbanData();
-                      }}
-                    />
-                  )}
-                  {showAddCardButton && (
-                    <TouchableOpacity
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        paddingVertical: 14,
-                        paddingHorizontal: 12,
-                        backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                        borderRadius: 12,
-                        borderWidth: 1.5,
-                        borderColor: '#333',
-                        borderStyle: 'dashed',
-                      }}
-                      onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre, tipoCarga: buttonTipoCarga } })}
-                      activeOpacity={0.6}
-                    >
-                      <Plus size={20} color="#111" strokeWidth={2} />
-                      <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 14, fontStyle: 'italic' }}>
-                        {buttonText}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                <View style={{ marginTop: 12, marginBottom: 20 }}>
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 14,
+                      paddingHorizontal: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                      borderRadius: 12,
+                      borderWidth: 1.5,
+                      borderColor: '#333',
+                      borderStyle: 'dashed',
+                    }}
+                    onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre, tipoCarga: buttonTipoCarga } })}
+                    activeOpacity={0.6}
+                  >
+                    <Plus size={20} color="#111" strokeWidth={2} />
+                    <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 14, fontStyle: 'italic' }}>
+                      {buttonText}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               );
             }}

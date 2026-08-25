@@ -383,50 +383,48 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
           )}
         </View>
       )}
-      <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
-        <View style={[styles.kpiCard, { borderColor: '#7C3AED' }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={styles.kpiLabel}>Cobro Efectivo (Clientes)</Text>
-            <CheckCircle2 size={22} color="#7C3AED" />
+      {/* CONTENEDOR SOBRIO DE MÉTRICAS EJECUTIVAS */}
+      <View style={styles.soberSummaryCard}>
+        <Text style={styles.soberCardHeaderTitle}>Resumen Ejecutivo de Cobranza</Text>
+
+        <View style={styles.soberMetricRow}>
+          <View style={styles.soberMetricInfo}>
+            <Text style={styles.soberMetricLabel}>Cobro Efectivo (Clientes)</Text>
+            <Text style={styles.soberMetricSubtext}>Total de clientes cobrados efectivamente</Text>
           </View>
-          <Text style={[styles.kpiValue, { color: '#A78BFA' }]}>{stats.totalEfectivos}</Text>
-          <Text style={styles.kpiSubtext}>Total de clientes cobrados efectivamente</Text>
+          <Text style={styles.soberMetricValue}>{stats.totalEfectivos}</Text>
         </View>
 
-        <View style={[styles.kpiCard, { borderColor: '#E53E3E' }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={styles.kpiLabel}>Acción Negativa (Sin Cobro)</Text>
-            <XCircle size={22} color="#E53E3E" />
+        <View style={styles.soberMetricRow}>
+          <View style={styles.soberMetricInfo}>
+            <Text style={styles.soberMetricLabel}>Acción Negativa (Sin Cobro)</Text>
+            <Text style={styles.soberMetricSubtext}>Total de clientes no recuperados</Text>
           </View>
-          <Text style={[styles.kpiValue, { color: '#FF6B6B' }]}>{stats.totalNegativos}</Text>
-          <Text style={styles.kpiSubtext}>Total de clientes no recuperados</Text>
+          <Text style={styles.soberMetricValue}>{stats.totalNegativos}</Text>
         </View>
 
-        <View style={[styles.kpiCard, { borderColor: '#F59E0B' }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={styles.kpiLabel}>Casos Sin Atender</Text>
-            <AlertCircle size={22} color="#F59E0B" />
+        <View style={styles.soberMetricRow}>
+          <View style={styles.soberMetricInfo}>
+            <Text style={styles.soberMetricLabel}>Casos Sin Atender</Text>
+            <Text style={styles.soberMetricSubtext}>Permanecieron en carga sin pasar a acción</Text>
           </View>
-          <Text style={[styles.kpiValue, { color: '#FBBF24' }]}>{stats.totalSinAtender}</Text>
-          <Text style={styles.kpiSubtext}>Permanecieron en carga sin pasar a acción</Text>
+          <Text style={styles.soberMetricValue}>{stats.totalSinAtender}</Text>
         </View>
 
-        <View style={[styles.kpiCard, { borderColor: '#3B82F6' }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={styles.kpiLabel}>% Casos Sin Atender</Text>
-            <Clock size={22} color="#3B82F6" />
+        <View style={styles.soberMetricRow}>
+          <View style={styles.soberMetricInfo}>
+            <Text style={styles.soberMetricLabel}>% Casos Sin Atender</Text>
+            <Text style={styles.soberMetricSubtext}>Porcentaje de casos que no se atendieron</Text>
           </View>
-          <Text style={[styles.kpiValue, { color: '#60A5FA' }]}>{stats.tasaSinAtender}%</Text>
-          <Text style={styles.kpiSubtext}>Porcentaje de casos que no se atendieron</Text>
+          <Text style={styles.soberMetricValue}>{stats.tasaSinAtender}%</Text>
         </View>
 
-        <View style={[styles.kpiCard, { borderColor: '#DD6B20' }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={styles.kpiLabel}>Efectividad General</Text>
-            <TrendingUp size={22} color="#DD6B20" />
+        <View style={[styles.soberMetricRow, { borderBottomWidth: 0 }]}>
+          <View style={styles.soberMetricInfo}>
+            <Text style={styles.soberMetricLabel}>Efectividad General</Text>
+            <Text style={styles.soberMetricSubtext}>Porcentaje de efectividad del total</Text>
           </View>
-          <Text style={[styles.kpiValue, { color: '#F6AD55' }]}>{stats.tasaRecuperacion}%</Text>
-          <Text style={styles.kpiSubtext}>Porcentaje de efectividad del total</Text>
+          <Text style={styles.soberMetricValue}>{stats.tasaRecuperacion}%</Text>
         </View>
       </View>
 
@@ -595,36 +593,53 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
   },
-  kpiGrid: {
-    gap: 16,
-    marginBottom: 20,
-  },
-  kpiGridDesktop: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  kpiCard: {
-    flex: 1,
-    minWidth: 220,
+  soberSummaryCard: {
     backgroundColor: '#22272B',
-    padding: 16,
     borderRadius: 12,
     borderWidth: 1,
+    borderColor: '#384148',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginBottom: 20,
+    maxWidth: 580,
   },
-  kpiLabel: {
-    color: '#8C9BAB',
-    fontSize: 12,
+  soberCardHeaderTitle: {
+    fontSize: 13,
     fontWeight: 'bold',
-    textTransform: 'uppercase',
-  },
-  kpiValue: {
-    fontSize: 32,
-    fontWeight: '900',
-    marginVertical: 6,
-  },
-  kpiSubtext: {
-    fontSize: 11,
     color: '#8C9BAB',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2C333A',
+  },
+  soberMetricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2C333A',
+  },
+  soberMetricInfo: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  soberMetricLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#B6C2CF',
+  },
+  soberMetricSubtext: {
+    fontSize: 12,
+    color: '#8C9BAB',
+    marginTop: 2,
+  },
+  soberMetricValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   chartContainerCard: {
     backgroundColor: '#22272B',

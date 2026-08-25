@@ -19,9 +19,11 @@ import {
   Layers,
   AlertCircle,
   Clock,
+  X,
 } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { Tarjeta } from '../../types/kanban';
+import { DatePickerInput, SelectDropdown } from '../venta/CamposVenta';
 
 interface ModuloCobranzaProps {
   empresaId: string | null;
@@ -51,11 +53,52 @@ export interface CobranzaStats {
   serie12Meses: MesCobranzaData[];
 }
 
+const OPCIONES_PERIODO = [
+  'Todo el Historial',
+  'Este Mes',
+  'Últimos 7 días',
+  'Hoy',
+  'Rango Personalizado (Calendario)',
+];
+
+const PERIODO_MAP_TO_KEY: Record<string, 'todo' | 'mes' | '7dias' | 'hoy' | 'personalizado'> = {
+  'Todo el Historial': 'todo',
+  'Este Mes': 'mes',
+  'Últimos 7 días': '7dias',
+  'Hoy': 'hoy',
+  'Rango Personalizado (Calendario)': 'personalizado',
+};
+
+const PERIODO_MAP_TO_LABEL: Record<string, string> = {
+  todo: 'Todo el Historial',
+  mes: 'Este Mes',
+  '7dias': 'Últimos 7 días',
+  hoy: 'Hoy',
+  personalizado: 'Rango Personalizado (Calendario)',
+};
+
+function parseFechaAObjeto(val?: string): Date | null {
+  if (!val) return null;
+  const str = String(val).trim();
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+    const [d, m, y] = str.split('/').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const parts = str.split('T')[0].split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  const parsed = new Date(str);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: ModuloCobranzaProps) {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
-  const [periodoLocal, setPeriodoLocal] = useState<'todo' | 'hoy' | '7dias' | 'mes'>(filtroPeriodo || 'todo');
+  const [periodoLocal, setPeriodoLocal] = useState<'todo' | 'hoy' | '7dias' | 'mes' | 'personalizado'>(filtroPeriodo || 'todo');
+  const [fechaInicio, setFechaInicio] = useState<string>('');
+  const [fechaFin, setFechaFin] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<CobranzaStats>({
     totalCortados: 0,
@@ -128,14 +171,21 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
       if (error) throw error;
       const tarjetas = (tarjetasData || []) as Tarjeta[];
 
-      // 5. Filtrar por periodo seleccionado
+      // 5. Filtrar por periodo seleccionado (admite rango personalizado con calendario)
       const ahora = new Date();
+      const inicioObj = fechaInicio ? parseFechaAObjeto(fechaInicio) : null;
+      if (inicioObj) inicioObj.setHours(0, 0, 0, 0);
+
+      const finObj = fechaFin ? parseFechaAObjeto(fechaFin) : null;
+      if (finObj) finObj.setHours(23, 59, 59, 999);
+
       const tarjetasFiltradas = tarjetas.filter(t => {
         if (periodoLocal === 'todo') return true;
         const data = t.datos_valores || {};
         const fechaStr = data.fechaCobroReconciliacion || t.created_at || t.updated_at;
         if (!fechaStr) return true;
-        const fechaTarjeta = new Date(fechaStr);
+        const fechaTarjeta = parseFechaAObjeto(fechaStr);
+        if (!fechaTarjeta) return true;
 
         if (periodoLocal === 'hoy') {
           return fechaTarjeta.toDateString() === ahora.toDateString();
@@ -149,6 +199,11 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
             fechaTarjeta.getMonth() === ahora.getMonth() &&
             fechaTarjeta.getFullYear() === ahora.getFullYear()
           );
+        }
+        if (periodoLocal === 'personalizado') {
+          if (inicioObj && fechaTarjeta < inicioObj) return false;
+          if (finObj && fechaTarjeta > finObj) return false;
+          return true;
         }
         return true;
       });
@@ -263,7 +318,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
     } finally {
       setIsLoading(false);
     }
-  }, [empresaId, periodoLocal]);
+  }, [empresaId, periodoLocal, fechaInicio, fechaFin]);
 
   useEffect(() => {
     cargarDatosCobranza();
@@ -283,43 +338,51 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
 
   return (
     <View style={styles.container}>
-      {/* FILTROS DE PERÍODO LOCAL */}
-      <View style={styles.filterRow}>
-        <TouchableOpacity
-          style={[styles.filterChip, periodoLocal === 'todo' && styles.filterChipActive]}
-          onPress={() => setPeriodoLocal('todo')}
-        >
-          <Text style={[styles.filterChipText, periodoLocal === 'todo' && styles.filterChipTextActive]}>
-            Todo el Historial
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterChip, periodoLocal === 'mes' && styles.filterChipActive]}
-          onPress={() => setPeriodoLocal('mes')}
-        >
-          <Text style={[styles.filterChipText, periodoLocal === 'mes' && styles.filterChipTextActive]}>
-            Este Mes
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterChip, periodoLocal === '7dias' && styles.filterChipActive]}
-          onPress={() => setPeriodoLocal('7dias')}
-        >
-          <Text style={[styles.filterChipText, periodoLocal === '7dias' && styles.filterChipTextActive]}>
-            Últimos 7 días
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterChip, periodoLocal === 'hoy' && styles.filterChipActive]}
-          onPress={() => setPeriodoLocal('hoy')}
-        >
-          <Text style={[styles.filterChipText, periodoLocal === 'hoy' && styles.filterChipTextActive]}>
-            Hoy
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.filterDropdownWrapper}>
+        <SelectDropdown
+          label="Filtrar Período"
+          value={PERIODO_MAP_TO_LABEL[periodoLocal] || 'Todo el Historial'}
+          options={OPCIONES_PERIODO}
+          onSelect={(selectedLabel) => {
+            const key = PERIODO_MAP_TO_KEY[selectedLabel] || 'todo';
+            setPeriodoLocal(key);
+          }}
+          placeholder="Seleccionar..."
+        />
       </View>
-
-      {/* TARJETAS DE KPIS NUMÉRICOS EXCLUSIVAMENTE */}
+      {periodoLocal === 'personalizado' && (
+        <View style={styles.customDateContainer}>
+          <Text style={styles.customDateTitle}>Rango de Fechas (Calendario)</Text>
+          <View style={styles.customDateRow}>
+            <DatePickerInput
+              label="Desde"
+              value={fechaInicio}
+              onDateChange={setFechaInicio}
+              placeholder="dd/mm/aaaa"
+              halfWidth
+            />
+            <DatePickerInput
+              label="Hasta"
+              value={fechaFin}
+              onDateChange={setFechaFin}
+              placeholder="dd/mm/aaaa"
+              halfWidth
+            />
+          </View>
+          {(fechaInicio !== '' || fechaFin !== '') && (
+            <TouchableOpacity
+              style={styles.clearDatesBtn}
+              onPress={() => {
+                setFechaInicio('');
+                setFechaFin('');
+              }}
+            >
+              <X size={12} color="#8C9BAB" />
+              <Text style={styles.clearDatesTxt}>Limpiar Fechas</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
       <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
         <View style={[styles.kpiCard, { borderColor: '#7C3AED' }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -485,31 +548,42 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
-    flexWrap: 'wrap',
+  filterDropdownWrapper: {
+    maxWidth: 240,
+    marginBottom: 8,
   },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+  customDateContainer: {
     backgroundColor: '#22272B',
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#384148',
+    padding: 10,
+    marginBottom: 14,
+    maxWidth: 420,
   },
-  filterChipActive: {
-    backgroundColor: '#1C2B3A',
-    borderColor: '#0C66E4',
-  },
-  filterChipText: {
-    color: '#8C9BAB',
-    fontSize: 12,
+  customDateTitle: {
+    color: '#B6C2CF',
+    fontSize: 11,
     fontWeight: 'bold',
+    marginBottom: 6,
   },
-  filterChipTextActive: {
-    color: '#579DFF',
+  customDateRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  clearDatesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  clearDatesTxt: {
+    color: '#8C9BAB',
+    fontSize: 11,
+    fontWeight: '600',
   },
   loadingContainer: {
     alignItems: 'center',

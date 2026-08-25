@@ -1,0 +1,648 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
+import {
+  Receipt,
+  CheckCircle2,
+  XCircle,
+  TrendingUp,
+  BarChart3,
+  Calendar,
+  Layers,
+} from 'lucide-react-native';
+import { supabase } from '../../lib/supabase';
+import { Tarjeta } from '../../types/kanban';
+
+interface ModuloCobranzaProps {
+  empresaId: string | null;
+  filtroPeriodo: 'todo' | 'hoy' | '7dias' | 'mes';
+  busquedaTexto: string;
+}
+
+export interface MesCobranzaData {
+  claveMes: string;
+  nombreMes: string;
+  nombreCorto: string;
+  totalEfectivos: number;
+  totalNegativos: number;
+  totalEnProceso: number;
+  totalGeneral: number;
+  tasaEfectividad: number;
+}
+
+export interface CobranzaStats {
+  totalCortados: number;
+  totalEfectivos: number;
+  totalNegativos: number;
+  totalEnProceso: number;
+  tasaRecuperacion: number;
+  serie12Meses: MesCobranzaData[];
+}
+
+export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: ModuloCobranzaProps) {
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && width >= 768;
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState<CobranzaStats>({
+    totalCortados: 0,
+    totalEfectivos: 0,
+    totalNegativos: 0,
+    totalEnProceso: 0,
+    tasaRecuperacion: 0,
+    serie12Meses: [],
+  });
+
+  const cargarDatosCobranza = useCallback(async () => {
+    if (!empresaId) return;
+    try {
+      setIsLoading(true);
+
+      // 1. Cargar sucursales
+      const { data: sucursales } = await supabase
+        .from('sucursales')
+        .select('id')
+        .eq('empresa_id', empresaId);
+
+      const sucursalIds = (sucursales || []).map(s => s.id);
+      if (sucursalIds.length === 0) {
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Cargar tableros
+      const { data: tableros } = await supabase
+        .from('tableros')
+        .select('id, nombre')
+        .in('sucursal_id', sucursalIds);
+
+      const tableroIds = (tableros || []).map(t => t.id);
+      if (tableroIds.length === 0) {
+        setIsLoading(false);
+        return;
+      }
+
+      // 3. Cargar listas de cobranza y recupero
+      const { data: listas } = await supabase
+        .from('listas')
+        .select('id, nombre, tablero_id')
+        .in('tablero_id', tableroIds);
+
+      if (!listas || listas.length === 0) {
+        setIsLoading(false);
+        return;
+      }
+
+      const listasCobranza = listas.filter(l => {
+        const n = (l.nombre || '').toLowerCase();
+        return (
+          n.includes('cobranza') ||
+          n.includes('recupero') ||
+          n.includes('cortado') ||
+          n.includes('efectiva') ||
+          n.includes('negativa')
+        );
+      });
+
+      const listaIdsCobranza = listasCobranza.map(l => l.id);
+      if (listaIdsCobranza.length === 0) {
+        setIsLoading(false);
+        return;
+      }
+
+      // 4. Cargar tarjetas de Cobranza y Recupero
+      const { data: tarjetasData, error } = await supabase
+        .from('tarjetas')
+        .select('*')
+        .in('lista_id', listaIdsCobranza)
+        .eq('estado_archivo', false);
+
+      if (error) throw error;
+      const tarjetas = (tarjetasData || []) as Tarjeta[];
+
+      // 5. Filtrar por periodo
+      const ahora = new Date();
+      const tarjetasFiltradas = tarjetas.filter(t => {
+        if (!t.created_at) return true;
+        const fechaTarjeta = new Date(t.created_at);
+
+        if (filtroPeriodo === 'hoy') {
+          return fechaTarjeta.toDateString() === ahora.toDateString();
+        }
+        if (filtroPeriodo === '7dias') {
+          const hace7 = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return fechaTarjeta >= hace7;
+        }
+        if (filtroPeriodo === 'mes') {
+          return (
+            fechaTarjeta.getMonth() === ahora.getMonth() &&
+            fechaTarjeta.getFullYear() === ahora.getFullYear()
+          );
+        }
+        return true;
+      });
+
+      // 6. Procesar métricas numéricas globales
+      let efectivos = 0;
+      let negativos = 0;
+      let enProceso = 0;
+
+      const mapMeses = new Map<string, MesCobranzaData>();
+      const mesesCortos = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const mesesNombresLargos = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+      ];
+
+      tarjetasFiltradas.forEach(t => {
+        const data = t.datos_valores || {};
+        const listaObj = listasCobranza.find(l => l.id === t.lista_id);
+        const listaNombre = (listaObj?.nombre || '').toLowerCase();
+
+        const esEfectiva =
+          listaNombre.includes('efectiva') ||
+          data.resultadoContacto === 'COBRO EFECTIVO' ||
+          data.RESULTADO === 'COBRO EFECTIVO';
+
+        const esNegativa =
+          listaNombre.includes('negativa') ||
+          (data.resultadoContacto && data.resultadoContacto !== 'COBRO EFECTIVO');
+
+        if (esEfectiva) {
+          efectivos++;
+        } else if (esNegativa) {
+          negativos++;
+        } else {
+          enProceso++;
+        }
+
+        // Agrupación mensual por fecha
+        const fechaStr = data.fechaCobroReconciliacion || t.updated_at || t.created_at;
+        const fechaObj = fechaStr ? new Date(fechaStr) : new Date();
+        const year = fechaObj.getFullYear();
+        const monthIndex = fechaObj.getMonth();
+        const claveMes = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+        const nombreMes = `${mesesNombresLargos[monthIndex]} ${year}`;
+        const nombreCorto = mesesCortos[monthIndex];
+
+        if (!mapMeses.has(claveMes)) {
+          mapMeses.set(claveMes, {
+            claveMes,
+            nombreMes,
+            nombreCorto,
+            totalEfectivos: 0,
+            totalNegativos: 0,
+            totalEnProceso: 0,
+            totalGeneral: 0,
+            tasaEfectividad: 0,
+          });
+        }
+
+        const mData = mapMeses.get(claveMes)!;
+        mData.totalGeneral++;
+        if (esEfectiva) {
+          mData.totalEfectivos++;
+        } else if (esNegativa) {
+          mData.totalNegativos++;
+        } else {
+          mData.totalEnProceso++;
+        }
+      });
+
+      const totalTotal = tarjetasFiltradas.length;
+      const tasa = totalTotal > 0 ? Math.round((efectivos / totalTotal) * 100) : 0;
+
+      // Generar serie de 12 meses cronológicos del año actual
+      const yearActual = ahora.getFullYear();
+      const serie12Meses: MesCobranzaData[] = mesesCortos.map((corto, i) => {
+        const claveMes = `${yearActual}-${String(i + 1).padStart(2, '0')}`;
+        const mData = mapMeses.get(claveMes);
+        if (mData) {
+          const tasaM = mData.totalGeneral > 0 ? Math.round((mData.totalEfectivos / mData.totalGeneral) * 100) : 0;
+          return { ...mData, tasaEfectividad: tasaM };
+        }
+        return {
+          claveMes,
+          nombreMes: `${mesesNombresLargos[i]} ${yearActual}`,
+          nombreCorto: corto,
+          totalEfectivos: 0,
+          totalNegativos: 0,
+          totalEnProceso: 0,
+          totalGeneral: 0,
+          tasaEfectividad: 0,
+        };
+      });
+
+      setStats({
+        totalCortados: totalTotal,
+        totalEfectivos: efectivos,
+        totalNegativos: negativos,
+        totalEnProceso: enProceso,
+        tasaRecuperacion: tasa,
+        serie12Meses,
+      });
+    } catch (err) {
+      console.error('Error al cargar métricas cuantitativas de cobranza:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [empresaId, filtroPeriodo]);
+
+  useEffect(() => {
+    cargarDatosCobranza();
+  }, [cargarDatosCobranza]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#7C3AED" />
+        <Text style={styles.loadingText}>Calculando totales de cobro por mes...</Text>
+      </View>
+    );
+  }
+
+  // Valor máximo para la escala vertical de la gráfica
+  const maxCobrados = Math.max(1, ...stats.serie12Meses.map(m => m.totalEfectivos));
+
+  return (
+    <View style={styles.container}>
+      {/* TARJETAS DE KPIS NUMÉRICOS EXCLUSIVAMENTE */}
+      <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
+        <View style={[styles.kpiCard, { borderColor: '#7C3AED' }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.kpiLabel}>Cobro Efectivo (Clientes)</Text>
+            <CheckCircle2 size={22} color="#7C3AED" />
+          </View>
+          <Text style={[styles.kpiValue, { color: '#A78BFA' }]}>{stats.totalEfectivos}</Text>
+          <Text style={styles.kpiSubtext}>Total de clientes cobrados efectivamente</Text>
+        </View>
+
+        <View style={[styles.kpiCard, { borderColor: '#E53E3E' }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.kpiLabel}>Acción Negativa (Sin Cobro)</Text>
+            <XCircle size={22} color="#E53E3E" />
+          </View>
+          <Text style={[styles.kpiValue, { color: '#FF6B6B' }]}>{stats.totalNegativos}</Text>
+          <Text style={styles.kpiSubtext}>Total de clientes no recuperados</Text>
+        </View>
+
+        <View style={[styles.kpiCard, { borderColor: '#0C66E4' }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.kpiLabel}>En Proceso / Pendientes</Text>
+            <Layers size={22} color="#0C66E4" />
+          </View>
+          <Text style={[styles.kpiValue, { color: '#579DFF' }]}>{stats.totalEnProceso}</Text>
+          <Text style={styles.kpiSubtext}>Total de clientes pendientes de gestión</Text>
+        </View>
+
+        <View style={[styles.kpiCard, { borderColor: '#DD6B20' }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.kpiLabel}>Efectividad General</Text>
+            <TrendingUp size={22} color="#DD6B20" />
+          </View>
+          <Text style={[styles.kpiValue, { color: '#F6AD55' }]}>{stats.tasaRecuperacion}%</Text>
+          <Text style={styles.kpiSubtext}>Porcentaje de efectividad del total</Text>
+        </View>
+      </View>
+
+      {/* GRÁFICA DE BARRAS VERTICALES POR MES (FORMATO SOLICITADO) */}
+      <View style={styles.chartContainerCard}>
+        <View style={styles.chartHeader}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <BarChart3 size={22} color="#A78BFA" />
+            <Text style={styles.chartTitle}>Gráfica Mensual de Clientes Cobrados Efectivamente</Text>
+          </View>
+          <View style={styles.periodBadge}>
+            <Calendar size={14} color="#8C9BAB" />
+            <Text style={styles.periodBadgeTxt}>Año {new Date().getFullYear()}</Text>
+          </View>
+        </View>
+
+        {/* CONTENEDOR DE LA GRÁFICA VERTICAL DE BARRAS */}
+        <View style={styles.histogramWrapper}>
+          {/* LÍNEAS DE REJILLA HORIZONTALES (GRID) */}
+          <View style={styles.gridOverlay}>
+            <View style={styles.gridLine} />
+            <View style={styles.gridLine} />
+            <View style={styles.gridLine} />
+            <View style={styles.gridLine} />
+          </View>
+
+          {/* BARRAS VERTICALES (UN MES POR COLUMNA) */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
+            <View style={styles.barsRowContainer}>
+              {stats.serie12Meses.map((m) => {
+                const porcentajeAltura = Math.round((m.totalEfectivos / maxCobrados) * 100);
+                const tieneValor = m.totalEfectivos > 0;
+
+                return (
+                  <View key={m.claveMes} style={styles.columnContainer}>
+                    {/* VALOR SUPERIOR DE LA BARRA */}
+                    <Text style={[styles.barTopValue, tieneValor && styles.barTopValueActive]}>
+                      {m.totalEfectivos}
+                    </Text>
+
+                    {/* BARRA VERTICAL CILÍNDRICA/MORADA */}
+                    <View style={styles.verticalTrack}>
+                      <View
+                        style={[
+                          styles.verticalBarFill,
+                          {
+                            height: `${Math.max(4, porcentajeAltura)}%`,
+                            backgroundColor: tieneValor ? '#7C3AED' : '#384148',
+                          },
+                        ]}
+                      />
+                    </View>
+
+                    {/* EJE X: NOMBRE CORTO DEL MES */}
+                    <Text style={[styles.monthXLabel, tieneValor && styles.monthXLabelActive]}>
+                      {m.nombreCorto}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+
+        <View style={styles.chartFooterNotice}>
+          <Text style={styles.chartFooterTxt}>
+            * Cada columna representa el total numérico de clientes con <Text style={{ color: '#A78BFA', fontWeight: 'bold' }}>Cobro Efectivo</Text> registrados en ese mes.
+          </Text>
+        </View>
+      </View>
+
+      {/* RESUMEN CUANTITATIVO TABULAR MENSUAL */}
+      <View style={styles.tableCard}>
+        <View style={styles.tableHeader}>
+          <Text style={styles.tableTitle}>Desglose Numérico por Mes</Text>
+        </View>
+
+        <View style={styles.tableHeadRow}>
+          <Text style={[styles.thCell, { flex: 2 }]}>Mes</Text>
+          <Text style={[styles.thCell, { flex: 1.5, textAlign: 'center' }]}>Cobro Efectivo</Text>
+          <Text style={[styles.thCell, { flex: 1.5, textAlign: 'center' }]}>Sin Cobro (Negativo)</Text>
+          <Text style={[styles.thCell, { flex: 1.5, textAlign: 'center' }]}>En Proceso</Text>
+          <Text style={[styles.thCell, { flex: 1.2, textAlign: 'right' }]}>% Efectividad</Text>
+        </View>
+
+        {stats.serie12Meses.map((m, index) => (
+          <View
+            key={m.claveMes}
+            style={[
+              styles.tableBodyRow,
+              index % 2 === 1 && { backgroundColor: 'rgba(255, 255, 255, 0.02)' },
+            ]}
+          >
+            <Text style={[styles.tdCellBold, { flex: 2 }]}>{m.nombreMes}</Text>
+            <Text style={[styles.tdCellNumberSuccess, { flex: 1.5, textAlign: 'center' }]}>
+              {m.totalEfectivos}
+            </Text>
+            <Text style={[styles.tdCellNumberDanger, { flex: 1.5, textAlign: 'center' }]}>
+              {m.totalNegativos}
+            </Text>
+            <Text style={[styles.tdCellNumberInfo, { flex: 1.5, textAlign: 'center' }]}>
+              {m.totalEnProceso}
+            </Text>
+            <Text style={[styles.tdCellBadge, { flex: 1.2, textAlign: 'right' }]}>
+              {m.tasaEfectividad}%
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    color: '#8C9BAB',
+    marginTop: 12,
+    fontSize: 14,
+  },
+  kpiGrid: {
+    gap: 16,
+    marginBottom: 20,
+  },
+  kpiGridDesktop: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  kpiCard: {
+    flex: 1,
+    minWidth: 220,
+    backgroundColor: '#22272B',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  kpiLabel: {
+    color: '#8C9BAB',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  kpiValue: {
+    fontSize: 32,
+    fontWeight: '900',
+    marginVertical: 6,
+  },
+  kpiSubtext: {
+    fontSize: 11,
+    color: '#8C9BAB',
+  },
+  chartContainerCard: {
+    backgroundColor: '#22272B',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#384148',
+    padding: 18,
+    marginBottom: 20,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2C333A',
+    paddingBottom: 12,
+  },
+  chartTitle: {
+    color: '#B6C2CF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  periodBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1D2125',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#384148',
+  },
+  periodBadgeTxt: {
+    color: '#8C9BAB',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  histogramWrapper: {
+    height: 240,
+    justifyContent: 'flex-end',
+    position: 'relative',
+    paddingTop: 20,
+    marginBottom: 10,
+  },
+  gridOverlay: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: 'space-between',
+    paddingVertical: 25,
+    pointerEvents: 'none',
+  },
+  gridLine: {
+    height: 1,
+    backgroundColor: '#2C333A',
+    width: '100%',
+  },
+  barsRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    flex: 1,
+    minWidth: '100%',
+    paddingHorizontal: 8,
+    gap: 12,
+  },
+  columnContainer: {
+    flex: 1,
+    minWidth: 36,
+    alignItems: 'center',
+    height: '100%',
+    justifyContent: 'flex-end',
+  },
+  barTopValue: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  barTopValueActive: {
+    color: '#A78BFA',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  verticalTrack: {
+    width: 28,
+    height: 160,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 6,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  verticalBarFill: {
+    width: '100%',
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+  },
+  monthXLabel: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  monthXLabelActive: {
+    color: '#B6C2CF',
+  },
+  chartFooterNotice: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#2C333A',
+  },
+  chartFooterTxt: {
+    color: '#8C9BAB',
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  tableCard: {
+    backgroundColor: '#22272B',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#384148',
+    padding: 18,
+  },
+  tableHeader: {
+    marginBottom: 14,
+  },
+  tableTitle: {
+    color: '#B6C2CF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  tableHeadRow: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    backgroundColor: '#1D2125',
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  thCell: {
+    color: '#8C9BAB',
+    fontSize: 11,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  tableBodyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2C333A',
+  },
+  tdCellBold: {
+    color: '#B6C2CF',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  tdCellNumberSuccess: {
+    color: '#A78BFA',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+  tdCellNumberDanger: {
+    color: '#FF6B6B',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  tdCellNumberInfo: {
+    color: '#579DFF',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  tdCellBadge: {
+    color: '#F6AD55',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+});

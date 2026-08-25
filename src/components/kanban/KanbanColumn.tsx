@@ -27,6 +27,31 @@ export interface KanbanColumnProps {
   onRefreshKanbanData?: () => void;
 }
 
+function esListaCargaExcel(nombre?: string): boolean {
+  if (!nombre) return false;
+  const n = nombre.toLowerCase().trim();
+
+  // Si es una columna de acción / resultado, NUNCA lleva botón de Excel
+  if (
+    n.includes('efectiva') ||
+    n.includes('negativa') ||
+    n.includes('positiva') ||
+    n.includes('resultado') ||
+    n.includes('(recupero)')
+  ) {
+    return false;
+  }
+
+  // Únicamente para columnas de carga inicial de clientes
+  return (
+    n.includes('carga de cobranza') ||
+    n.includes('clientes cortados') ||
+    n === 'recupero' ||
+    n === 'carga de recupero' ||
+    n.includes('carga recupero')
+  );
+}
+
 const KanbanColumnComponent = ({
   item,
   tarjetaEnMovimiento,
@@ -214,16 +239,8 @@ const KanbanColumnComponent = ({
               const nombreLower = item.nombre ? item.nombre.toLowerCase().trim() : '';
               const isDevolucionCentralColumn = nombreLower.includes('almacén central') || nombreLower.includes('almacen central');
               const isDevolucionAsignacionColumn = !isDevolucionCentralColumn && (nombreLower.includes('devolución de asignación') || nombreLower.includes('devolucion de asignacion') || nombreLower.includes('devolucion'));
-              const isDevolucionColumn = isDevolucionCentralColumn || isDevolucionAsignacionColumn;
-              const isAccionResultColumn = nombreLower.includes('efectiva') || nombreLower.includes('negativa');
-              const isCobranzaExcelColumn = (
-                nombreLower.includes('carga') ||
-                nombreLower.includes('cortado') ||
-                nombreLower === 'recupero'
-              ) && !isAccionResultColumn;
 
-              const isEntryColumn = nombreLower.includes('venta') || nombreLower === 'censo' || nombreLower === 'carga de materiales' || isDevolucionColumn || isCobranzaExcelColumn;
-              if (!puedeCrear || (!isEntryColumn && !isCobranzaExcelColumn)) return null;
+              const showExcelButton = esListaCargaExcel(item.nombre);
 
               const buttonTipoCarga = isDevolucionCentralColumn
                 ? 'DEVOLUCIÓN A ALMACÉN CENTRAL'
@@ -239,7 +256,7 @@ const KanbanColumnComponent = ({
 
               return (
                 <View style={{ marginTop: 12, marginBottom: 20, gap: 10 }}>
-                  {isCobranzaExcelColumn && (
+                  {showExcelButton && (
                     <BotonImportarExcel
                       listaId={item.id}
                       listaNombre={item.nombre}

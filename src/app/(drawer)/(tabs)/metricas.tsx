@@ -30,10 +30,14 @@ import {
   MapPin,
   ClipboardList,
   UserCheck,
+  Package,
+  Receipt,
+  CreditCard,
 } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { Tarjeta } from '../../../types/kanban';
+import { ModuloCobranza } from '../../../components/metricas/ModuloCobranza';
 
 export interface VendedorStats {
   vendedorNombre: string;
@@ -69,8 +73,8 @@ export default function MetricasScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
-  // Subtab activo: 'vendedores' | 'censos' | 'tecnicos'
-  const [subTab, setSubTab] = useState<'vendedores' | 'censos' | 'tecnicos'>('vendedores');
+  // Subtab activo: 'vendedores' | 'censos' | 'tecnicos' | 'almacen' | 'cobranza'
+  const [subTab, setSubTab] = useState<'vendedores' | 'censos' | 'tecnicos' | 'almacen' | 'cobranza'>('vendedores');
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -461,7 +465,7 @@ export default function MetricasScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0C66E4" />}
       >
-        {/* SELECTOR DE SUBTAB (Vendedores vs Personas Censadas vs Técnicos) */}
+        {/* SELECTOR DE SUBTAB (Módulos de la plataforma) */}
         <View style={styles.subTabRow}>
           <TouchableOpacity
             style={[styles.subTabButton, subTab === 'vendedores' && styles.subTabButtonActive]}
@@ -472,7 +476,7 @@ export default function MetricasScreen() {
           >
             <Users size={16} color={subTab === 'vendedores' ? '#FFF' : '#8C9BAB'} />
             <Text style={[styles.subTabText, subTab === 'vendedores' && styles.subTabTextActive]}>
-              Ventas
+              Ventas e Instalaciones
             </Text>
           </TouchableOpacity>
 
@@ -499,6 +503,32 @@ export default function MetricasScreen() {
             <Wrench size={16} color={subTab === 'tecnicos' ? '#FFF' : '#8C9BAB'} />
             <Text style={[styles.subTabText, subTab === 'tecnicos' && styles.subTabTextActive]}>
               Técnicos
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.subTabButton, subTab === 'almacen' && styles.subTabButtonActive]}
+            onPress={() => {
+              setSubTab('almacen');
+              setExpandidoId(null);
+            }}
+          >
+            <Package size={16} color={subTab === 'almacen' ? '#FFF' : '#8C9BAB'} />
+            <Text style={[styles.subTabText, subTab === 'almacen' && styles.subTabTextActive]}>
+              Almacén
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.subTabButton, subTab === 'cobranza' && styles.subTabButtonActive]}
+            onPress={() => {
+              setSubTab('cobranza');
+              setExpandidoId(null);
+            }}
+          >
+            <Receipt size={16} color={subTab === 'cobranza' ? '#FFF' : '#8C9BAB'} />
+            <Text style={[styles.subTabText, subTab === 'cobranza' && styles.subTabTextActive]}>
+              Cobranza y Recupero
             </Text>
           </TouchableOpacity>
         </View>
@@ -1031,6 +1061,30 @@ export default function MetricasScreen() {
             )}
           </>
         )}
+
+        {/* ============================================================== */}
+        {/* MODULO 4: ALMACÉN */}
+        {/* ============================================================== */}
+        {subTab === 'almacen' && (
+          <View style={styles.emptyContainer}>
+            <Package size={48} color="#0C66E4" style={{ marginBottom: 12 }} />
+            <Text style={styles.emptyTitle}>Módulo de Métricas de Almacén</Text>
+            <Text style={styles.emptySubtitle}>
+              Pestaña lista para recibir las instrucciones y visualizaciones de gestión de materiales e inventario.
+            </Text>
+          </View>
+        )}
+
+        {/* ============================================================== */}
+        {/* MODULO 5: COBRANZA Y RECUPERO */}
+        {/* ============================================================== */}
+        {subTab === 'cobranza' && empresaId && (
+          <ModuloCobranza
+            empresaId={empresaId}
+            filtroPeriodo={filtroPeriodo}
+            busquedaTexto={busquedaTexto}
+          />
+        )}
       </ScrollView>
     </View>
   );
@@ -1073,16 +1127,19 @@ const styles = StyleSheet.create({
   },
   subTabRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 16,
   },
   subTabButton: {
     flex: 1,
+    minWidth: 130,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 10,
     backgroundColor: '#22272B',
     borderWidth: 1,

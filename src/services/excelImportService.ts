@@ -167,3 +167,202 @@ export async function importarTarjetasDesdeExcel(
     };
   }
 }
+
+export interface ReconciliacionResult extends ImportResult {
+  tarjetasMovidasAEfectiva: number;
+  tarjetasConservadas: number;
+  tarjetasNuevasInsertadas: number;
+}
+
+/**
+ * Importa un nuevo archivo Excel de Cobranza/Recupero y realiza la reconciliación automática:
+ * 1. Los clientes existentes que ya NO figuran en el nuevo Excel se mueven automáticamente a 'Acción efectiva' con el resultado 'COBRO EFECTIVO'.
+ * 2. Los clientes que SÍ siguen apareciendo en el Excel se mantienen en su posición actual.
+ * 3. Los clientes completamente nuevos del Excel se insertan en la columna de carga.
+ */
+export async function importarYReconciliarCobranzaDesdeExcel(
+  filasNormalizadas: Record<string, any>[],
+  listaId: string,
+  empresaId: string | null,
+  creadorId: string | null
+): Promise<ReconciliacionResult> {
+  if (!listaId) {
+    return {
+      exito: false,
+      totalProcesados: 0,
+      mensajes: ['Se requiere un listaId válido.'],
+      tarjetasMovidasAEfectiva: 0,
+      tarjetasConservadas: 0,
+      tarjetasNuevasInsertadas: 0,
+    };
+  }
+
+  try {
+    // 1. Obtener la información de la lista y todas las listas del mismo tablero
+    const { data: listaTarget, error: errLista } = await supabase
+      .from('listas')
+      .select('id, tablero_id, empresa_id, nombre')
+      .eq('id', listaId)
+      .single();
+
+    if (errLista || !listaTarget) {
+      throw new Error('No se pudo encontrar la lista de destino.');
+    }
+
+    const { data: listasTablero, error: errTableroListas } = await supabase
+      .from('listas')
+      .select('id, nombre')
+      .eq('tablero_id', listaTarget.tablero_id);
+
+    if (errTableroListas || !listasTablero) {
+      throw new Error('No se pudieron obtener las listas del tablero para la reconciliación.');
+    }
+
+    const listaIdsTablero = listasTablero.map(l => l.id);
+
+    // Buscar lista de destino 'Acción efectiva' (o 'Acción efectiva (Recupero)')
+    const esFlujoRecuperoTarget = (listaTarget.nombre || '').toLowerCase().includes('recupero');
+
+    const listaEfectivaObj = listasTablero.find(l => {
+      const n = (l.nombre || '').toLowerCase().trim();
+      return esFlujoRecuperoTarget ? n.includes('efectiva') && n.includes('recupero') : n === 'acción efectiva' || n === 'accion efectiva';
+    }) || listasTablero.find(l => (l.nombre || '').toLowerCase().includes('efectiva'));
+
+    // 2. Obtener todas las tarjetas activas existentes en el tablero
+    const { data: tarjetasExistentes, error: errTarjetas } = await supabase
+      .from('tarjetas')
+      .select('id, lista_id, datos_valores')
+      .in('lista_id', listaIdsTablero)
+      .eq('estado_archivo', false);
+
+    if (errTarjetas) {
+      throw errTarjetas;
+    }
+
+    // 3. Extraer identificadores clave del nuevo Excel (Abonado y Cédula/Documento)
+    const abonadosEnNuevoExcel = new Set<string>();
+    const docsEnNuevoExcel = new Set<string>();
+    const nombresEnNuevoExcel = new Set<string>();
+
+    filasNormalizadas.forEach(row => {
+      const ab = String(row.nroAbonado || row['NRO SUSCRIPTOR'] || '').toLowerCase().trim();
+      const doc = String(row.documentoIdentidad || row.nroIdentidad || row['DOC IDENTIDAD'] || '').toLowerCase().trim();
+      const nom = String(row.nombreApellido || row['NOMBRE Y APELLIDO'] || '').toLowerCase().trim();
+
+      if (ab) abonadosEnNuevoExcel.add(ab);
+      if (doc) docsEnNuevoExcel.add(doc);
+      if (nom) nombresEnNuevoExcel.add(nom);
+    });
+
+    // Helper para verificar si una tarjeta coincide con el nuevo Excel
+    const existeEnNuevoExcel = (t: any): boolean => {
+      const vals = t.datos_valores || {};
+      const ab = String(vals.nroAbonado || vals['NRO SUSCRIPTOR'] || '').toLowerCase().trim();
+      const doc = String(vals.documentoIdentidad || vals.nroIdentidad || vals['DOC IDENTIDAD'] || '').toLowerCase().trim();
+      const nom = String(vals.nombreApellido || vals['NOMBRE Y APELLIDO'] || '').toLowerCase().trim();
+
+      if (ab && abonadosEnNuevoExcel.has(ab)) return true;
+      if (doc && docsEnNuevoExcel.has(doc)) return true;
+      if (nom && nombresEnNuevoExcel.has(nom)) return true;
+      return false;
+    };
+
+    // 4. Analizar tarjetas existentes en el tablero
+    const tarjetasAMoverAEfectiva: any[] = [];
+    const tarjetasQueSiguenEnCobro: any[] = [];
+    const idsExistentesEnTablero = new Set<string>();
+
+    (tarjetasExistentes || []).forEach(t => {
+      const vals = t.datos_valores || {};
+      const ab = String(vals.nroAbonado || vals['NRO SUSCRIPTOR'] || '').toLowerCase().trim();
+      const doc = String(vals.documentoIdentidad || vals.nroIdentidad || vals['DOC IDENTIDAD'] || '').toLowerCase().trim();
+      const nom = String(vals.nombreApellido || vals['NOMBRE Y APELLIDO'] || '').toLowerCase().trim();
+
+      if (ab) idsExistentesEnTablero.add(ab);
+      if (doc) idsExistentesEnTablero.add(doc);
+      if (nom) idsExistentesEnTablero.add(nom);
+
+      const estaEnNuevoExcel = existeEnNuevoExcel(t);
+
+      // Si NO está en el nuevo Excel y NO está ya en Acción Efectiva -> ¡PAGÓ!
+      const listaNombreCard = (listasTablero.find(l => l.id === t.lista_id)?.nombre || '').toLowerCase();
+      const yaEstaEnEfectiva = listaNombreCard.includes('efectiva');
+
+      if (!estaEnNuevoExcel && !yaEstaEnEfectiva) {
+        tarjetasAMoverAEfectiva.push(t);
+      } else {
+        tarjetasQueSiguenEnCobro.push(t);
+      }
+    });
+
+    // 5. Ejecutar movimientos automáticos a Acción Efectiva para los clientes que ya no vienen en la lista
+    let contadorMovidas = 0;
+    if (tarjetasAMoverAEfectiva.length > 0 && listaEfectivaObj) {
+      for (const t of tarjetasAMoverAEfectiva) {
+        const datosActualizados = {
+          ...(t.datos_valores || {}),
+          tipoContacto: (t.datos_valores?.tipoContacto) || 'RECONCILIACIÓN EXCEL',
+          resultadoContacto: 'COBRO EFECTIVO',
+          RESULTADO: 'COBRO EFECTIVO',
+          etiquetaCobranza: 'Cobranza (Pagado)',
+          fechaCobroReconciliacion: new Date().toISOString(),
+        };
+
+        const { error: errUpdate } = await supabase
+          .from('tarjetas')
+          .update({
+            lista_id: listaEfectivaObj.id,
+            datos_valores: datosActualizados,
+          })
+          .eq('id', t.id);
+
+        if (!errUpdate) contadorMovidas++;
+      }
+    }
+
+    // 6. Filtrar filas del Excel para insertar SOLO clientes que no existían previamente en el tablero
+    const filasParaInsertar = filasNormalizadas.filter(row => {
+      const ab = String(row.nroAbonado || row['NRO SUSCRIPTOR'] || '').toLowerCase().trim();
+      const doc = String(row.documentoIdentidad || row.nroIdentidad || row['DOC IDENTIDAD'] || '').toLowerCase().trim();
+      const nom = String(row.nombreApellido || row['NOMBRE Y APELLIDO'] || '').toLowerCase().trim();
+
+      const yaExiste = (ab && idsExistentesEnTablero.has(ab)) || (doc && idsExistentesEnTablero.has(doc)) || (nom && idsExistentesEnTablero.has(nom));
+      return !yaExiste;
+    });
+
+    // Insertar nuevas tarjetas
+    let contadorInsertadas = 0;
+    const tarjetasInsertadasList: any[] = [];
+    if (filasParaInsertar.length > 0) {
+      const resImport = await importarTarjetasDesdeExcel(filasParaInsertar, listaId, empresaId, creadorId);
+      if (resImport.exito) {
+        contadorInsertadas = resImport.totalProcesados;
+        if (resImport.tarjetasInsertadas) {
+          tarjetasInsertadasList.push(...resImport.tarjetasInsertadas);
+        }
+      }
+    }
+
+    return {
+      exito: true,
+      totalProcesados: contadorInsertadas + contadorMovidas,
+      tarjetasMovidasAEfectiva: contadorMovidas,
+      tarjetasConservadas: tarjetasQueSiguenEnCobro.length,
+      tarjetasNuevasInsertadas: contadorInsertadas,
+      mensajes: [
+        `Reconciliación completada: ${contadorMovidas} clientes pasaron a Acción efectiva (pagaron), ${tarjetasQueSiguenEnCobro.length} conservados y ${contadorInsertadas} tarjetas nuevas creadas.`,
+      ],
+      tarjetasInsertadas: tarjetasInsertadasList,
+    };
+  } catch (err: any) {
+    console.error('Error en importarYReconciliarCobranzaDesdeExcel:', err);
+    return {
+      exito: false,
+      totalProcesados: 0,
+      tarjetasMovidasAEfectiva: 0,
+      tarjetasConservadas: 0,
+      tarjetasNuevasInsertadas: 0,
+      mensajes: [`Error durante la reconciliación: ${err?.message || err}`],
+    };
+  }
+}

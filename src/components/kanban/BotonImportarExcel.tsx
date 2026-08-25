@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import {
   importarTarjetasDesdeExcel,
+  importarYReconciliarCobranzaDesdeExcel,
   procesarArchivoExcelBuffer,
 } from '../../services/excelImportService';
 
@@ -80,7 +81,7 @@ export function BotonImportarExcel({
 
     setIsProcessing(true);
     try {
-      const res = await importarTarjetasDesdeExcel(
+      const res = await importarYReconciliarCobranzaDesdeExcel(
         filasExtraidas,
         listaId,
         empresaId,
@@ -90,9 +91,14 @@ export function BotonImportarExcel({
       if (res.exito) {
         setModalVisible(false);
         setFilasExtraidas([]);
-        Alert.alert('¡Carga Exitosa!', `Se importaron ${res.totalProcesados} tarjetas a la lista.`);
-        if (onImportComplete && res.tarjetasInsertadas) {
-          onImportComplete(res.tarjetasInsertadas);
+        Alert.alert(
+          '¡Reconciliación y Carga Exitosa!',
+          `• 🟢 ${res.tarjetasMovidasAEfectiva} clientes pagaron (movidos a Acción Efectiva).\n` +
+          `• 📋 ${res.tarjetasConservadas} clientes se conservaron sin cambios.\n` +
+          `• ✨ ${res.tarjetasNuevasInsertadas} clientes nuevos agregados.`
+        );
+        if (onImportComplete) {
+          onImportComplete(res.tarjetasInsertadas || []);
         }
       } else {
         Alert.alert('Error en Carga', res.mensajes.join('\n'));

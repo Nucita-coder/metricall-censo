@@ -25,6 +25,7 @@ export interface KanbanColumnProps {
   resaltadaListaId?: string | null;
   resaltadaTarjetaId?: string | null;
   onRefreshKanbanData?: () => void;
+  isCobranzaBoard?: boolean;
 }
 
 function esListaCargaExcel(nombre?: string): boolean {
@@ -68,6 +69,7 @@ const KanbanColumnComponent = ({
   resaltadaListaId,
   resaltadaTarjetaId,
   onRefreshKanbanData,
+  isCobranzaBoard,
 }: KanbanColumnProps) => {
   const isMoveMode = tarjetaEnMovimiento !== null;
   const isSourceColumn = isMoveMode && tarjetaEnMovimiento.lista_id === item.id;
@@ -241,6 +243,7 @@ const KanbanColumnComponent = ({
               const isDevolucionAsignacionColumn = !isDevolucionCentralColumn && (nombreLower.includes('devolución de asignación') || nombreLower.includes('devolucion de asignacion') || nombreLower.includes('devolucion'));
 
               const showExcelButton = esListaCargaExcel(item.nombre);
+              const showAddCardButton = !isCobranzaBoard;
 
               const buttonTipoCarga = isDevolucionCentralColumn
                 ? 'DEVOLUCIÓN A ALMACÉN CENTRAL'
@@ -254,6 +257,8 @@ const KanbanColumnComponent = ({
                   ? 'Devolución de Asignación'
                   : 'Añadir Tarjeta';
 
+              if (!showExcelButton && !showAddCardButton) return null;
+
               return (
                 <View style={{ marginTop: 12, marginBottom: 20, gap: 10 }}>
                   {showExcelButton && (
@@ -265,27 +270,29 @@ const KanbanColumnComponent = ({
                       }}
                     />
                   )}
-                  <TouchableOpacity
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingVertical: 14,
-                      paddingHorizontal: 12,
-                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                      borderRadius: 12,
-                      borderWidth: 1.5,
-                      borderColor: '#333',
-                      borderStyle: 'dashed',
-                    }}
-                    onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre, tipoCarga: buttonTipoCarga } })}
-                    activeOpacity={0.6}
-                  >
-                    <Plus size={20} color="#111" strokeWidth={2} />
-                    <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 14, fontStyle: 'italic' }}>
-                      {buttonText}
-                    </Text>
-                  </TouchableOpacity>
+                  {showAddCardButton && (
+                    <TouchableOpacity
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        paddingVertical: 14,
+                        paddingHorizontal: 12,
+                        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                        borderRadius: 12,
+                        borderWidth: 1.5,
+                        borderColor: '#333',
+                        borderStyle: 'dashed',
+                      }}
+                      onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre, tipoCarga: buttonTipoCarga } })}
+                      activeOpacity={0.6}
+                    >
+                      <Plus size={20} color="#111" strokeWidth={2} />
+                      <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 14, fontStyle: 'italic' }}>
+                        {buttonText}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               );
             }}
@@ -297,6 +304,7 @@ const KanbanColumnComponent = ({
 };
 
 const areEqualColumn = (prevProps: KanbanColumnProps, nextProps: KanbanColumnProps) => {
+  if (prevProps.isCobranzaBoard !== nextProps.isCobranzaBoard) return false;
   if (prevProps.item.id !== nextProps.item.id) return false;
   if (prevProps.item.nombre !== nextProps.item.nombre) return false;
   if (prevProps.item.color_fondo !== nextProps.item.color_fondo) return false;

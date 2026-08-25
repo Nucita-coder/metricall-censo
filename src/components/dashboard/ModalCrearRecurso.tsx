@@ -84,8 +84,12 @@ export function ModalCrearRecurso({
                   style={[styles.selectorBtn, tipoTablero === 'cobranza' && styles.selectorBtnActive]}
                   onPress={() => {
                     setTipoTablero('cobranza');
-                    if (!inputNombre || inputNombre === 'Ventas' || inputNombre === 'Censo') {
-                      setInputNombre('COBRANZA-RECUPERO-CHURN');
+                    // Generar nombre con mes y año actuales
+                    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+                    const ahora = new Date();
+                    const nombreMesAuto = `COBRANZA - ${meses[ahora.getMonth()]} ${ahora.getFullYear()}`;
+                    if (!inputNombre || inputNombre === 'Ventas' || inputNombre === 'Censo' || inputNombre.startsWith('COBRANZA-RECUPERO') || inputNombre.startsWith('COBRANZA -')) {
+                      setInputNombre(nombreMesAuto);
                     }
                   }}
                 >

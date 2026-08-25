@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Pressable, ScrollView, Platform, TextInput, ActivityIndicator, Image } from 'react-native';
 import Reanimated, { SlideInRight, SlideOutRight } from 'react-native-reanimated';
-import { X, Star, Copy, Info, Archive, Plus, Image as ImageIcon } from 'lucide-react-native';
+import { X, Star, Copy, Info, Archive, Plus, Image as ImageIcon, PackageCheck, History } from 'lucide-react-native';
 
 let Slider: any = null;
 if (Platform.OS !== 'web') {
@@ -23,6 +23,10 @@ interface ModalTableroMenuProps {
   saveOpacityConfig: (val: number) => void;
   handleCambiarFondo?: () => void;
   isUploadingImage?: boolean;
+  // Cobranza
+  isCobranzaBoard?: boolean;
+  onArchivarTablero?: () => void;
+  onVerHistorial?: () => void;
 }
 
 export const ModalTableroMenu = ({
@@ -39,7 +43,10 @@ export const ModalTableroMenu = ({
   handleOpacityChange,
   saveOpacityConfig,
   handleCambiarFondo,
-  isUploadingImage
+  isUploadingImage,
+  isCobranzaBoard,
+  onArchivarTablero,
+  onVerHistorial,
 }: ModalTableroMenuProps) => {
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
@@ -133,6 +140,30 @@ export const ModalTableroMenu = ({
               <Text style={styles.menuListText}>Tarjetas archivadas</Text>
             </TouchableOpacity>
           </View>
+
+          {/* SECCIÓN COBRANZA: Cerrar Mes e Historial */}
+          {isCobranzaBoard && (
+            <View style={styles.menuSection}>
+              <Text style={styles.sectionSubtitle}>Ciclo de Cobranza</Text>
+
+              {onVerHistorial && (
+                <TouchableOpacity style={styles.menuListItem} onPress={onVerHistorial}>
+                  <History size={20} color="#B6C2CF" />
+                  <Text style={styles.menuListText}>Ver historial de meses</Text>
+                </TouchableOpacity>
+              )}
+
+              {onArchivarTablero && (
+                <TouchableOpacity style={[styles.menuListItem, styles.menuListItemDanger]} onPress={onArchivarTablero}>
+                  <PackageCheck size={20} color="#F6AD55" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.menuListTextDanger}>Cerrar Mes / Archivar Tablero</Text>
+                    <Text style={styles.menuListSubtext}>Congela el mes y crea el siguiente</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           <View style={styles.menuSection}>
             <Text style={styles.sectionSubtitle}>Diseño del Tablero</Text>
@@ -312,10 +343,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
+  menuListItemDanger: {
+    backgroundColor: 'rgba(246, 173, 85, 0.07)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(246, 173, 85, 0.25)',
+    marginTop: 4,
+  },
   menuListText: {
     color: '#B6C2CF',
     fontSize: 14,
     marginLeft: 12,
+  },
+  menuListTextDanger: {
+    color: '#F6AD55',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  menuListSubtext: {
+    color: '#8C9BAB',
+    fontSize: 11,
+    marginTop: 2,
   },
   descEditor: {
     backgroundColor: '#2C333A',

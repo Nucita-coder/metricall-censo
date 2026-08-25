@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Image, Platform, RefreshControl, ScrollView, 
 import { DashboardBoardCard } from '../../../components/dashboard/DashboardBoardCard';
 import { ModalCrearRecurso } from '../../../components/dashboard/ModalCrearRecurso';
 import { ModalOpcionesTablero } from '../../../components/dashboard/ModalOpcionesTablero';
+import { ModalTablerosArchivados } from '../../../components/kanban/modals/ModalTablerosArchivados';
 import { useAuth } from '../../../context/AuthContext';
 import { useGlobalUi } from '../../../context/GlobalUiContext';
 import { Tablero, useDashboardData } from '../../../hooks/useDashboardData';
@@ -40,6 +41,7 @@ export default function DashboardScreen() {
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [isSwappingMode, setIsSwappingMode] = useState(false);
   const [boardToSwap, setBoardToSwap] = useState<Tablero | null>(null);
+  const [modalHistorialVisible, setModalHistorialVisible] = useState(false);
 
   useEffect(() => {
     if (createTrigger > 0) openCreateModal('sucursal');
@@ -336,6 +338,12 @@ export default function DashboardScreen() {
         onIniciarIntercambio={iniciarIntercambio}
         onConfirmarBorrado={ejecutarBorrado}
         onClose={() => setOptionsModalVisible(false)}
+      />
+
+      <ModalTablerosArchivados
+        visible={modalHistorialVisible}
+        onClose={() => setModalHistorialVisible(false)}
+        empresaId={empresaId}
       />
     </View>
   );

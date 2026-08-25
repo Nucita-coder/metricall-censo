@@ -26,6 +26,7 @@ import { ModalGestionLista } from '../../components/kanban/modals/ModalGestionLi
 import { ModalCambiarTablero } from '../../components/kanban/modals/ModalCambiarTablero';
 import { ModalPantallaDividida } from '../../components/kanban/modals/ModalPantallaDividida';
 import { ModalInventarioAlmacen } from '../../components/kanban/modals/ModalInventarioAlmacen';
+import { ModalTablerosArchivados } from '../../components/kanban/modals/ModalTablerosArchivados';
 import { ModalDetalleTarjeta } from '../../components/kanban/ModalDetalleTarjeta';
 import { ModalTrazabilidad } from '../../components/kanban/ModalTrazabilidad';
 import { ModalFiltrosTablero, FiltrosTableroEstado, FILTROS_DEFAULT } from '../../components/kanban/modals/ModalFiltrosTablero';
@@ -103,6 +104,7 @@ export default function KanbanTableroScreen() {
   const [contextMenu, setContextMenu] = useState<{ visible: boolean, x: number, y: number, tarjeta: Tarjeta | null }>({ visible: false, x: 0, y: 0, tarjeta: null });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [modalInventarioVisible, setModalInventarioVisible] = useState(false);
+  const [modalHistorialVisible, setModalHistorialVisible] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -384,6 +386,50 @@ export default function KanbanTableroScreen() {
     return n.includes('cobranza') || n.includes('recupero');
   });
 
+  const handleArchivarTablero = () => {
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const ahora = new Date();
+    const nombreMes = meses[ahora.getMonth()];
+    const anio = ahora.getFullYear();
+
+    const confirmar = () => {
+      supabase
+        .rpc('archivar_tablero_cobranza', { p_tablero_id: id })
+        .then(({ data, error }) => {
+          if (error) {
+            Alert.alert('Error', 'No se pudo archivar el tablero: ' + error.message);
+            return;
+          }
+          const result = data as any;
+          if (Platform.OS === 'web') {
+            alert(`✅ Tablero archivado como "${result?.nombre_archivado}"\n\nSe creó automáticamente el tablero: "${result?.nuevo_nombre}"`);
+          } else {
+            Alert.alert(
+              '¡Mes Cerrado!',
+              `Tablero archivado como:\n"${result?.nombre_archivado}"\n\nNuevo tablero creado:\n"${result?.nuevo_nombre}"`,
+              [{ text: 'Ir al Dashboard', onPress: () => router.replace('/') }]
+            );
+          }
+          if (Platform.OS === 'web') router.replace('/');
+        });
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`¿Cerrar el tablero del mes de ${nombreMes} ${anio}?\n\nEsta acción archivará el tablero actual y creará automáticamente el tablero de ${meses[ahora.getMonth() === 11 ? 0 : ahora.getMonth() + 1]} ${ahora.getMonth() === 11 ? anio + 1 : anio}.`)) {
+        confirmar();
+      }
+    } else {
+      Alert.alert(
+        `Cerrar ${nombreMes} ${anio}`,
+        `¿Archivar el tablero de cobranza de ${nombreMes} ${anio}?\n\nSe creará automáticamente el tablero del mes siguiente.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Cerrar Mes', style: 'destructive', onPress: confirmar },
+        ]
+      );
+    }
+  };
+
   const isFiltroActivo = useMemo(() => {
     return (
       filtrosTablero.estadoCobro !== 'todos' ||
@@ -644,6 +690,7 @@ export default function KanbanTableroScreen() {
               resaltadaListaId={activeHighlightLista}
               resaltadaTarjetaId={activeHighlightTarjeta}
               onRefreshKanbanData={fetchKanbanData}
+              isCobranzaBoard={isCobranzaBoard}
             />
           )}
           contentContainerStyle={{ paddingVertical: 16, paddingHorizontal: 16 }}
@@ -720,6 +767,9 @@ export default function KanbanTableroScreen() {
         saveOpacityConfig={async (val) => { await supabase.from('tableros').update({ opacidad_listas: val }).eq('id', id); }}
         handleCambiarFondo={handleCambiarFondo}
         isUploadingImage={isUploadingImage}
+        isCobranzaBoard={isCobranzaBoard}
+        onArchivarTablero={isCobranzaBoard ? handleArchivarTablero : undefined}
+        onVerHistorial={isCobranzaBoard ? () => { setModalMenuVisible(false); setModalHistorialVisible(true); } : undefined}
       />
       <ModalGestionLista
         visible={modalListaVisible}
@@ -776,6 +826,11 @@ export default function KanbanTableroScreen() {
       <ModalInventarioAlmacen
         visible={modalInventarioVisible}
         onClose={() => setModalInventarioVisible(false)}
+      />
+      <ModalTablerosArchivados
+        visible={modalHistorialVisible}
+        onClose={() => setModalHistorialVisible(false)}
+        empresaId={empresaId}
       />
     </View>
   );

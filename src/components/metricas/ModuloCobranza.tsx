@@ -77,11 +77,12 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         return;
       }
 
-      // 2. Cargar tableros
+      // 2. Cargar tableros de tipo cobranza (activos Y archivados para historial completo)
       const { data: tableros } = await supabase
         .from('tableros')
-        .select('id, nombre')
-        .in('sucursal_id', sucursalIds);
+        .select('id, nombre, tipo, archivado, mes_periodo')
+        .in('sucursal_id', sucursalIds)
+        .eq('tipo', 'cobranza');
 
       const tableroIds = (tableros || []).map(t => t.id);
       if (tableroIds.length === 0) {
@@ -117,12 +118,12 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         return;
       }
 
-      // 4. Cargar tarjetas de Cobranza y Recupero
+      // 4. Cargar tarjetas de Cobranza y Recupero (incluye tableros archivados para historial)
       const { data: tarjetasData, error } = await supabase
         .from('tarjetas')
         .select('*')
-        .in('lista_id', listaIdsCobranza)
-        .eq('estado_archivo', false);
+        .in('lista_id', listaIdsCobranza);
+        // No filtramos por estado_archivo para incluir todos los datos históricos
 
       if (error) throw error;
       const tarjetas = (tarjetasData || []) as Tarjeta[];

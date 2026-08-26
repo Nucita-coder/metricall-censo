@@ -379,6 +379,7 @@ export default function KanbanTableroScreen() {
     'LUEGO PASA POR OFIC',
     'PIDE AJUSTE DE PLAN',
     'NO CONTESTO',
+    'FUERA DE ZONA',
   ], []);
 
   const isCobranzaBoard = tableroInfo?.tipo === 'cobranza' || listas.some(l => {
@@ -487,15 +488,15 @@ export default function KanbanTableroScreen() {
 
         // B. Estado de Cobro / Pago (pendientes vs cobrados)
         if (filtrosTablero.estadoCobro === 'pendientes') {
-          const res = (vals.resultadoContacto || vals.resultado || '').trim().toUpperCase();
-          if (esNegativa) {
-            // Acción negativa siempre es pago no concretado / pendiente
+          const res = (vals.resultadoContacto || vals.resultado || vals.RESULTADO || '').trim().toUpperCase();
+          if (res === 'FUERA DE ZONA' || esNegativa) {
+            // Acción negativa o Fuera de Zona siempre es pago no concretado / pendiente
           } else if (esEfectiva) {
             if (!RESULTADOS_PENDIENTES_COBRO.includes(res)) return false;
           }
         } else if (filtrosTablero.estadoCobro === 'cobrados') {
-          const res = (vals.resultadoContacto || vals.resultado || '').trim().toUpperCase();
-          if (!esEfectiva || (res !== 'COBRO EFECTIVO' && res !== 'RECUPERADO')) {
+          const res = (vals.resultadoContacto || vals.resultado || vals.RESULTADO || '').trim().toUpperCase();
+          if (res === 'FUERA DE ZONA' || !esEfectiva || (res !== 'COBRO EFECTIVO' && res !== 'RECUPERADO')) {
             return false;
           }
         }

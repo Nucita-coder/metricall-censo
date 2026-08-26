@@ -225,16 +225,16 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         const listaObj = listasCobranza.find(l => l.id === t.lista_id);
         const listaNombre = (listaObj?.nombre || '').toLowerCase();
 
-        const esEfectiva =
-          listaNombre.includes('efectiva') ||
-          data.resultadoContacto === 'COBRO EFECTIVO' ||
-          data.RESULTADO === 'COBRO EFECTIVO';
+        const resStr = (data.resultadoContacto || data.RESULTADO || data.resultado || '').toString().trim().toUpperCase();
+
+        const esCobroExitoso = (resStr === 'COBRO EFECTIVO' || resStr === 'RECUPERADO') && resStr !== 'FUERA DE ZONA';
 
         const esNegativa =
           listaNombre.includes('negativa') ||
-          (data.resultadoContacto && data.resultadoContacto !== 'COBRO EFECTIVO');
+          resStr === 'FUERA DE ZONA' ||
+          (Boolean(data.resultadoContacto) && !esCobroExitoso);
 
-        if (esEfectiva) {
+        if (esCobroExitoso) {
           efectivos++;
         } else if (esNegativa) {
           negativos++;

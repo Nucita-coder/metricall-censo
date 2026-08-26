@@ -13,18 +13,18 @@ export const OPCIONES_TIPO_CONTACTO_COBRANZA = [
   'VISITA RESIDENCIAL',
 ];
 
-// ✅ POSITIVOS → mueven a "Acción efectiva" (Imagen 1)
+// ✅ POSITIVOS → mueven a "Acción efectiva"
 export const OPCIONES_RESULTADO_COBRANZA = [
-  // --- ACCIÓN EFECTIVA (8 opciones) ---
+  // --- ACCIÓN EFECTIVA (7 opciones) ---
   'COBRO EFECTIVO',
   'CONVENIO DE PAGO',
   'ABONO PARCIALMENTE',
   'RECUPERADO',
   'NO CONTESTO',
   'LUEGO PASA POR OFIC',
-  'FUERA DE ZONA',
   'PIDE AJUSTE DE PLAN',
-  // --- ACCIÓN NEGATIVA (9 opciones) ---
+  // --- ACCIÓN NEGATIVA (10 opciones) ---
+  'FUERA DE ZONA',
   'PIDE RETIRO',
   'RECHAZO A PAGAR POR DIAS SIN SERVICIO',
   'TIENE FALLA',
@@ -44,7 +44,6 @@ export const RESULTADOS_EFECTIVOS = [
   'RECUPERADO',
   'NO CONTESTO',
   'LUEGO PASA POR OFIC',
-  'FUERA DE ZONA',
   'PIDE AJUSTE DE PLAN',
 ];
 

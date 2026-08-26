@@ -520,9 +520,31 @@ export default function KanbanTableroScreen() {
         return true;
       });
 
+      // Ordenar las tarjetas: más reciente primero (arriba) y las más antiguas hacia abajo
+      const tarjetasOrdenadas = [...tarjetasFiltradas].sort((a, b) => {
+        const getTs = (t: Tarjeta) => {
+          const vals = t.datos_valores || {};
+          const gestiones = vals.gestionesCobranza;
+          if (Array.isArray(gestiones) && gestiones.length > 0) {
+            const ult = gestiones[gestiones.length - 1];
+            if (ult?.fecha) {
+              const ts = new Date(ult.fecha).getTime();
+              if (!isNaN(ts)) return ts;
+            }
+          }
+          const fechaStr = vals.fechaCobroReconciliacion || t.updated_at || t.created_at;
+          if (fechaStr) {
+            const ts = new Date(fechaStr).getTime();
+            if (!isNaN(ts)) return ts;
+          }
+          return 0;
+        };
+        return getTs(b) - getTs(a);
+      });
+
       return {
         ...lista,
-        tarjetas: tarjetasFiltradas,
+        tarjetas: tarjetasOrdenadas,
       };
     });
   }, [listas, searchQuery, filtrosTablero, userRol, permisosEspeciales, RESULTADOS_PENDIENTES_COBRO]);

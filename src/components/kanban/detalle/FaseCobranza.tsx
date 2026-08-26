@@ -104,6 +104,7 @@ export function FaseCobranza({
         'TIPO DE CONTACTO': tipoContacto,
         RESULTADO: resultado,
         gestionesCobranza: updatedGestiones,
+        adjuntosRegistrados: true,
       };
 
       await onUpdateTarjeta(updates);

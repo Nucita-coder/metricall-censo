@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ImageBackground, ActivityIndicator, Alert, Platform } from 'react-native';
-import { Image as ImageIcon, X } from 'lucide-react-native';
+import { Image as ImageIcon, X, Lock } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { FaseProps } from './types';
 import { renderSection } from './SeccionRegistro';
@@ -9,6 +9,14 @@ import { uploadImageToSupabase } from '../../../services/uploadImage';
 export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }: FaseProps) => {
   const data = tarjeta.datos_valores || {};
   const [subiendoImagen, setSubiendoImagen] = useState(false);
+
+  // La evidencia es inmutable si ya se registró la gestión de contacto o la tarjeta fue enviada
+  const esEvidenciaInmutable = Boolean(
+    data.adjuntosRegistrados ||
+    (Array.isArray(data.gestionesCobranza) && data.gestionesCobranza.length > 0) ||
+    data.resultadoContacto ||
+    (Array.isArray(data.gestiones) && data.gestiones.length > 0)
+  );
 
   const uploadImage = async (uri: string, base64String?: string | null) => {
     try {
@@ -119,27 +127,48 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
                   style={{ width: 80, height: 80, overflow: 'hidden', borderRadius: 8, backgroundColor: '#384148' }}
                 />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={{
-                  position: 'absolute',
-                  top: -6,
-                  right: -6,
-                  backgroundColor: '#E53E3E',
-                  borderRadius: 10,
-                  width: 20,
-                  height: 20,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: 10,
-                  elevation: 3,
-                }}
-                onPress={async () => {
-                  const nuevosAdjuntos = (data.adjuntos || []).filter((_: any, i: number) => i !== index);
-                  await onUpdateTarjeta({ adjuntos: nuevosAdjuntos });
-                }}
-              >
-                <X size={12} color="#FFF" />
-              </TouchableOpacity>
+
+              {/* Si la evidencia ya fue registrada, no se puede eliminar (Inmutable) */}
+              {esEvidenciaInmutable ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -6,
+                    right: -6,
+                    backgroundColor: '#2C333A',
+                    borderRadius: 10,
+                    padding: 3,
+                    borderWidth: 1,
+                    borderColor: '#5C6873',
+                    zIndex: 10,
+                    elevation: 3,
+                  }}
+                >
+                  <Lock size={11} color="#9CA3AF" />
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={{
+                    position: 'absolute',
+                    top: -6,
+                    right: -6,
+                    backgroundColor: '#E53E3E',
+                    borderRadius: 10,
+                    width: 20,
+                    height: 20,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10,
+                    elevation: 3,
+                  }}
+                  onPress={async () => {
+                    const nuevosAdjuntos = (data.adjuntos || []).filter((_: any, i: number) => i !== index);
+                    await onUpdateTarjeta({ adjuntos: nuevosAdjuntos });
+                  }}
+                >
+                  <X size={12} color="#FFF" />
+                </TouchableOpacity>
+              )}
             </View>
           ))}
         </ScrollView>

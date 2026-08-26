@@ -268,7 +268,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
 
         const mData = mapMeses.get(claveMes)!;
         mData.totalGeneral++;
-        if (esEfectiva) {
+        if (esCobroExitoso) {
           mData.totalEfectivos++;
         } else if (esNegativa) {
           mData.totalNegativos++;

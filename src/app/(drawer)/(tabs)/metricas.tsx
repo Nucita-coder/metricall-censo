@@ -38,6 +38,7 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { Tarjeta } from '../../../types/kanban';
 import { ModuloCobranza } from '../../../components/metricas/ModuloCobranza';
+import { ModuloAlmacen } from '../../../components/metricas/ModuloAlmacen';
 
 export interface VendedorStats {
   vendedorNombre: string;
@@ -73,8 +74,8 @@ export default function MetricasScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
-  // Subtab activo: 'cobranza' | 'vendedores' | 'censos' | 'tecnicos'
-  const [subTab, setSubTab] = useState<'cobranza' | 'vendedores' | 'censos' | 'tecnicos'>('cobranza');
+  // Subtab activo: 'cobranza' | 'vendedores' | 'censos' | 'tecnicos' | 'almacen'
+  const [subTab, setSubTab] = useState<'cobranza' | 'vendedores' | 'censos' | 'tecnicos' | 'almacen'>('cobranza');
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -518,6 +519,19 @@ export default function MetricasScreen() {
               Cobranza y Recupero
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.subTabButton, subTab === 'almacen' && styles.subTabButtonActive]}
+            onPress={() => {
+              setSubTab('almacen');
+              setExpandidoId(null);
+            }}
+          >
+            <Package size={16} color={subTab === 'almacen' ? '#FFF' : '#8C9BAB'} />
+            <Text style={[styles.subTabText, subTab === 'almacen' && styles.subTabTextActive]}>
+              Almacén
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* MODULO ACTIVO: COBRANZA Y RECUPERO */}
@@ -527,6 +541,11 @@ export default function MetricasScreen() {
             filtroPeriodo={filtroPeriodo}
             busquedaTexto={busquedaTexto}
           />
+        )}
+
+        {/* MODULO ACTIVO: ALMACÉN */}
+        {subTab === 'almacen' && empresaId && (
+          <ModuloAlmacen empresaId={empresaId} />
         )}
       </ScrollView>
     </View>
@@ -876,5 +895,27 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  almacenPlaceholderCard: {
+    backgroundColor: '#22272B',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#384148',
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  almacenPlaceholderTitle: {
+    color: '#B6C2CF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  almacenPlaceholderSub: {
+    color: '#8C9BAB',
+    fontSize: 13,
+    textAlign: 'center',
+    maxWidth: 360,
   },
 });

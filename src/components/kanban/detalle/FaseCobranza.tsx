@@ -78,6 +78,15 @@ export function FaseCobranza({
       return;
     }
 
+    const adjuntos = datos.adjuntos || [];
+    if (!Array.isArray(adjuntos) || adjuntos.length === 0) {
+      Alert.alert(
+        'Evidencia Obligatoria',
+        'Es obligatorio adjuntar al menos una imagen como evidencia en la sección "Archivos Adjuntos" antes de registrar el resultado de contacto.'
+      );
+      return;
+    }
+
     setIsSaving(true);
     try {
       const nuevaGestion = {
@@ -157,6 +166,12 @@ export function FaseCobranza({
           isRequired
           disabled={isSaving}
         />
+
+        {!(Array.isArray(datos.adjuntos) && datos.adjuntos.length > 0) && (
+          <Text style={{ fontSize: 11, color: '#F87171', marginTop: 4, fontStyle: 'italic' }}>
+            * Es obligatorio adjuntar al menos 1 imagen como evidencia en "Archivos Adjuntos"
+          </Text>
+        )}
 
         <TouchableOpacity
           style={[

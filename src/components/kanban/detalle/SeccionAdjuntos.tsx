@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ImageBackground, ActivityIndicator, Alert } from 'react-native';
-import { Image as ImageIcon } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, ScrollView, ImageBackground, ActivityIndicator, Alert, Platform } from 'react-native';
+import { Image as ImageIcon, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { FaseProps } from './types';
 import { renderSection } from './SeccionRegistro';
@@ -14,7 +14,7 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
     try {
       setSubiendoImagen(true);
       const publicUrl = await uploadImageToSupabase(uri, 'adjuntos');
-      
+
       if (!publicUrl) throw new Error('No se pudo obtener la URL de la imagen subida.');
 
       const adjuntosActuales = data.adjuntos || [];
@@ -23,44 +23,79 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
       await onUpdateTarjeta({ adjuntos: nuevosAdjuntos });
       Alert.alert('Éxito', 'Imagen adjuntada correctamente.');
     } catch (error: any) {
-      Alert.alert('Error al subir imagen', error.message);
+      console.error('[SeccionAdjuntos] Error al subir imagen:', error);
+      Alert.alert('Error al subir imagen', error.message || 'Ocurrió un error inesperado');
     } finally {
       setSubiendoImagen(false);
     }
   };
 
+  const pickFromGallery = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') return Alert.alert('Permiso denegado', 'Se necesita acceso a la galería.');
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+        base64: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        uploadImage(result.assets[0].uri, result.assets[0].base64);
+      }
+    } catch (e: any) {
+      console.error('[SeccionAdjuntos] Error galería:', e);
+      Alert.alert('Error', e.message || 'No se pudo seleccionar la imagen.');
+    }
+  };
+
+  const pickFromCamera = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') return Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara.');
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 0.7,
+        base64: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        uploadImage(result.assets[0].uri, result.assets[0].base64);
+      }
+    } catch (e: any) {
+      console.error('[SeccionAdjuntos] Error cámara:', e);
+      Alert.alert('Error', e.message || 'No se pudo tomar la foto.');
+    }
+  };
+
   const handleAdjuntarImagen = () => {
+    if (Platform.OS === 'web') {
+      pickFromGallery();
+      return;
+    }
+
     Alert.alert('Adjuntar Imagen', '¿Desde dónde deseas adjuntar la imagen?', [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Cámara',
-        onPress: async () => {
-          const { status } = await ImagePicker.requestCameraPermissionsAsync();
-          if (status !== 'granted') return Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara.');
-          const result = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true });
-          if (!result.canceled && result.assets && result.assets.length > 0) {
-            uploadImage(result.assets[0].uri, result.assets[0].base64);
-          }
-        }
-      },
-      {
-        text: 'Galería',
-        onPress: async () => {
-          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (status !== 'granted') return Alert.alert('Permiso denegado', 'Se necesita acceso a la galería.');
-          const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7, base64: true });
-          if (!result.canceled && result.assets && result.assets.length > 0) {
-            uploadImage(result.assets[0].uri, result.assets[0].base64);
-          }
-        }
-      }
+      { text: 'Cámara', onPress: pickFromCamera },
+      { text: 'Galería', onPress: pickFromGallery },
     ]);
   };
 
   return renderSection("Archivos Adjuntos", (
     <View>
       <TouchableOpacity
-        style={{ flexDirection: 'row', backgroundColor: '#2C333A', padding: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}
+        style={{
+          flexDirection: 'row',
+          backgroundColor: '#2C333A',
+          padding: 12,
+          borderRadius: 8,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: '#384148',
+        }}
         onPress={handleAdjuntarImagen}
         disabled={subiendoImagen}
       >
@@ -77,12 +112,35 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
       {data.adjuntos?.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
           {data.adjuntos?.map((url: string, index: number) => (
-            <TouchableOpacity key={index} style={{ marginRight: 12 }} onPress={() => setImagenExpandida && setImagenExpandida(url)}>
-              <ImageBackground
-                source={{ uri: url }}
-                style={{ width: 80, height: 80, overflow: 'hidden', borderRadius: 8, backgroundColor: '#384148' }}
-              />
-            </TouchableOpacity>
+            <View key={index} style={{ marginRight: 12, position: 'relative', marginVertical: 4 }}>
+              <TouchableOpacity onPress={() => setImagenExpandida && setImagenExpandida(url)}>
+                <ImageBackground
+                  source={{ uri: url }}
+                  style={{ width: 80, height: 80, overflow: 'hidden', borderRadius: 8, backgroundColor: '#384148' }}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  position: 'absolute',
+                  top: -6,
+                  right: -6,
+                  backgroundColor: '#E53E3E',
+                  borderRadius: 10,
+                  width: 20,
+                  height: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10,
+                  elevation: 3,
+                }}
+                onPress={async () => {
+                  const nuevosAdjuntos = (data.adjuntos || []).filter((_: any, i: number) => i !== index);
+                  await onUpdateTarjeta({ adjuntos: nuevosAdjuntos });
+                }}
+              >
+                <X size={12} color="#FFF" />
+              </TouchableOpacity>
+            </View>
           ))}
         </ScrollView>
       )}

@@ -1,4 +1,4 @@
-import { extraerDatosConGemini } from '../services/gemini.js';
+import { extraerDatosConGemini, generarRespuestaConversacional } from '../services/gemini.js';
 import { enviarMensajeTexto, enviarBorradorPrevisualizacion } from '../services/whatsapp.js';
 import { insertarLog } from '../services/logger.js';
 
@@ -79,27 +79,24 @@ export default async function handler(req, res) {
         contenido: { messageType, textBody, raw: message }
       });
 
-      // Confirmar recepción al usuario
-      await enviarMensajeTexto(fromNumber, '🤖 *MetricallBot:* Analizando con IA...');
-
-      // Analizar con Gemini
-      const datosExtraidos = await extraerDatosConGemini(textBody || `Imagen recibida tipo: ${messageType}`);
+      // Generar respuesta conversacional con Gemini
+      const respuesta = await generarRespuestaConversacional(textBody || `[${messageType}]`);
 
       await insertarLog({
         tipo: 'gemini_response',
         numero_telefono: fromNumber,
-        mensaje_texto: `Gemini extrajo: ${datosExtraidos.pieza_nombre}`,
-        contenido: datosExtraidos
+        mensaje_texto: respuesta,
+        contenido: { respuesta }
       });
 
-      // Enviar borrador con 3 botones interactivos
-      const resultadoEnvio = await enviarBorradorPrevisualizacion(fromNumber, datosExtraidos);
+      // Enviar la respuesta al usuario
+      await enviarMensajeTexto(fromNumber, respuesta);
 
       await insertarLog({
         tipo: 'outgoing',
         numero_telefono: fromNumber,
-        mensaje_texto: 'Borrador con botones enviado al usuario',
-        contenido: resultadoEnvio || {}
+        mensaje_texto: 'Respuesta conversacional enviada',
+        contenido: {}
       });
 
       return res.status(200).json({ status: 'success' });

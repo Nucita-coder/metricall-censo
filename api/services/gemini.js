@@ -78,3 +78,32 @@ export async function extraerDatosConGemini(userText, imageBase64Data = null) {
     };
   }
 }
+
+// ─── Respuesta conversacional libre (modo prueba) ────────────────────────────
+export async function generarRespuestaConversacional(userText) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+  const prompt = `Eres MetricallBot, un asistente simpático, directo y con humor venezolano que trabaja en un sistema de inventario llamado Metricall.
+El usuario te escribió: "${userText}"
+Respóndele de forma natural, breve (máximo 3 líneas), con energía y usando algún emoji.
+Si el mensaje no tiene sentido o es muy corto (como una sola letra), di algo gracioso al respecto.
+Responde siempre en español venezolano.`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9, maxOutputTokens: 200 }
+      })
+    });
+    const data = await response.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+      || '¡Hola! 👋 Soy MetricallBot. Escríbeme un producto y te ayudo a registrarlo.';
+  } catch (err) {
+    console.error('[GEMINI CONV ERROR]:', err);
+    return '¡Hola! 👋 Soy MetricallBot. ¿En qué te puedo ayudar hoy?';
+  }
+}

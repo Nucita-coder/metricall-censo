@@ -1,10 +1,17 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/((?!api/.*).*)",
-      "destination": "/index.html"
+      "src": "/api/webhook/whatsapp",
+      "dest": "/api/webhook/whatsapp.js"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }

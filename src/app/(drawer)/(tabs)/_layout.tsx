@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useWindowDimensions, Platform } from 'react-native';
-import { Briefcase, Users, Settings, MessageSquare, BarChart3, Package } from 'lucide-react-native';
+import { Briefcase, Users, Settings, MessageSquare, BarChart3, Package, Bot } from 'lucide-react-native';
 import { useAuth } from '../../../context/AuthContext';
 
 export default function TabLayout() {
@@ -67,6 +67,14 @@ export default function TabLayout() {
           title: 'Equipo',
           tabBarIcon: ({ color }) => <Users size={24} color={color} />,
           href: userRol === 'empleado' ? null : '/(drawer)/(tabs)/equipo',
+        }}
+      />
+      <Tabs.Screen
+        name="whatsapp"
+        options={{
+          title: 'Bot WA',
+          tabBarIcon: ({ color }) => <Bot size={24} color={color} />,
+          href: ['lider', 'admin', 'administrador'].includes((userRol || '').toLowerCase()) ? '/(drawer)/(tabs)/whatsapp' : null,
         }}
       />
       <Tabs.Screen

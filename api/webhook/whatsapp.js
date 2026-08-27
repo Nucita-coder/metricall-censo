@@ -1,7 +1,9 @@
 import { extraerDatosConGemini } from '../services/gemini.js';
 import { enviarMensajeTexto, enviarBorradorPrevisualizacion } from '../services/whatsapp.js';
+import { insertarLog } from '../services/logger.js';
 
 export default async function handler(req, res) {
+  // ── GET: Verificación del Webhook por Meta ──────────────────────────────────
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -11,65 +13,98 @@ export default async function handler(req, res) {
     const ALT_TOKEN = 'metricall_bot_verify_token_2026';
 
     if (mode === 'subscribe' && (token === VERIFY_TOKEN || token === ALT_TOKEN)) {
-      console.log('[WEBHOOK] Verificación exitosa con Meta!');
+      await insertarLog({ tipo: 'sistema', mensaje_texto: 'Webhook verificado con Meta', contenido: { mode, token } });
       return res.status(200).send(challenge);
     }
 
     return res.status(403).send('Token de verificación inválido');
   }
 
+  // ── POST: Recepción de mensajes de WhatsApp ─────────────────────────────────
   if (req.method === 'POST') {
     try {
       const body = req.body;
+
+      // Loguear el evento RAW completo
+      await insertarLog({
+        tipo: 'raw_incoming',
+        mensaje_texto: 'Evento recibido de Meta',
+        contenido: body
+      });
+
       const entry = body?.entry?.[0];
       const changes = entry?.changes?.[0];
       const value = changes?.value;
       const message = value?.messages?.[0];
 
-      if (message) {
-        const fromNumber = message.from;
-        const messageType = message.type;
+      if (!message) {
+        await insertarLog({ tipo: 'info', mensaje_texto: 'Evento sin mensaje (status update o notificación)', contenido: value || {} });
+        return res.status(200).json({ status: 'no_message' });
+      }
 
-        // 1. Mapeo de clics en botones interactivos
-        if (messageType === 'interactive') {
-          const buttonId = message.interactive?.button_reply?.id;
-          console.log(`[BOTÓN CLICKEADO]: ${buttonId} por ${fromNumber}`);
+      const fromNumber = message.from;
+      const messageType = message.type;
 
-          if (buttonId === 'btn_publicar') {
-            await enviarMensajeTexto(
-              fromNumber,
-              '✅ *¡Publicación registrada con éxito en Metricall!*\n\nTu registro ha sido guardado y atribuido a tu empresa correctamente.'
-            );
-          } else if (buttonId === 'btn_modificar') {
-            await enviarMensajeTexto(
-              fromNumber,
-              '✏️ *Modificación de borrador*\n\nEscribe el cambio que deseas realizar (ejemplo: *"el precio es $65"*, *"es nuevo"*, *"marca Chevrolet"*).'
-            );
-          } else if (buttonId === 'btn_cancelar') {
-            await enviarMensajeTexto(
-              fromNumber,
-              '❌ *Publicación cancelada*\n\nSe ha descartado el borrador. Puedes enviar una nueva foto o mensaje cuando desees.'
-            );
-          }
-          return res.status(200).json({ status: 'success' });
+      // ── Botones interactivos ────────────────────────────────────────────────
+      if (messageType === 'interactive') {
+        const buttonId = message.interactive?.button_reply?.id;
+        const buttonTitle = message.interactive?.button_reply?.title;
+
+        await insertarLog({
+          tipo: 'button',
+          numero_telefono: fromNumber,
+          mensaje_texto: `Botón presionado: ${buttonTitle}`,
+          contenido: { buttonId, buttonTitle }
+        });
+
+        if (buttonId === 'btn_publicar') {
+          await enviarMensajeTexto(fromNumber, '✅ *¡Publicación registrada en Metricall!*\n\nTu registro ha sido guardado correctamente.');
+        } else if (buttonId === 'btn_modificar') {
+          await enviarMensajeTexto(fromNumber, '✏️ *Modificar borrador*\n\nEscribe el cambio que deseas (ej: *"precio 70$"*, *"es nuevo"*, *"marca Toyota"*).');
+        } else if (buttonId === 'btn_cancelar') {
+          await enviarMensajeTexto(fromNumber, '❌ *Publicación cancelada.*\n\nEnvía una nueva foto o mensaje cuando quieras.');
         }
 
-        // 2. Procesamiento de Texto o Imágenes entrantes con Gemini IA
-        const textBody = message.text?.body || '';
-
-        // Notificar brevemente al usuario
-        await enviarMensajeTexto(fromNumber, '🤖 *MetricallBot:* Analizando información con IA...');
-
-        // Analizar datos con Gemini
-        const datosExtraidos = await extraerDatosConGemini(textBody);
-
-        // Enviar el borrador con los 3 botones interactivos nativos de Meta
-        await enviarBorradorPrevisualizacion(fromNumber, datosExtraidos);
+        return res.status(200).json({ status: 'button_handled' });
       }
+
+      // ── Texto o imagen ──────────────────────────────────────────────────────
+      const textBody = message.text?.body || '';
+      const hasImage = messageType === 'image';
+
+      await insertarLog({
+        tipo: 'incoming',
+        numero_telefono: fromNumber,
+        mensaje_texto: textBody || `[${messageType.toUpperCase()}]`,
+        contenido: { messageType, textBody, raw: message }
+      });
+
+      // Confirmar recepción al usuario
+      await enviarMensajeTexto(fromNumber, '🤖 *MetricallBot:* Analizando con IA...');
+
+      // Analizar con Gemini
+      const datosExtraidos = await extraerDatosConGemini(textBody || `Imagen recibida tipo: ${messageType}`);
+
+      await insertarLog({
+        tipo: 'gemini_response',
+        numero_telefono: fromNumber,
+        mensaje_texto: `Gemini extrajo: ${datosExtraidos.pieza_nombre}`,
+        contenido: datosExtraidos
+      });
+
+      // Enviar borrador con 3 botones interactivos
+      const resultadoEnvio = await enviarBorradorPrevisualizacion(fromNumber, datosExtraidos);
+
+      await insertarLog({
+        tipo: 'outgoing',
+        numero_telefono: fromNumber,
+        mensaje_texto: 'Borrador con botones enviado al usuario',
+        contenido: resultadoEnvio || {}
+      });
 
       return res.status(200).json({ status: 'success' });
     } catch (err) {
-      console.error('[WEBHOOK ERROR]:', err);
+      await insertarLog({ tipo: 'error', mensaje_texto: err.message, contenido: { stack: err.stack } });
       return res.status(500).json({ error: err.message });
     }
   }

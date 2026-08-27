@@ -1,40 +1,46 @@
-import { extraerDatosConGemini, generarRespuestaConversacional } from '../services/gemini.js';
-import { enviarMensajeTexto, enviarBorradorPrevisualizacion } from '../services/whatsapp.js';
+import {
+  enviarMenuPrincipal,
+  enviarFormularioPago,
+  enviarMenuFallas,
+  enviarLinkSuscripcion,
+  enviarConfirmacionFalla,
+  enviarMensajeTexto
+} from '../services/whatsapp.js';
 import { insertarLog } from '../services/logger.js';
 
+// Etiquetas legibles para tipos de falla
+const FALLA_LABELS = {
+  falla_luz_roja:      '🔴 Luz roja en equipo',
+  falla_intermitencia: '📶 Intermitencia de servicio',
+  falla_lento:         '🐌 Internet lento',
+  falla_paginas:       '🚫 No abren algunas páginas',
+  falla_sin_datos:     '📵 No recibe datos'
+};
+
 export default async function handler(req, res) {
+
   // ── GET: Verificación del Webhook por Meta ──────────────────────────────────
   if (req.method === 'GET') {
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
+    const mode      = req.query['hub.mode'];
+    const token     = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
-
     const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'metricall_bot_secret_2026';
-    const ALT_TOKEN = 'metricall_bot_verify_token_2026';
-
-    if (mode === 'subscribe' && (token === VERIFY_TOKEN || token === ALT_TOKEN)) {
-      await insertarLog({ tipo: 'sistema', mensaje_texto: 'Webhook verificado con Meta', contenido: { mode, token } });
+    if (mode === 'subscribe' && (token === VERIFY_TOKEN || token === 'metricall_bot_verify_token_2026')) {
+      await insertarLog({ tipo: 'sistema', mensaje_texto: 'Webhook verificado con Meta' });
       return res.status(200).send(challenge);
     }
-
-    return res.status(403).send('Token de verificación inválido');
+    return res.status(403).send('Token inválido');
   }
 
-  // ── POST: Recepción de mensajes de WhatsApp ─────────────────────────────────
+  // ── POST: Recepción de mensajes ─────────────────────────────────────────────
   if (req.method === 'POST') {
     try {
       const body = req.body;
 
-      // Loguear el evento RAW completo
-      await insertarLog({
-        tipo: 'raw_incoming',
-        mensaje_texto: 'Evento recibido de Meta',
-        contenido: body
-      });
+      // Log RAW
+      await insertarLog({ tipo: 'raw_incoming', mensaje_texto: 'Evento recibido de Meta', contenido: body });
 
-      const entry = body?.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value = changes?.value;
+      const value   = body?.entry?.[0]?.changes?.[0]?.value;
       const message = value?.messages?.[0];
 
       if (!message) {
@@ -42,64 +48,58 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: 'no_message' });
       }
 
-      const fromNumber = message.from;
+      const fromPhone   = message.from;
       const messageType = message.type;
 
-      // ── Botones interactivos ────────────────────────────────────────────────
-      if (messageType === 'interactive') {
-        const buttonId = message.interactive?.button_reply?.id;
-        const buttonTitle = message.interactive?.button_reply?.title;
+      // ── Botones interactivos (reply buttons) ─────────────────────────────────
+      if (messageType === 'interactive' && message.interactive?.type === 'button_reply') {
+        const buttonId    = message.interactive.button_reply.id;
+        const buttonTitle = message.interactive.button_reply.title;
 
-        await insertarLog({
-          tipo: 'button',
-          numero_telefono: fromNumber,
-          mensaje_texto: `Botón presionado: ${buttonTitle}`,
-          contenido: { buttonId, buttonTitle }
-        });
+        await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Botón: ${buttonTitle}`, contenido: { buttonId } });
 
-        if (buttonId === 'btn_publicar') {
-          await enviarMensajeTexto(fromNumber, '✅ *¡Publicación registrada en Metricall!*\n\nTu registro ha sido guardado correctamente.');
-        } else if (buttonId === 'btn_modificar') {
-          await enviarMensajeTexto(fromNumber, '✏️ *Modificar borrador*\n\nEscribe el cambio que deseas (ej: *"precio 70$"*, *"es nuevo"*, *"marca Toyota"*).');
-        } else if (buttonId === 'btn_cancelar') {
-          await enviarMensajeTexto(fromNumber, '❌ *Publicación cancelada.*\n\nEnvía una nueva foto o mensaje cuando quieras.');
+        if (buttonId === 'btn_reporte_pago') {
+          await enviarFormularioPago(fromPhone);
+
+        } else if (buttonId === 'btn_reporte_falla') {
+          await enviarMenuFallas(fromPhone);
+
+        } else if (buttonId === 'btn_suscribirse') {
+          await enviarLinkSuscripcion(fromPhone);
         }
 
+        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Respuesta a botón: ${buttonId}` });
         return res.status(200).json({ status: 'button_handled' });
       }
 
-      // ── Texto o imagen ──────────────────────────────────────────────────────
+      // ── Selección de lista (fallas) ───────────────────────────────────────────
+      if (messageType === 'interactive' && message.interactive?.type === 'list_reply') {
+        const itemId    = message.interactive.list_reply.id;
+        const itemTitle = message.interactive.list_reply.title;
+        const label     = FALLA_LABELS[itemId] || itemTitle;
+
+        await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Falla seleccionada: ${label}`, contenido: { itemId } });
+        await enviarConfirmacionFalla(fromPhone, label);
+        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Confirmación de falla enviada: ${label}` });
+        return res.status(200).json({ status: 'falla_registrada' });
+      }
+
+      // ── Mensaje de texto o imagen → Mostrar menú principal ───────────────────
       const textBody = message.text?.body || '';
-      const hasImage = messageType === 'image';
 
       await insertarLog({
         tipo: 'incoming',
-        numero_telefono: fromNumber,
+        numero_telefono: fromPhone,
         mensaje_texto: textBody || `[${messageType.toUpperCase()}]`,
-        contenido: { messageType, textBody, raw: message }
+        contenido: { messageType, textBody }
       });
 
-      // Generar respuesta conversacional con Gemini
-      const respuesta = await generarRespuestaConversacional(textBody || `[${messageType}]`);
+      // Siempre mostrar el menú principal
+      await enviarMenuPrincipal(fromPhone);
+      await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Menú principal enviado' });
 
-      await insertarLog({
-        tipo: 'gemini_response',
-        numero_telefono: fromNumber,
-        mensaje_texto: respuesta,
-        contenido: { respuesta }
-      });
+      return res.status(200).json({ status: 'menu_enviado' });
 
-      // Enviar la respuesta al usuario
-      await enviarMensajeTexto(fromNumber, respuesta);
-
-      await insertarLog({
-        tipo: 'outgoing',
-        numero_telefono: fromNumber,
-        mensaje_texto: 'Respuesta conversacional enviada',
-        contenido: {}
-      });
-
-      return res.status(200).json({ status: 'success' });
     } catch (err) {
       await insertarLog({ tipo: 'error', mensaje_texto: err.message, contenido: { stack: err.stack } });
       return res.status(500).json({ error: err.message });

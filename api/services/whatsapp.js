@@ -193,7 +193,46 @@ _MetricallBot • Soporte Técnico_`;
       type: 'text',
       text: { body: mensaje }
     });
+// ─── 7. Enviar resumen de pago recibido para confirmación ────────────────────
+export async function enviarBorradorPago(toPhone, datos) {
+  const { accessToken, phoneNumberId } = getCredentials();
+  if (!accessToken) return;
+
+  const bodyText =
+`📋 *RESUMEN DE TU REPORTE DE PAGO*
+
+💳 *Cédula:* ${datos.cedula}
+🔢 *Referencia:* ${datos.referencia}
+💵 *Monto:* ${datos.monto}
+📱 *Teléfono Pago Móvil:* ${datos.telefono_pago_movil}
+🏦 *Banco Emisor:* ${datos.banco}
+
+¿Los datos son correctos para registrar tu pago?`;
+
+  try {
+    return await apiPost(phoneNumberId, accessToken, {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        header: {
+          type: 'text',
+          text: '💳 CONFIRMACIÓN DE PAGO'
+        },
+        body: { text: bodyText },
+        footer: { text: 'MetricallBot • Sistema de Pagos' },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'btn_confirmar_pago', title: '✅ Confirmar Pago' } },
+            { type: 'reply', reply: { id: 'btn_cancelar_pago',   title: '❌ Cancelar' } }
+          ]
+        }
+      }
+    });
   } catch (err) {
-    console.error('[WHATSAPP CONFIRMACION ERROR]:', err);
+    console.error('[WHATSAPP CONFIRMAR PAGO ERROR]:', err);
   }
 }
+

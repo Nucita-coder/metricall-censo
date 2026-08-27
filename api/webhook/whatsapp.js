@@ -4,18 +4,43 @@ import {
   enviarMenuFallas,
   enviarLinkSuscripcion,
   enviarConfirmacionFalla,
+  enviarBorradorPago,
   enviarMensajeTexto
 } from '../services/whatsapp.js';
+import { extraerDatosPagoConGemini } from '../services/gemini.js';
 import { insertarLog } from '../services/logger.js';
 
-// Etiquetas legibles para tipos de falla
+// Memoria temporal de borradores de pago por número de teléfono
+const borradoresPago = new Map();
+
 const FALLA_LABELS = {
   falla_luz_roja:      '🔴 Luz roja en equipo',
   falla_intermitencia: '📶 Intermitencia de servicio',
   falla_lento:         '🐌 Internet lento',
-  falla_paginas:       '🚫 No abren algunas páginas',
-  falla_sin_datos:     '📵 No recibe datos'
+  falla_paginas:       '🚫 No cargan páginas',
+  falla_sin_datos:     '📵 Sin internet'
 };
+
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+async function guardarPagoEnSupabase(datos) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/reportes_pago`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(datos)
+    });
+  } catch (err) {
+    console.error('[DATABASE PAGO ERROR]:', err);
+  }
+}
 
 export default async function handler(req, res) {
 
@@ -36,22 +61,20 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const body = req.body;
-
-      // Log RAW
       await insertarLog({ tipo: 'raw_incoming', mensaje_texto: 'Evento recibido de Meta', contenido: body });
 
       const value   = body?.entry?.[0]?.changes?.[0]?.value;
       const message = value?.messages?.[0];
 
       if (!message) {
-        await insertarLog({ tipo: 'info', mensaje_texto: 'Evento sin mensaje (status update o notificación)', contenido: value || {} });
+        await insertarLog({ tipo: 'info', mensaje_texto: 'Evento de notificación/status', contenido: value || {} });
         return res.status(200).json({ status: 'no_message' });
       }
 
       const fromPhone   = message.from;
       const messageType = message.type;
 
-      // ── Botones interactivos (reply buttons) ─────────────────────────────────
+      // ── 1. Botones de menú o confirmación ────────────────────────────────────
       if (messageType === 'interactive' && message.interactive?.type === 'button_reply') {
         const buttonId    = message.interactive.button_reply.id;
         const buttonTitle = message.interactive.button_reply.title;
@@ -59,6 +82,7 @@ export default async function handler(req, res) {
         await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Botón: ${buttonTitle}`, contenido: { buttonId } });
 
         if (buttonId === 'btn_reporte_pago') {
+          borradoresPago.set(fromPhone, { estado: 'esperando_pago' });
           await enviarFormularioPago(fromPhone);
 
         } else if (buttonId === 'btn_reporte_falla') {
@@ -66,13 +90,35 @@ export default async function handler(req, res) {
 
         } else if (buttonId === 'btn_suscribirse') {
           await enviarLinkSuscripcion(fromPhone);
+
+        } else if (buttonId === 'btn_confirmar_pago') {
+          const borrador = borradoresPago.get(fromPhone);
+          if (borrador && borrador.datos) {
+            await guardarPagoEnSupabase({
+              numero_telefono: fromPhone,
+              cedula: borrador.datos.cedula,
+              referencia: borrador.datos.referencia,
+              monto: borrador.datos.monto,
+              telefono_pago_movil: borrador.datos.telefono_pago_movil,
+              banco: borrador.datos.banco,
+              estado: 'pendiente'
+            });
+            borradoresPago.delete(fromPhone);
+            await enviarMensajeTexto(fromPhone, '✅ *¡Pago registrado con éxito!*\n\nTu reporte ha sido guardado. Lo validaremos en breve.');
+          } else {
+            await enviarMensajeTexto(fromPhone, '✅ *¡Pago registrado con éxito!* Gracias por tu reporte.');
+          }
+
+        } else if (buttonId === 'btn_cancelar_pago') {
+          borradoresPago.delete(fromPhone);
+          await enviarMensajeTexto(fromPhone, '❌ *Reporte de pago cancelado.*\n\nPuedes enviar uno nuevo cuando desees.');
         }
 
         await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Respuesta a botón: ${buttonId}` });
         return res.status(200).json({ status: 'button_handled' });
       }
 
-      // ── Selección de lista (fallas) ───────────────────────────────────────────
+      // ── 2. Selección de Lista (fallas) ─────────────────────────────────────────
       if (messageType === 'interactive' && message.interactive?.type === 'list_reply') {
         const itemId    = message.interactive.list_reply.id;
         const itemTitle = message.interactive.list_reply.title;
@@ -80,12 +126,13 @@ export default async function handler(req, res) {
 
         await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Falla seleccionada: ${label}`, contenido: { itemId } });
         await enviarConfirmacionFalla(fromPhone, label);
-        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Confirmación de falla enviada: ${label}` });
+        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Confirmación enviada: ${label}` });
         return res.status(200).json({ status: 'falla_registrada' });
       }
 
-      // ── Mensaje de texto o imagen → Mostrar menú principal ───────────────────
+      // ── 3. Procesamiento de Texto o Imagen (Reporte de Pago o Menú) ─────────
       const textBody = message.text?.body || '';
+      const isEsperandoPago = borradoresPago.has(fromPhone);
 
       await insertarLog({
         tipo: 'incoming',
@@ -94,9 +141,28 @@ export default async function handler(req, res) {
         contenido: { messageType, textBody }
       });
 
-      // Siempre mostrar el menú principal
+      // Si el usuario estaba en flujo de pago o mandó datos/foto
+      if (isEsperandoPago || textBody.length > 5 || messageType === 'image') {
+        await enviarMensajeTexto(fromPhone, '🤖 *MetricallBot:* Procesando datos de tu pago...');
+
+        const datosPago = await extraerDatosPagoConGemini(textBody);
+        borradoresPago.set(fromPhone, { estado: 'confirmar', datos: datosPago });
+
+        await insertarLog({
+          tipo: 'gemini_response',
+          numero_telefono: fromPhone,
+          mensaje_texto: `Extracción de Pago: ${datosPago.referencia}`,
+          contenido: datosPago
+        });
+
+        await enviarBorradorPago(fromPhone, datosPago);
+        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Resumen de pago con botones enviado' });
+        return res.status(200).json({ status: 'pago_procesado' });
+      }
+
+      // En caso contrario, mostrar el menú principal
       await enviarMenuPrincipal(fromPhone);
-      await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Menú principal enviado' });
+      await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_telefono: fromPhone, mensaje_texto: 'Menú principal enviado' });
 
       return res.status(200).json({ status: 'menu_enviado' });
 

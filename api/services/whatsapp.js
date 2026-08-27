@@ -77,16 +77,17 @@ export async function enviarFormularioPago(toPhone) {
   const mensaje =
 `💰 *REPORTE DE PAGO*
 
-Para registrar tu pago, envíame la siguiente información en un solo mensaje:
+Por favor envíame la siguiente información en *un solo mensaje* con este formato exacto:
 
-1️⃣ *Número de abonado*
-2️⃣ *Número de referencia*
-3️⃣ *Monto pagado*
-4️⃣ *Teléfono asociado al pago móvil*
-5️⃣ *Banco emisor*
-6️⃣ 📸 *Captura del comprobante*
+📋 *Cédula:* [tu número de cédula]
+🔢 *Referencia (completo):* [número de referencia completo]
+💵 *Monto:* [monto pagado]
+📱 *Teléfono pago móvil:* [número asociado]
+🏦 *Banco:* [nombre del banco emisor]
 
-_Envía todos los datos y la imagen para procesar tu pago correctamente._`;
+📸 Y al final, adjunta la *captura del comprobante*.
+
+_Envía todo en un solo mensaje para que podamos procesarlo correctamente. ¡Gracias!_`;
 
   try {
     return await apiPost(phoneNumberId, accessToken, {
@@ -115,25 +116,25 @@ export async function enviarMenuFallas(toPhone) {
         type: 'list',
         header: {
           type: 'text',
-          text: '⚠️ REPORTE DE FALLA'
+          text: 'Reporte de Falla'
         },
         body: {
-          text: 'Selecciona el tipo de falla que estás experimentando:'
+          text: 'Selecciona el tipo de falla que estás presentando:'
         },
         footer: {
-          text: 'MetricallBot • Soporte Técnico'
+          text: 'MetricallBot • Soporte'
         },
         action: {
-          button: 'Ver opciones',
+          button: 'Ver fallas',
           sections: [
             {
               title: 'Tipo de falla',
               rows: [
-                { id: 'falla_luz_roja',        title: '🔴 Luz roja en equipo',        description: 'El equipo presenta luz roja encendida' },
-                { id: 'falla_intermitencia',   title: '📶 Intermitencia de servicio', description: 'El servicio se cae y vuelve constantemente' },
-                { id: 'falla_lento',           title: '🐌 Internet lento',            description: 'La conexión es más lenta de lo normal' },
-                { id: 'falla_paginas',         title: '🚫 No abren algunas páginas',  description: 'Ciertas páginas o apps no cargan' },
-                { id: 'falla_sin_datos',       title: '📵 No recibe datos',           description: 'No hay conexión a internet en absoluto' }
+                { id: 'falla_luz_roja',      title: 'Luz roja en equipo',   description: 'El equipo presenta luz roja' },
+                { id: 'falla_intermitencia', title: 'Intermitencia',         description: 'El servicio se cae y vuelve' },
+                { id: 'falla_lento',         title: 'Internet lento',        description: 'Conexion mas lenta de lo normal' },
+                { id: 'falla_paginas',       title: 'No cargan paginas',     description: 'Algunas paginas no abren' },
+                { id: 'falla_sin_datos',     title: 'Sin internet',          description: 'No hay conexion en absoluto' }
               ]
             }
           ]

@@ -1,11 +1,15 @@
 import {
   BarChart3,
   Calendar,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Layers,
+  PieChart,
   X
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
+import Svg, { Circle, G, Path } from 'react-native-svg';
 import {
   ActivityIndicator,
   Platform,
@@ -137,6 +141,124 @@ const TODOS_LOS_RESULTADOS = [
   { clave: 'NO DESEA PAGAR', label: 'NO DESEA PAGAR', tipo: 'negativo' },
 ];
 
+const PALETA_COLORES_GRAFICO = [
+  '#7C3AED', '#60A5FA', '#34D399', '#F59E0B', '#F87171',
+  '#EC4899', '#8B5CF6', '#06B6D4', '#10B981', '#F97316',
+  '#E11D48', '#A855F7', '#3B82F6', '#22C55E', '#EAB308',
+  '#EF4444', '#6366F1'
+];
+
+interface SliceDataItem {
+  label: string;
+  count: number;
+  color?: string;
+}
+
+interface GraficoPastelDonutProps {
+  data: SliceDataItem[];
+  tamano?: number;
+}
+
+function GraficoPastelDonut({ data, tamano = 160 }: GraficoPastelDonutProps) {
+  const total = data.reduce((sum, item) => sum + item.count, 0);
+  const itemsConValor = data.filter(d => d.count > 0);
+
+  const cx = tamano / 2;
+  const cy = tamano / 2;
+  const outerRadius = tamano / 2 - 8;
+  const innerRadius = outerRadius * 0.55;
+
+  let currentAngle = -Math.PI / 2;
+
+  const slices = itemsConValor.map((item, idx) => {
+    const pct = total > 0 ? item.count / total : 0;
+    const angle = pct * 2 * Math.PI;
+
+    const startAngle = currentAngle;
+    const endAngle = angle >= 2 * Math.PI ? startAngle + 1.9999 * Math.PI : startAngle + angle;
+    currentAngle += angle;
+
+    const x1 = cx + outerRadius * Math.cos(startAngle);
+    const y1 = cy + outerRadius * Math.sin(startAngle);
+    const x2 = cx + outerRadius * Math.cos(endAngle);
+    const y2 = cy + outerRadius * Math.sin(endAngle);
+
+    const x3 = cx + innerRadius * Math.cos(endAngle);
+    const y3 = cy + innerRadius * Math.sin(endAngle);
+    const x4 = cx + innerRadius * Math.cos(startAngle);
+    const y4 = cy + innerRadius * Math.sin(startAngle);
+
+    const largeArcFlag = angle > Math.PI ? 1 : 0;
+
+    const pathData = `M ${x1} ${y1} A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x4} ${y4} Z`;
+
+    const color = item.color || PALETA_COLORES_GRAFICO[idx % PALETA_COLORES_GRAFICO.length];
+
+    return {
+      pathData,
+      color,
+      label: item.label,
+      count: item.count,
+    };
+  });
+
+  return (
+    <View style={styles.pieContainerWrapper}>
+      <View style={styles.pieChartCenterWrapper}>
+        <Svg width={tamano} height={tamano}>
+          <G>
+            {total === 0 ? (
+              <Circle
+                cx={cx}
+                cy={cy}
+                r={(outerRadius + innerRadius) / 2}
+                stroke="#384148"
+                strokeWidth={outerRadius - innerRadius}
+                fill="none"
+              />
+            ) : (
+              slices.map((s, idx) => (
+                <Path key={idx} d={s.pathData} fill={s.color} stroke="#1D2125" strokeWidth={1.5} />
+              ))
+            )}
+          </G>
+        </Svg>
+        <View style={styles.pieCenterOverlay}>
+          <Text style={styles.pieCenterTotalNumber}>{total}</Text>
+          <Text style={styles.pieCenterTotalTxt}>100%</Text>
+        </View>
+      </View>
+
+      <View style={styles.pieLegendContainer}>
+        {data.map((item, idx) => {
+          const pct = total > 0 ? ((item.count / total) * 100).toFixed(1) : '0.0';
+          const color = item.color || PALETA_COLORES_GRAFICO[idx % PALETA_COLORES_GRAFICO.length];
+          const hasVal = item.count > 0;
+
+          return (
+            <View key={item.label} style={[styles.pieLegendItemRow, !hasVal && { opacity: 0.4 }]}>
+              <View style={styles.pieLegendLeft}>
+                <View style={[styles.pieLegendColorBox, { backgroundColor: color }]} />
+                <Text style={styles.pieLegendLabelTxt} numberOfLines={1}>
+                  {item.label}
+                </Text>
+              </View>
+              <View style={styles.pieLegendRight}>
+                <Text style={[styles.pieLegendCountTxt, hasVal && { color: '#FFF' }]}>
+                  {item.count}
+                </Text>
+                <Text style={[styles.pieLegendPctTxt, hasVal && { color: '#A78BFA' }]}>
+                  ({pct}%)
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 function getTodayString(): string {
   const d = new Date();
   const day = String(d.getDate()).padStart(2, '0');
@@ -187,6 +309,8 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
   const [periodoMatriz, setPeriodoMatriz] = useState<string>('Hoy');
   const [filtroTipoContacto, setFiltroTipoContacto] = useState<string>('Todos los Contactos');
   const [fechaMatriz, setFechaMatriz] = useState<string>(getTodayString());
+  const [mostrarPieContactos, setMostrarPieContactos] = useState<boolean>(false);
+  const [mostrarPieResultados, setMostrarPieResultados] = useState<boolean>(false);
   const [rawTarjetasCobranza, setRawTarjetasCobranza] = useState<Tarjeta[]>([]);
   const [fechaInicio, setFechaInicio] = useState<string>('');
   const [fechaFin, setFechaFin] = useState<string>('');
@@ -570,6 +694,44 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
     return { countsMap, totalResultadosPeriodo };
   }, [rawTarjetasCobranza, periodoMatriz, fechaMatriz]);
 
+  // Datos para los diagramas de pastel (100% distribución)
+  const pieDataContactos = React.useMemo(() => {
+    const colores = ['#7C3AED', '#60A5FA', '#34D399', '#F59E0B', '#EC4899'];
+    return TIPOS_CONTACTO_HEADERS.map((label, cIdx) => ({
+      label,
+      count: matrixData.columnTotals[cIdx] || 0,
+      color: colores[cIdx % colores.length],
+    }));
+  }, [matrixData.columnTotals]);
+
+  const pieDataResultados = React.useMemo(() => {
+    const coloresMap: Record<string, string> = {
+      'COBRO EFECTIVO': '#22C55E',
+      'CONVENIO DE PAGO': '#10B981',
+      'ABONO PARCIALMENTE': '#34D399',
+      'RECUPERADO': '#06B6D4',
+      'NO CONTESTO': '#60A5FA',
+      'LUEGO PASA POR OFIC': '#8B5CF6',
+      'PIDE AJUSTE DE PLAN': '#A78BFA',
+      'PIDE RETIRO': '#EF4444',
+      'FUERA DE ZONA': '#F87171',
+      'RECHAZO A PAGAR POR DIAS SIN SERVICIO': '#F97316',
+      'TIENE FALLA': '#F59E0B',
+      'INCONFORMIDAD CON MONTO': '#EC4899',
+      'NO RECONOCE DEUDA': '#E11D48',
+      'REHUSA ENTREGAR EQUIPO': '#DC2626',
+      'PUERTO LIBERADO': '#9333EA',
+      'TIENE OTRO SERVICIO': '#64748B',
+      'NO DESEA PAGAR': '#B91C1C',
+    };
+
+    return TODOS_LOS_RESULTADOS.map(r => ({
+      label: r.label,
+      count: matrixResultadosData.countsMap.get(r.clave) || 0,
+      color: coloresMap[r.clave] || '#8C9BAB',
+    }));
+  }, [matrixResultadosData.countsMap]);
+
   useEffect(() => {
     cargarDatosCobranza();
   }, [cargarDatosCobranza]);
@@ -781,9 +943,32 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
             </View>
           </View>
           <View style={styles.tableHeaderTitleWrapper}>
-            <Text style={styles.tableTitle}>Desglose por Hora y Tipo de Contacto</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+              <Text style={styles.tableTitle}>Desglose por Hora y Tipo de Contacto</Text>
+              <TouchableOpacity
+                style={styles.togglePieButton}
+                onPress={() => setMostrarPieContactos(prev => !prev)}
+                activeOpacity={0.7}
+              >
+                <PieChart size={14} color="#A78BFA" />
+                <Text style={styles.togglePieButtonTxt}>Gráfica</Text>
+                {mostrarPieContactos ? (
+                  <ChevronUp size={14} color="#A78BFA" />
+                ) : (
+                  <ChevronDown size={14} color="#A78BFA" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
+
+        {/* DIAGRAMA DE PASTEL DESPLEGABLE: DISTRIBUCIÓN POR TIPO DE CONTACTO (100%) */}
+        {mostrarPieContactos && (
+          <View style={styles.chartSectionWrapper}>
+            <Text style={styles.sectionSubtitleHeader}>Porcentaje por Tipo de Contacto (Canales)</Text>
+            <GraficoPastelDonut data={pieDataContactos} tamano={150} />
+          </View>
+        )}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={true} contentContainerStyle={{ minWidth: '100%' }}>
           <View style={styles.matrixContainer}>
@@ -856,13 +1041,34 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
       {/* SECCIÓN 2: DESGLOSE DE RESULTADOS DE GESTIÓN (SIN HORARIO) */}
       <View style={[styles.tableCard, { marginTop: 20 }]}>
         <View style={styles.tableTopHeaderRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Layers size={22} color="#60A5FA" />
-            <View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Layers size={22} color="#60A5FA" />
               <Text style={styles.tableTitle}>Desglose por Resultado de Gestión</Text>
             </View>
+            <TouchableOpacity
+              style={styles.togglePieButton}
+              onPress={() => setMostrarPieResultados(prev => !prev)}
+              activeOpacity={0.7}
+            >
+              <PieChart size={14} color="#60A5FA" />
+              <Text style={[styles.togglePieButtonTxt, { color: '#60A5FA' }]}>Gráfica</Text>
+              {mostrarPieResultados ? (
+                <ChevronUp size={14} color="#60A5FA" />
+              ) : (
+                <ChevronDown size={14} color="#60A5FA" />
+              )}
+            </TouchableOpacity>
           </View>
         </View>
+
+        {/* DIAGRAMA DE PASTEL DESPLEGABLE: DISTRIBUCIÓN POR RESULTADO DE GESTIÓN (100%) */}
+        {mostrarPieResultados && (
+          <View style={styles.chartSectionWrapper}>
+            <Text style={styles.sectionSubtitleHeader}>Porcentaje por Resultado de Gestión (Resultados)</Text>
+            <GraficoPastelDonut data={pieDataResultados} tamano={160} />
+          </View>
+        )}
 
         {/* REJILLA / LISTADO DE RESULTADOS */}
         <View style={styles.resultadosGridContainer}>
@@ -1298,6 +1504,107 @@ const styles = StyleSheet.create({
   resultadoBadgeTxt: {
     color: '#64748B',
     fontSize: 12,
+    fontWeight: 'bold',
+  },
+  togglePieButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1D2125',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#384148',
+  },
+  togglePieButtonTxt: {
+    color: '#A78BFA',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  chartSectionWrapper: {
+    backgroundColor: '#1D2125',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#2C333A',
+    padding: 14,
+    marginBottom: 16,
+  },
+  sectionSubtitleHeader: {
+    color: '#B6C2CF',
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  pieContainerWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  pieChartCenterWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pieCenterOverlay: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pieCenterTotalNumber: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  pieCenterTotalTxt: {
+    color: '#A78BFA',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  pieLegendContainer: {
+    flex: 1,
+    minWidth: 200,
+    gap: 6,
+  },
+  pieLegendItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  pieLegendLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    paddingRight: 6,
+  },
+  pieLegendColorBox: {
+    width: 10,
+    height: 10,
+    borderRadius: 3,
+  },
+  pieLegendLabelTxt: {
+    color: '#B6C2CF',
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
+  },
+  pieLegendRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pieLegendCountTxt: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  pieLegendPctTxt: {
+    color: '#64748B',
+    fontSize: 11,
     fontWeight: 'bold',
   },
 });

@@ -1,3 +1,6 @@
+import { extraerDatosConGemini } from '../services/gemini.js';
+import { enviarMensajeTexto, enviarBorradorPrevisualizacion } from '../services/whatsapp.js';
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
@@ -18,48 +21,50 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const body = req.body;
-      console.log('[WEBHOOK POST RECEIVED]:', JSON.stringify(body, null, 2));
-
-      // Extraer mensajes entrantes del webhook de WhatsApp
       const entry = body?.entry?.[0];
       const changes = entry?.changes?.[0];
       const value = changes?.value;
       const message = value?.messages?.[0];
 
       if (message) {
-        const fromNumber = message.from; // Número del remitente
+        const fromNumber = message.from;
         const messageType = message.type;
+
+        // 1. Mapeo de clics en botones interactivos
+        if (messageType === 'interactive') {
+          const buttonId = message.interactive?.button_reply?.id;
+          console.log(`[BOTÓN CLICKEADO]: ${buttonId} por ${fromNumber}`);
+
+          if (buttonId === 'btn_publicar') {
+            await enviarMensajeTexto(
+              fromNumber,
+              '✅ *¡Publicación registrada con éxito en Metricall!*\n\nTu registro ha sido guardado y atribuido a tu empresa correctamente.'
+            );
+          } else if (buttonId === 'btn_modificar') {
+            await enviarMensajeTexto(
+              fromNumber,
+              '✏️ *Modificación de borrador*\n\nEscribe el cambio que deseas realizar (ejemplo: *"el precio es $65"*, *"es nuevo"*, *"marca Chevrolet"*).'
+            );
+          } else if (buttonId === 'btn_cancelar') {
+            await enviarMensajeTexto(
+              fromNumber,
+              '❌ *Publicación cancelada*\n\nSe ha descartado el borrador. Puedes enviar una nueva foto o mensaje cuando desees.'
+            );
+          }
+          return res.status(200).json({ status: 'success' });
+        }
+
+        // 2. Procesamiento de Texto o Imágenes entrantes con Gemini IA
         const textBody = message.text?.body || '';
 
-        console.log(`[WHATSAPP MESSAGE] De: ${fromNumber} | Tipo: ${messageType} | Texto: ${textBody}`);
+        // Notificar brevemente al usuario
+        await enviarMensajeTexto(fromNumber, '🤖 *MetricallBot:* Analizando información con IA...');
 
-        // Credenciales de envío de Meta WhatsApp Cloud API
-        const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || 'EABCWkEzhIB0BSVmIhtsFl1mpzi2NdsgR8zjRioYmxmKZCv9ZBpfJPkgqunFGRdOYH7WVAETMQyQXI9N1tn4jnfahZCZCyga34ld1AZBAla866ybZA4IHaZACFUwZBBR2zzuHSvqpSj5brXnvZCMZC6xZBGRqtiaKJz7dQP7MjHH8Klo0xm8ZACUFPyqf9bV86eICUgZDZD';
-        const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || '1327272020463323';
+        // Analizar datos con Gemini
+        const datosExtraidos = await extraerDatosConGemini(textBody);
 
-        // Enviar respuesta automática por la Cloud API
-        if (accessToken && phoneNumberId) {
-          const responseText = `¡Hola! 👋 Gracias por escribir a *MetricallBot*.\n\nHemos recibido tu mensaje: "${textBody || 'Contenido multimedia'}"\n\nEl sistema está procesando tu solicitud.`;
-
-          await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              messaging_product: 'whatsapp',
-              recipient_type: 'individual',
-              to: fromNumber,
-              type: 'text',
-              text: { body: responseText },
-            }),
-          }).then(r => r.json()).then(data => {
-            console.log('[WHATSAPP API RESPUESTA ENVIADA]:', data);
-          }).catch(err => {
-            console.error('[WHATSAPP API ERROR AL ENVIAR]:', err);
-          });
-        }
+        // Enviar el borrador con los 3 botones interactivos nativos de Meta
+        await enviarBorradorPrevisualizacion(fromNumber, datosExtraidos);
       }
 
       return res.status(200).json({ status: 'success' });

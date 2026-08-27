@@ -2,6 +2,7 @@ import {
   BarChart3,
   Calendar,
   Clock,
+  Layers,
   X
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -114,6 +115,26 @@ const RESULTADOS_EFECTIVOS_COBRANZA = [
   'NO CONTESTO',
   'LUEGO PASA POR OFIC',
   'PIDE AJUSTE DE PLAN',
+];
+
+const TODOS_LOS_RESULTADOS = [
+  { clave: 'COBRO EFECTIVO', label: 'COBRO EFECTIVO', tipo: 'efectivo' },
+  { clave: 'CONVENIO DE PAGO', label: 'CONVENIO DE PAGO', tipo: 'efectivo' },
+  { clave: 'ABONO PARCIALMENTE', label: 'ABONO PARCIALMENTE', tipo: 'efectivo' },
+  { clave: 'RECUPERADO', label: 'RECUPERADO', tipo: 'efectivo' },
+  { clave: 'NO CONTESTO', label: 'NO CONTESTO', tipo: 'efectivo' },
+  { clave: 'LUEGO PASA POR OFIC', label: 'LUEGO PASA POR OFIC', tipo: 'efectivo' },
+  { clave: 'PIDE RETIRO', label: 'PIDE RETIRO', tipo: 'negativo' },
+  { clave: 'FUERA DE ZONA', label: 'FUERA DE ZONA', tipo: 'negativo' },
+  { clave: 'RECHAZO A PAGAR POR DIAS SIN SERVICIO', label: 'RECHAZO A PAGAR POR DIAS SIN SERVICIO', tipo: 'negativo' },
+  { clave: 'TIENE FALLA', label: 'TIENE FALLA', tipo: 'negativo' },
+  { clave: 'INCONFORMIDAD CON MONTO', label: 'INCONFORMIDAD CON MONTO', tipo: 'negativo' },
+  { clave: 'NO RECONOCE DEUDA', label: 'NO RECONOCE DEUDA', tipo: 'negativo' },
+  { clave: 'REHUSA ENTREGAR EQUIPO', label: 'REHUSA ENTREGAR EQUIPO', tipo: 'negativo' },
+  { clave: 'PUERTO LIBERADO', label: 'PUERTO LIBERADO', tipo: 'negativo' },
+  { clave: 'PIDE AJUSTE DE PLAN', label: 'PIDE AJUSTE DE PLAN', tipo: 'efectivo' },
+  { clave: 'TIENE OTRO SERVICIO', label: 'TIENE OTRO SERVICIO', tipo: 'negativo' },
+  { clave: 'NO DESEA PAGAR', label: 'NO DESEA PAGAR', tipo: 'negativo' },
 ];
 
 function getTodayString(): string {
@@ -484,6 +505,71 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
     return { grid, columnTotals, totalActividadesPeriodo };
   }, [rawTarjetasCobranza, periodoMatriz, fechaMatriz, filtroTipoContacto]);
 
+  // Cálculo memorizado del desglose por Resultado de Gestión (Sin Horarios)
+  const matrixResultadosData = React.useMemo(() => {
+    const countsMap = new Map<string, number>();
+    TODOS_LOS_RESULTADOS.forEach(r => countsMap.set(r.clave, 0));
+    let totalResultadosPeriodo = 0;
+
+    const ahora = new Date();
+    const hace7 = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
+    hace7.setHours(0, 0, 0, 0);
+
+    const hace15 = new Date(ahora.getTime() - 15 * 24 * 60 * 60 * 1000);
+    hace15.setHours(0, 0, 0, 0);
+
+    const targetDateObj = parseFechaAObjeto(fechaMatriz);
+    const targetDayStr = targetDateObj ? targetDateObj.toDateString() : '';
+
+    if (!rawTarjetasCobranza.length) {
+      return { countsMap, totalResultadosPeriodo };
+    }
+
+    rawTarjetasCobranza.forEach(t => {
+      const data = t.datos_valores || {};
+      const gestiones = Array.isArray(data.gestionesCobranza) && data.gestionesCobranza.length > 0
+        ? data.gestionesCobranza
+        : (data.tipoContacto || data['TIPO DE CONTACTO']
+            ? [{
+                fecha: data.fechaCobroReconciliacion || t.updated_at || t.created_at,
+                tipoContacto: data.tipoContacto || data['TIPO DE CONTACTO'],
+                resultado: data.resultadoContacto || data.RESULTADO || data.resultado || '',
+              }]
+            : []);
+
+      gestiones.forEach((g: any) => {
+        if (!g.fecha) return;
+        const gDate = parseFechaAObjeto(g.fecha);
+        if (!gDate) return;
+
+        // 1. Filtrado por Línea de Tiempo (sincronizado)
+        if (periodoMatriz === 'Hoy') {
+          if (gDate.toDateString() !== ahora.toDateString()) return;
+        } else if (periodoMatriz === 'Semanal (7 días)') {
+          if (gDate < hace7) return;
+        } else if (periodoMatriz === 'Quincenal (15 días)') {
+          if (gDate < hace15) return;
+        } else if (periodoMatriz === 'Mensual (Este Mes)') {
+          if (gDate.getMonth() !== ahora.getMonth() || gDate.getFullYear() !== ahora.getFullYear()) return;
+        } else if (periodoMatriz === 'Almanaque') {
+          if (!targetDayStr || gDate.toDateString() !== targetDayStr) return;
+        }
+
+        // 2. Coincidencia de resultado
+        const resStr = (g.resultado || '').toString().trim().toUpperCase();
+        if (!resStr) return;
+
+        const match = TODOS_LOS_RESULTADOS.find(r => r.clave === resStr || resStr.includes(r.clave));
+        if (match) {
+          countsMap.set(match.clave, (countsMap.get(match.clave) || 0) + 1);
+          totalResultadosPeriodo += 1;
+        }
+      });
+    });
+
+    return { countsMap, totalResultadosPeriodo };
+  }, [rawTarjetasCobranza, periodoMatriz, fechaMatriz]);
+
   useEffect(() => {
     cargarDatosCobranza();
   }, [cargarDatosCobranza]);
@@ -696,10 +782,6 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
           </View>
           <View style={styles.tableHeaderTitleWrapper}>
             <Text style={styles.tableTitle}>Desglose por Hora y Tipo de Contacto</Text>
-            <Text style={styles.tableSubTitle}>
-              {periodoMatriz === 'Almanaque' ? `Día ${fechaMatriz}` : periodoMatriz}:{' '}
-              <Text style={{ color: '#A78BFA', fontWeight: 'bold' }}>{matrixData.totalActividadesPeriodo} acciones</Text>
-            </Text>
           </View>
         </View>
 
@@ -769,6 +851,51 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
             </View>
           </View>
         </ScrollView>
+      </View>
+
+      {/* SECCIÓN 2: DESGLOSE DE RESULTADOS DE GESTIÓN (SIN HORARIO) */}
+      <View style={[styles.tableCard, { marginTop: 20 }]}>
+        <View style={styles.tableTopHeaderRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Layers size={22} color="#60A5FA" />
+            <View>
+              <Text style={styles.tableTitle}>Desglose por Resultado de Gestión</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* REJILLA / LISTADO DE RESULTADOS */}
+        <View style={styles.resultadosGridContainer}>
+          {TODOS_LOS_RESULTADOS.map((item) => {
+            const count = matrixResultadosData.countsMap.get(item.clave) || 0;
+            const hasCount = count > 0;
+            const isEfectivo = item.tipo === 'efectivo';
+
+            return (
+              <View key={item.clave} style={[styles.resultadoItemCard, hasCount && styles.resultadoItemCardActive]}>
+                <View style={styles.resultadoItemLeft}>
+                  <Text style={styles.resultadoItemLabel} numberOfLines={2}>
+                    {item.label}
+                  </Text>
+                </View>
+                <View style={[styles.resultadoBadge, hasCount && (isEfectivo ? styles.badgeSuccess : styles.badgeDanger)]}>
+                  <Text style={[styles.resultadoBadgeTxt, hasCount && { color: '#FFF' }]}>
+                    {count}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* FILA DE TOTAL DE RESULTADOS COMBINADOS */}
+        <View style={[styles.matrixTotalRow, { marginTop: 14, borderRadius: 8, overflow: 'hidden' }]}>
+          <View style={[styles.matrixBodyCell, { flex: 1, backgroundColor: '#1D2125', paddingVertical: 12, alignItems: 'center', justifyContent: 'center' }]}>
+            <Text style={{ color: '#B6C2CF', fontWeight: '900', fontSize: 13 }}>
+              TOTAL: {matrixResultadosData.totalResultadosPeriodo}
+            </Text>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -1043,8 +1170,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#2C333A',
   },
   matrixHourHeaderCell: {
     flex: 0.8,
@@ -1069,8 +1194,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#2C333A',
   },
   matrixHourCell: {
     flex: 0.8,
@@ -1115,5 +1238,66 @@ const styles = StyleSheet.create({
     color: '#8C9BAB',
     fontSize: 13,
     fontWeight: '900',
+  },
+  resultadosGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: '#1D2125',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#384148',
+    overflow: 'hidden',
+    marginTop: 10,
+  },
+  resultadoItemCard: {
+    width: '50%',
+    minWidth: 240,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2C333A',
+  },
+  resultadoItemCardActive: {
+    backgroundColor: 'rgba(96, 165, 250, 0.08)',
+  },
+  resultadoItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    paddingRight: 6,
+  },
+  resultadoDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  resultadoItemLabel: {
+    color: '#B6C2CF',
+    fontSize: 12,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  resultadoBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#2C333A',
+    minWidth: 32,
+    alignItems: 'center',
+  },
+  badgeSuccess: {
+    backgroundColor: '#16A34A',
+  },
+  badgeDanger: {
+    backgroundColor: '#DC2626',
+  },
+  resultadoBadgeTxt: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

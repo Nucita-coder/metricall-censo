@@ -1,26 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  ScrollView,
-  TouchableOpacity,
-  Platform,
-  useWindowDimensions,
-} from 'react-native';
-import {
-  Receipt,
-  CheckCircle2,
-  XCircle,
-  TrendingUp,
   BarChart3,
   Calendar,
-  Layers,
-  AlertCircle,
   Clock,
-  X,
+  X
 } from 'lucide-react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { Tarjeta } from '../../types/kanban';
 import { DatePickerInput, SelectDropdown } from '../venta/CamposVenta';
@@ -77,17 +71,89 @@ const PERIODO_MAP_TO_LABEL: Record<string, string> = {
   personalizado: 'Rango Personalizado (Calendario)',
 };
 
-function parseFechaAObjeto(val?: string): Date | null {
+const OPCIONES_FILTRO_CONTACTO = [
+  'Todos los Contactos',
+  'Solo Cobro Efectivo',
+  'Acción Negativa',
+];
+
+const TIPOS_CONTACTO_HEADERS = [
+  'LLAMADA TELEFON',
+  'MENSAJE WHASSAPP',
+  'MENSAJE TEXTO',
+  'CORREO',
+  'VISITA RESIDENCIAL',
+];
+
+const OPCIONES_PERIODO_MATRIZ = [
+  'Hoy',
+  'Semanal (7 días)',
+  'Quincenal (15 días)',
+  'Mensual (Este Mes)',
+];
+
+const HORAS_JORNADA = [
+  '08:00 AM',
+  '09:00 AM',
+  '10:00 AM',
+  '11:00 AM',
+  '12:00 PM',
+  '01:00 PM',
+  '02:00 PM',
+  '03:00 PM',
+  '04:00 PM',
+  '05:00 PM',
+  '06:00 PM',
+];
+
+const RESULTADOS_EFECTIVOS_COBRANZA = [
+  'COBRO EFECTIVO',
+  'CONVENIO DE PAGO',
+  'ABONO PARCIALMENTE',
+  'RECUPERADO',
+  'NO CONTESTO',
+  'LUEGO PASA POR OFIC',
+  'PIDE AJUSTE DE PLAN',
+];
+
+function getTodayString(): string {
+  const d = new Date();
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  return `${day}/${month}/${d.getFullYear()}`;
+}
+
+function parseFechaAObjeto(val?: string | Date | null): Date | null {
   if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+
   const str = String(val).trim();
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
-    const [d, m, y] = str.split('/').map(Number);
+  if (!str) return null;
+
+  // DD/MM/YYYY o DD/MM/YYYY HH:mm:ss
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)) {
+    const parts = str.split(/[,\s]+/);
+    const [d, m, y] = parts[0].split('/').map(Number);
+    let hh = 0, mm = 0, ss = 0;
+    if (parts.length > 1) {
+      const timeStr = parts.slice(1).join(' ');
+      const dummyDate = new Date(`1970-01-01 ${timeStr}`);
+      if (!isNaN(dummyDate.getTime())) {
+        hh = dummyDate.getHours();
+        mm = dummyDate.getMinutes();
+        ss = dummyDate.getSeconds();
+      }
+    }
+    return new Date(y, m - 1, d, hh, mm, ss);
+  }
+
+  // YYYY-MM-DD SOLAMENTE (sin hora explícita -> medianoche local)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split('-').map(Number);
     return new Date(y, m - 1, d);
   }
-  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
-    const parts = str.split('T')[0].split('-').map(Number);
-    return new Date(parts[0], parts[1] - 1, parts[2]);
-  }
+
+  // Cadenas ISO completas (ej: "2026-08-26T14:32:10.000Z") o formatos estándar de fecha y hora
   const parsed = new Date(str);
   return isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -97,6 +163,10 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
   const [periodoLocal, setPeriodoLocal] = useState<'todo' | 'hoy' | '7dias' | 'mes' | 'personalizado'>(filtroPeriodo || 'todo');
+  const [periodoMatriz, setPeriodoMatriz] = useState<string>('Hoy');
+  const [filtroTipoContacto, setFiltroTipoContacto] = useState<string>('Todos los Contactos');
+  const [fechaMatriz, setFechaMatriz] = useState<string>(getTodayString());
+  const [rawTarjetasCobranza, setRawTarjetasCobranza] = useState<Tarjeta[]>([]);
   const [fechaInicio, setFechaInicio] = useState<string>('');
   const [fechaFin, setFechaFin] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -170,6 +240,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
 
       if (error) throw error;
       const tarjetas = (tarjetasData || []) as Tarjeta[];
+      setRawTarjetasCobranza(tarjetas);
 
       // 5. Filtrar por periodo seleccionado (admite rango personalizado con calendario)
       const ahora = new Date();
@@ -319,6 +390,99 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
       setIsLoading(false);
     }
   }, [empresaId, periodoLocal, fechaInicio, fechaFin]);
+
+  // Cálculo memorizado de la matriz horaria por línea de tiempo (Semanal, 15 días, Mensual, etc.)
+  const matrixData = React.useMemo(() => {
+    const grid: number[][] = Array(HORAS_JORNADA.length)
+      .fill(0)
+      .map(() => Array(5).fill(0));
+    const columnTotals: number[] = Array(5).fill(0);
+    let totalActividadesPeriodo = 0;
+
+    const ahora = new Date();
+    const hace7 = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
+    hace7.setHours(0, 0, 0, 0);
+
+    const hace15 = new Date(ahora.getTime() - 15 * 24 * 60 * 60 * 1000);
+    hace15.setHours(0, 0, 0, 0);
+
+    const targetDateObj = parseFechaAObjeto(fechaMatriz);
+    const targetDayStr = targetDateObj ? targetDateObj.toDateString() : '';
+
+    if (!rawTarjetasCobranza.length) {
+      return { grid, columnTotals, totalActividadesPeriodo };
+    }
+
+    rawTarjetasCobranza.forEach(t => {
+      const data = t.datos_valores || {};
+      const gestiones = Array.isArray(data.gestionesCobranza) && data.gestionesCobranza.length > 0
+        ? data.gestionesCobranza
+        : (data.tipoContacto || data['TIPO DE CONTACTO']
+            ? [{
+                fecha: data.fechaCobroReconciliacion || t.updated_at || t.created_at,
+                tipoContacto: data.tipoContacto || data['TIPO DE CONTACTO'],
+                resultado: data.resultadoContacto || data.RESULTADO || data.resultado || '',
+              }]
+            : []);
+
+      gestiones.forEach((g: any) => {
+        if (!g.fecha) return;
+        const gDate = parseFechaAObjeto(g.fecha);
+        if (!gDate) return;
+
+        // 1. Filtrado por Línea de Tiempo (Periodo Matriz)
+        if (periodoMatriz === 'Hoy') {
+          if (gDate.toDateString() !== ahora.toDateString()) return;
+        } else if (periodoMatriz === 'Semanal (7 días)') {
+          if (gDate < hace7) return;
+        } else if (periodoMatriz === 'Quincenal (15 días)') {
+          if (gDate < hace15) return;
+        } else if (periodoMatriz === 'Mensual (Este Mes)') {
+          if (gDate.getMonth() !== ahora.getMonth() || gDate.getFullYear() !== ahora.getFullYear()) return;
+        } else if (periodoMatriz === 'Almanaque') {
+          if (!targetDayStr || gDate.toDateString() !== targetDayStr) return;
+        }
+
+        // 2. Filtrado por Resultado de Contacto
+        const resStr = (g.resultado || '').toString().trim().toUpperCase();
+        const esEfectivo = RESULTADOS_EFECTIVOS_COBRANZA.includes(resStr) || resStr === 'COBRO EFECTIVO' || resStr === 'RECUPERADO';
+
+        if (filtroTipoContacto === 'Solo Cobro Efectivo' && !esEfectivo) return;
+        if (filtroTipoContacto === 'Acción Negativa' && (esEfectivo || !resStr)) return;
+
+        // 3. Mapeo por Tipo de Contacto
+        const tcStr = (g.tipoContacto || '').toString().trim().toUpperCase();
+        let colIdx = -1;
+        if (tcStr.includes('LLAMADA') || tcStr.includes('TELEFON')) {
+          colIdx = 0;
+        } else if (tcStr.includes('WHATSAPP') || tcStr.includes('WHASSAPP')) {
+          colIdx = 1;
+        } else if (tcStr.includes('TEXTO') || tcStr.includes('SMS')) {
+          colIdx = 2;
+        } else if (tcStr.includes('CORREO') || tcStr.includes('EMAIL')) {
+          colIdx = 3;
+        } else if (tcStr.includes('VISITA') || tcStr.includes('RESIDENCIAL')) {
+          colIdx = 4;
+        }
+
+        if (colIdx < 0) return;
+
+        // 4. Mapeo por Fila de Hora
+        const hour = gDate.getHours();
+        let rowIdx = hour - 8;
+        if (hour < 8) rowIdx = 0;
+        if (hour > 18) rowIdx = HORAS_JORNADA.length - 1;
+
+        if (rowIdx >= 0 && rowIdx < HORAS_JORNADA.length) {
+          grid[rowIdx][colIdx] += 1;
+          columnTotals[colIdx] += 1;
+          totalActividadesPeriodo += 1;
+        }
+      });
+    });
+
+    return { grid, columnTotals, totalActividadesPeriodo };
+  }, [rawTarjetasCobranza, periodoMatriz, fechaMatriz, filtroTipoContacto]);
 
   useEffect(() => {
     cargarDatosCobranza();
@@ -496,47 +660,115 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         </View>
       </View>
 
-      {/* RESUMEN CUANTITATIVO TABULAR MENSUAL */}
+      {/* DESGLOSE MATRICIAL POR HORA Y TIPO DE CONTACTO (SISTEMA DE MONITOREO DIARIO / LÍNEA DE TIEMPO) */}
       <View style={styles.tableCard}>
-        <View style={styles.tableHeader}>
-          <Text style={styles.tableTitle}>Desglose Numérico y Porcentual por Mes</Text>
-        </View>
-
-        <View style={styles.tableHeadRow}>
-          <Text style={[styles.thCell, { flex: 2 }]}>Mes</Text>
-          <Text style={[styles.thCell, { flex: 1.4, textAlign: 'center' }]}>Cobro Efectivo</Text>
-          <Text style={[styles.thCell, { flex: 1.4, textAlign: 'center' }]}>Sin Cobro (Negativo)</Text>
-          <Text style={[styles.thCell, { flex: 1.4, textAlign: 'center' }]}>Sin Atender</Text>
-          <Text style={[styles.thCell, { flex: 1.2, textAlign: 'right' }]}>% Efectividad</Text>
-          <Text style={[styles.thCell, { flex: 1.2, textAlign: 'right' }]}>% Sin Atender</Text>
-        </View>
-
-        {stats.serie12Meses.map((m, index) => (
-          <View
-            key={m.claveMes}
-            style={[
-              styles.tableBodyRow,
-              index % 2 === 1 && { backgroundColor: 'rgba(255, 255, 255, 0.02)' },
-            ]}
-          >
-            <Text style={[styles.tdCellBold, { flex: 2 }]}>{m.nombreMes}</Text>
-            <Text style={[styles.tdCellNumberSuccess, { flex: 1.4, textAlign: 'center' }]}>
-              {m.totalEfectivos}
-            </Text>
-            <Text style={[styles.tdCellNumberDanger, { flex: 1.4, textAlign: 'center' }]}>
-              {m.totalNegativos}
-            </Text>
-            <Text style={[styles.tdCellNumberWarning, { flex: 1.4, textAlign: 'center' }]}>
-              {m.totalSinAtender}
-            </Text>
-            <Text style={[styles.tdCellBadge, { flex: 1.2, textAlign: 'right' }]}>
-              {m.tasaEfectividad}%
-            </Text>
-            <Text style={[styles.tdCellBadgeWarning, { flex: 1.2, textAlign: 'right' }]}>
-              {m.tasaSinAtender}%
+        <View style={styles.tableTopHeaderRow}>
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', flex: 1, alignItems: 'center' }}>
+            <View style={{ width: 175 }}>
+              <SelectDropdown
+                label="Línea de Tiempo"
+                value={periodoMatriz === 'Almanaque' ? `Almanaque (${fechaMatriz})` : periodoMatriz}
+                options={OPCIONES_PERIODO_MATRIZ}
+                onSelect={(selected) => setPeriodoMatriz(selected)}
+                placeholder="Período..."
+              />
+            </View>
+            <View style={{ width: 160 }}>
+              <DatePickerInput
+                label="Fecha (Almanaque)"
+                value={fechaMatriz}
+                onDateChange={(val) => {
+                  setFechaMatriz(val || getTodayString());
+                  setPeriodoMatriz('Almanaque');
+                }}
+                placeholder="dd/mm/aaaa"
+              />
+            </View>
+            <View style={{ width: 165 }}>
+              <SelectDropdown
+                label="Filtro Resultado"
+                value={filtroTipoContacto}
+                options={OPCIONES_FILTRO_CONTACTO}
+                onSelect={(selected) => setFiltroTipoContacto(selected)}
+                placeholder="Filtro..."
+              />
+            </View>
+          </View>
+          <View style={styles.tableHeaderTitleWrapper}>
+            <Text style={styles.tableTitle}>Desglose por Hora y Tipo de Contacto</Text>
+            <Text style={styles.tableSubTitle}>
+              {periodoMatriz === 'Almanaque' ? `Día ${fechaMatriz}` : periodoMatriz}:{' '}
+              <Text style={{ color: '#A78BFA', fontWeight: 'bold' }}>{matrixData.totalActividadesPeriodo} acciones</Text>
             </Text>
           </View>
-        ))}
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={true} contentContainerStyle={{ minWidth: '100%' }}>
+          <View style={styles.matrixContainer}>
+            {/* CABECERA DE LA MATRIZ */}
+            <View style={styles.matrixHeaderRow}>
+              <View style={[styles.matrixHeaderCell, styles.matrixHourHeaderCell]}>
+                <Text style={styles.matrixHeaderTxt}>HORA</Text>
+              </View>
+              {TIPOS_CONTACTO_HEADERS.map((tipo, idx) => (
+                <View key={idx} style={styles.matrixHeaderCell}>
+                  <Text style={styles.matrixHeaderTxt}>{tipo}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* FILAS DE HORARIOS (EJE VERTICAL DE HORAS) */}
+            {HORAS_JORNADA.map((hora, rIdx) => (
+              <View
+                key={hora}
+                style={[
+                  styles.matrixBodyRow,
+                  rIdx % 2 === 1 && { backgroundColor: 'rgba(255, 255, 255, 0.02)' },
+                ]}
+              >
+                {/* CELDA DE LA HORA */}
+                <View style={[styles.matrixBodyCell, styles.matrixHourCell]}>
+                  <Clock size={12} color="#A78BFA" style={{ marginRight: 4 }} />
+                  <Text style={styles.matrixHourTxt}>{hora}</Text>
+                </View>
+
+                {/* CELDAS DE LAS 5 OPCIONES DE CONTACTO CON VALORES REALES */}
+                {TIPOS_CONTACTO_HEADERS.map((_, cIdx) => {
+                  const count = matrixData.grid[rIdx][cIdx];
+                  const hasCount = count > 0;
+                  return (
+                    <View key={cIdx} style={styles.matrixBodyCell}>
+                      <View style={[styles.matrixCountBadge, hasCount && styles.matrixCountBadgeActive]}>
+                        <Text style={[styles.matrixCountTxt, hasCount && styles.matrixCountTxtActive]}>
+                          {count}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+
+            {/* FILA DE TOTALES AL PIE DE LA MATRIZ */}
+            <View style={styles.matrixTotalRow}>
+              <View style={[styles.matrixBodyCell, styles.matrixHourCell, { backgroundColor: '#1D2125' }]}>
+                <Text style={[styles.matrixHourTxt, { color: '#B6C2CF', fontWeight: '900', fontSize: 10 }]} numberOfLines={1}>
+                  TOTAL: {matrixData.totalActividadesPeriodo}
+                </Text>
+              </View>
+              {TIPOS_CONTACTO_HEADERS.map((_, cIdx) => {
+                const totalCol = matrixData.columnTotals[cIdx];
+                return (
+                  <View key={cIdx} style={[styles.matrixBodyCell, { backgroundColor: '#1D2125' }]}>
+                    <Text style={[styles.matrixTotalTxt, totalCol > 0 && { color: '#A78BFA' }]}>
+                      {totalCol}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        </ScrollView>
       </View>
     </View>
   );
@@ -764,6 +996,21 @@ const styles = StyleSheet.create({
     borderColor: '#384148',
     padding: 18,
   },
+  tableTopHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  tableFilterContainer: {
+    width: 180,
+  },
+  tableHeaderTitleWrapper: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
   tableHeader: {
     marginBottom: 14,
   },
@@ -772,61 +1019,101 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
   },
-  tableHeadRow: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    backgroundColor: '#1D2125',
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  thCell: {
+  tableSubTitle: {
     color: '#8C9BAB',
     fontSize: 11,
+    marginTop: 2,
+  },
+  matrixContainer: {
+    minWidth: 700,
+    borderWidth: 1,
+    borderColor: '#384148',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  matrixHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#1D2125',
+    borderBottomWidth: 1,
+    borderBottomColor: '#384148',
+  },
+  matrixHeaderCell: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#2C333A',
+  },
+  matrixHourHeaderCell: {
+    flex: 0.8,
+    minWidth: 90,
+    backgroundColor: '#22272B',
+  },
+  matrixHeaderTxt: {
+    color: '#B6C2CF',
+    fontSize: 10,
     fontWeight: 'bold',
+    textAlign: 'center',
     textTransform: 'uppercase',
   },
-  tableBodyRow: {
+  matrixBodyRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#2C333A',
   },
-  tdCellBold: {
-    color: '#B6C2CF',
-    fontWeight: 'bold',
-    fontSize: 13,
+  matrixBodyCell: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#2C333A',
   },
-  tdCellNumberSuccess: {
-    color: '#A78BFA',
+  matrixHourCell: {
+    flex: 0.8,
+    minWidth: 90,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(29, 33, 37, 0.5)',
+  },
+  matrixHourTxt: {
+    color: '#8C9BAB',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  matrixCountBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#2C333A',
+    minWidth: 28,
+    alignItems: 'center',
+  },
+  matrixCountBadgeActive: {
+    backgroundColor: '#7C3AED',
+  },
+  matrixCountTxt: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  matrixCountTxtActive: {
+    color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 14,
   },
-  tdCellNumberDanger: {
-    color: '#FF6B6B',
-    fontWeight: 'bold',
+  matrixTotalRow: {
+    flexDirection: 'row',
+    backgroundColor: '#1D2125',
+    borderTopWidth: 2,
+    borderTopColor: '#7C3AED',
+  },
+  matrixTotalTxt: {
+    color: '#8C9BAB',
     fontSize: 13,
-  },
-  tdCellNumberInfo: {
-    color: '#579DFF',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  tdCellNumberWarning: {
-    color: '#FBBF24',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  tdCellBadge: {
-    color: '#F6AD55',
     fontWeight: '900',
-    fontSize: 13,
-  },
-  tdCellBadgeWarning: {
-    color: '#60A5FA',
-    fontWeight: '900',
-    fontSize: 13,
   },
 });

@@ -1,17 +1,19 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "routes": [
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "rewrites": [
     {
-      "src": "/api/webhook/whatsapp",
-      "dest": "/api/webhook/whatsapp.js"
+      "source": "/api/webhook/whatsapp",
+      "destination": "/api/webhook/whatsapp.js"
     },
     {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }

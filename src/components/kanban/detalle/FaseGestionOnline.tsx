@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
-import { AlertTriangle, UserX } from 'lucide-react-native';
+import { AlertTriangle, Clock, UserX } from 'lucide-react-native';
 import { FaseProps, findListaTarget } from './types';
 import { renderSection } from './SeccionRegistro';
 import { useErrorDiagnostics } from '../../../context/ErrorDiagnosticsContext';
@@ -24,12 +24,14 @@ export const FaseGestionOnline = ({
   const { showDiagnosticError } = useErrorDiagnostics();
   const [confirmandoSinCaja, setConfirmandoSinCaja] = useState(false);
   const [confirmandoNoQuiso, setConfirmandoNoQuiso] = useState(false);
+  const [confirmandoCompraraLuego, setConfirmandoCompraraLuego] = useState(false);
 
   // 1. Handler: Sector sin caja (Mueve a LIBERADA en Ventas/Instalaciones)
   const handleSectorSinCaja = async () => {
     if (!confirmandoSinCaja) {
       setConfirmandoSinCaja(true);
       setConfirmandoNoQuiso(false);
+      setConfirmandoCompraraLuego(false);
       return;
     }
 
@@ -86,6 +88,7 @@ export const FaseGestionOnline = ({
     if (!confirmandoNoQuiso) {
       setConfirmandoNoQuiso(true);
       setConfirmandoSinCaja(false);
+      setConfirmandoCompraraLuego(false);
       return;
     }
 
@@ -133,6 +136,68 @@ export const FaseGestionOnline = ({
       showDiagnosticError(
         'ERR-GESTION-ONLINE-NO-QUIZO',
         'Error al mover la tarjeta a la lista NO DESEA de Censo.',
+        e,
+        'GestionOnline'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 3. Handler: Comprará luego (Mueve a SI DESEA en Censo)
+  const handleCompraraLuego = async () => {
+    if (!confirmandoCompraraLuego) {
+      setConfirmandoCompraraLuego(true);
+      setConfirmandoSinCaja(false);
+      setConfirmandoNoQuiso(false);
+      return;
+    }
+
+    setIsSaving(true);
+    setConfirmandoCompraraLuego(false);
+    try {
+      await onUpdateTarjeta({
+        nombreApellido: tarjeta.datos_valores?.nombreApellido || tarjeta.datos_valores?.nombre || 'Cliente WhatsApp',
+        telefonoMovil: tarjeta.datos_valores?.telefonoMovil || tarjeta.datos_valores?.telefono || '',
+        sector: tarjeta.datos_valores?.sector || '',
+        dispuestoCambiar: 'Sí',
+        motivoCompraraLuego: 'Cliente indicó que comprará luego (WhatsApp Bot)',
+        estadoGestion: 'comprara_luego',
+      });
+
+      let destId =
+        findListaTarget(listasGlobales, 'si_desea')?.id ||
+        findListaTarget(listasGlobales, 'si desea')?.id ||
+        findListaTarget(listasGlobales, 'sí desea')?.id ||
+        listasGlobales.find(l => (l.nombre || '').toLowerCase().includes('si desea') || (l.nombre || '').toLowerCase().includes('sí desea'))?.id;
+
+      if (!destId) {
+        let query = supabase
+          .from('listas')
+          .select('id, nombre')
+          .ilike('nombre', '%si desea%');
+
+        if (tarjeta.empresa_id) {
+          query = query.eq('empresa_id', tarjeta.empresa_id);
+        }
+
+        const { data: listasBd, error: errBd } = await query.limit(1);
+        if (errBd) console.error('[GESTION ONLINE] Error buscando lista SI DESEA en BD:', errBd);
+        if (listasBd && listasBd.length > 0) destId = listasBd[0].id;
+      }
+
+      if (!destId) {
+        throw new Error("No se encontró la lista 'SI DESEA' en la base de datos.");
+      }
+
+      await autoMoverTarjeta(tarjeta, destId);
+
+      if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
+      if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
+    } catch (e: any) {
+      showDiagnosticError(
+        'ERR-GESTION-ONLINE-COMPRARA-LUEGO',
+        'Error al mover la tarjeta a la lista SI DESEA de Censo.',
         e,
         'GestionOnline'
       );
@@ -254,11 +319,65 @@ export const FaseGestionOnline = ({
         </View>
       )}
 
-      {/* ── Placeholder para los 2 botones restantes ─────────── */}
+      {/* ── Botón 3: Comprará luego ─────────────────────────── */}
+      <TouchableOpacity
+        style={{
+          backgroundColor: confirmandoCompraraLuego ? '#0284C7' : '#2C333A',
+          borderWidth: 1,
+          borderColor: confirmandoCompraraLuego ? '#0284C7' : '#38BDF8',
+          borderRadius: 8,
+          padding: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          marginBottom: 10,
+          opacity: isSaving ? 0.6 : 1,
+        }}
+        onPress={handleCompraraLuego}
+        disabled={isSaving}
+      >
+        {isSaving && confirmandoCompraraLuego ? (
+          <ActivityIndicator color="#FFF" />
+        ) : (
+          <>
+            <Clock size={16} color={confirmandoCompraraLuego ? '#FFF' : '#38BDF8'} />
+            <Text style={{ color: confirmandoCompraraLuego ? '#FFF' : '#38BDF8', fontWeight: 'bold', fontSize: 14 }}>
+              {confirmandoCompraraLuego ? '¿Confirmar? Toca de nuevo para mover a Censo' : 'Comprará luego'}
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
+
+      {confirmandoCompraraLuego && (
+        <View style={{
+          backgroundColor: '#152535',
+          borderRadius: 8,
+          padding: 12,
+          marginBottom: 10,
+          borderWidth: 1,
+          borderColor: '#38BDF844',
+        }}>
+          <Text style={{ color: '#38BDF8', fontSize: 12, lineHeight: 18 }}>
+            ⚠️ La tarjeta se moverá al tablero <Text style={{ fontWeight: 'bold' }}>Censo</Text> en la lista <Text style={{ fontWeight: 'bold' }}>SI DESEA</Text>.
+          </Text>
+          <TouchableOpacity
+            style={{ marginTop: 8, alignSelf: 'flex-start' }}
+            onPress={() => setConfirmandoCompraraLuego(false)}
+          >
+            <Text style={{ color: '#8C9BAB', fontSize: 12, textDecorationLine: 'underline' }}>
+              Cancelar
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── Placeholder para el último botón restante ───────── */}
       <Text style={{ fontSize: 11, color: '#4A5568', marginTop: 8, fontStyle: 'italic' }}>
         Más acciones próximamente...
       </Text>
     </View>
   ));
 };
+
 

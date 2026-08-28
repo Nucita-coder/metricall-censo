@@ -19,6 +19,7 @@ import { FasePorActivar } from './detalle/FasePorActivar';
 import { FasePorInstalar } from './detalle/FasePorInstalar';
 import { FaseCobranza } from './detalle/FaseCobranza';
 import { FaseVenta } from './detalle/FaseVenta';
+import { FaseGestionOnline } from './detalle/FaseGestionOnline';
 import { FormularioConversionVenta } from './detalle/FormularioConversionVenta';
 import { SeccionAdjuntos } from './detalle/SeccionAdjuntos';
 import { SeccionComentarios } from './detalle/SeccionComentarios';
@@ -108,6 +109,8 @@ export const ModalDetalleTarjeta = ({
       return <FaseCobranza {...faseProps} />;
     }
     if (clean.includes('factibilidad')) return <FaseFactibilidad {...faseProps} />;
+    // Tarjetas de Gestión Online (WhatsApp Bot)
+    if (clean.includes('ventas online') || clean.includes('gestion online') || clean.includes('gestión online') || tarjetaSeleccionada?.datos_valores?.origen === 'WhatsApp Bot') return <FaseGestionOnline {...faseProps} />;
     if (clean.includes('venta')) return <FaseVenta {...faseProps} />;
     if (clean.includes('por instalar') || clean.includes('instalar')) return <FasePorInstalar {...faseProps} />;
     if (clean.includes('asignado')) return <FaseAsignadoA {...faseProps} />;

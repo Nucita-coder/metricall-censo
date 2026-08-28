@@ -44,14 +44,17 @@ export async function POST(request: Request) {
 
     const from = message.from;
     let mensajeTexto = '';
+    let esBtnSuscribirse = false;
 
     if (message.type === 'text') {
       mensajeTexto = message.text?.body || '';
     } else if (message.type === 'interactive') {
-      mensajeTexto =
-        message.interactive?.button_reply?.title ||
-        message.interactive?.button_reply?.id ||
-        '';
+      const btnId = message.interactive?.button_reply?.id || '';
+      const btnTitle = message.interactive?.button_reply?.title || '';
+      mensajeTexto = btnTitle || btnId;
+      if (btnId === 'btn_suscribirse') {
+        esBtnSuscribirse = true;
+      }
     } else if (message.type === 'button') {
       mensajeTexto = message.button?.text || message.button?.payload || '';
     }
@@ -68,9 +71,11 @@ export async function POST(request: Request) {
 
     // 1. Verificar sesión actual del usuario
     const sesion = await obtenerEstadoSesion(from);
+    console.log('[SESION ESTADO]:', JSON.stringify(sesion));
 
-    // 2. Si el cliente solicita "Suscribirse"
+    // 2. Si el cliente presionó el botón "Suscribirse" o escribe comando
     const esComandoSuscribir =
+      esBtnSuscribirse ||
       textoLower.includes('suscrib') ||
       textoLower.includes('comprar') ||
       textoLower.includes('plan') ||
@@ -93,41 +98,35 @@ export async function POST(request: Request) {
 
     // 3. Si el cliente responde con sus datos (estado ESPERANDO_DATOS_SUSCRIPCION)
     if (sesion.estado === 'ESPERANDO_DATOS_SUSCRIPCION') {
+      console.log('[FLUJO SUSCRIPCION] Procesando datos:', mensajeTexto);
+
       // Extraer los datos estructurados con Gemini IA
       const datosExtrada = await extraerDatosSuscripcionConGemini(mensajeTexto, from);
+      console.log('[DATOS EXTRAIDOS]:', JSON.stringify(datosExtrada));
 
       // Crear la tarjeta en la lista 'ventas online' del tablero 'Gestión Online'
       const tarjetaCreada = await crearTarjetaVentaOnline(datosExtrada);
+      console.log('[TARJETA CREADA]:', tarjetaCreada);
 
       // Reiniciar estado de la sesión
       await actualizarEstadoSesion(from, 'INICIO');
 
-      if (tarjetaCreada) {
-        const mensajeConfirmacion =
-          `✅ *Solicitud procesada*\n\n` +
-          `Gracias *${datosExtrada.nombre}*, hemos recibido tus datos correctamente.\n\n` +
-          `📍 *Sector:* ${datosExtrada.sector}\n` +
-          `📱 *Contacto:* ${datosExtrada.telefono}\n\n` +
-          `Un asesor se estará contactando con usted próximamente.`;
+      const mensajeConfirmacion =
+        `✅ *Solicitud procesada*\n\n` +
+        `Gracias *${datosExtrada.nombre}*, hemos recibido tus datos correctamente.\n\n` +
+        `📍 *Sector:* ${datosExtrada.sector}\n` +
+        `📱 *Contacto:* ${datosExtrada.telefono}\n\n` +
+        `Un asesor se estará contactando con usted próximamente.`;
 
-        await enviarMensajeTextoWhatsApp(from, mensajeConfirmacion);
-        return Response.json({ status: 'success', flow: 'tarjeta_creada' }, { status: 200 });
-      } else {
-        await enviarMensajeTextoWhatsApp(
-          from,
-          `Recibimos tu información (*${datosExtrada.nombre}*), pero hubo un detalle procesando la solicitud. Un asesor se comunicará contigo directamente.`
-        );
-        return Response.json({ status: 'partial_success' }, { status: 200 });
-      }
+      await enviarMensajeTextoWhatsApp(from, mensajeConfirmacion);
+
+      const flowStatus = tarjetaCreada ? 'tarjeta_creada' : 'tarjeta_fallback';
+      return Response.json({ status: 'success', flow: flowStatus, datos: datosExtrada }, { status: 200 });
     }
 
-    // 4. Mensaje por defecto si no está en flujo activo
-    const mensajeBienvenida =
-      `¡Hola! 👋 Bienvenido a *MetricallBot*.\n\n` +
-      `Escribe *Suscribirse* para solicitar un plan de servicio de internet o responder con tus datos.`;
+    // 4. Mensaje por defecto: mostrar menú principal (la sesión no está en flujo activo)
+    return Response.json({ status: 'success', flow: 'no_flujo_activo', estado: sesion.estado }, { status: 200 });
 
-    await enviarMensajeTextoWhatsApp(from, mensajeBienvenida);
-    return Response.json({ status: 'success', flow: 'bienvenida' }, { status: 200 });
   } catch (error) {
     console.error('[WEBHOOK POST EXCEPTION]:', error);
     return Response.json({ error: 'Internal Server Error' }, { status: 500 });

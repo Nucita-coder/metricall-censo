@@ -99,14 +99,23 @@ export async function crearTarjetaVentaOnline(datos: {
   telefono: string;
 }): Promise<boolean> {
   try {
-    // Buscar la lista 'ventas online'
+    console.log('[CREAR TARJETA] Buscando listas disponibles...');
+
+    // Consulta simple sin JOIN para evitar problemas de RLS/permisos
     const { data: listas, error: fetchError } = await supabase
       .from('listas')
-      .select('id, nombre, tablero_id, empresa_id, tableros(nombre, tipo)')
+      .select('id, nombre, empresa_id')
       .limit(100);
 
-    if (fetchError || !listas || listas.length === 0) {
-      console.error('[CREAR TARJETA ERROR]: Error al consultar listas:', fetchError);
+    console.log('[CREAR TARJETA] Resultado consulta listas:', JSON.stringify({ listas, fetchError }));
+
+    if (fetchError) {
+      console.error('[CREAR TARJETA ERROR] Error al consultar listas:', fetchError);
+      return false;
+    }
+
+    if (!listas || listas.length === 0) {
+      console.error('[CREAR TARJETA ERROR] No hay listas registradas en la BD');
       return false;
     }
 
@@ -115,10 +124,12 @@ export async function crearTarjetaVentaOnline(datos: {
       listas.find((l: any) => (l.nombre || '').toLowerCase().includes('ventas')) ||
       listas[0];
 
+    console.log('[CREAR TARJETA] Lista seleccionada:', JSON.stringify(targetLista));
+
     const targetListaId = targetLista.id;
     const empresaId = targetLista.empresa_id || null;
 
-    const { error: insertError } = await supabase.from('tarjetas').insert({
+    const cardData = {
       lista_id: targetListaId,
       empresa_id: empresaId,
       datos_valores: {
@@ -128,9 +139,23 @@ export async function crearTarjetaVentaOnline(datos: {
         origen: 'WhatsApp Bot',
         fechaVenta: new Date().toISOString().split('T')[0],
       },
-    });
+    };
 
-    if (insertError) throw insertError;
+    console.log('[CREAR TARJETA] Insertando tarjeta:', JSON.stringify(cardData));
+
+    const { data: tarjetaInsertada, error: insertError } = await supabase
+      .from('tarjetas')
+      .insert(cardData)
+      .select('id')
+      .single();
+
+    console.log('[CREAR TARJETA] Resultado inserción:', JSON.stringify({ tarjetaInsertada, insertError }));
+
+    if (insertError) {
+      console.error('[CREAR TARJETA ERROR] Error al insertar tarjeta:', insertError);
+      return false;
+    }
+
     return true;
   } catch (error) {
     console.error('[CREAR TARJETA EXCEPTION]:', error);

@@ -2,10 +2,15 @@ import {
   enviarMenuPrincipal,
   enviarFormularioPago,
   enviarMenuFallas,
-  enviarLinkSuscripcion,
+  enviarInstruccionesSuscripcion,
+  enviarConfirmacionSuscripcion,
   enviarConfirmacionFalla,
-  enviarMensajeTexto
+  enviarMensajeTexto,
+  obtenerEstadoSesionRest,
+  actualizarEstadoSesionRest,
+  crearTarjetaVentaOnlineRest
 } from '../services/whatsapp.js';
+import { extraerDatosSuscripcion } from '../services/gemini.js';
 import { insertarLog } from '../services/logger.js';
 
 // Etiquetas legibles para tipos de falla
@@ -65,7 +70,8 @@ export default async function handler(req, res) {
           await enviarMenuFallas(fromPhone);
 
         } else if (buttonId === 'btn_suscribirse') {
-          await enviarLinkSuscripcion(fromPhone);
+          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_SUSCRIPCION');
+          await enviarInstruccionesSuscripcion(fromPhone);
         }
 
         await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Respuesta a botón: ${buttonId}` });
@@ -84,8 +90,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: 'falla_registrada' });
       }
 
-      // ── Mensaje de texto o imagen → Mostrar menú principal ───────────────────
-      const textBody = message.text?.body || '';
+      // ── Mensaje de texto ─────────────────────────────────────────────────────
+      const textBody = (message.text?.body || '').trim();
 
       await insertarLog({
         tipo: 'incoming',
@@ -94,7 +100,35 @@ export default async function handler(req, res) {
         contenido: { messageType, textBody }
       });
 
-      // Siempre mostrar el menú principal
+      // Obtener estado de la conversación desde Supabase
+      const sesion = await obtenerEstadoSesionRest(fromPhone);
+
+      // Si el cliente está en estado ESPERANDO_DATOS_SUSCRIPCION
+      if (sesion.estado === 'ESPERANDO_DATOS_SUSCRIPCION' && textBody) {
+        const datosExtrada = await extraerDatosSuscripcion(textBody, fromPhone);
+        const tarjetaCreada = await crearTarjetaVentaOnlineRest(datosExtrada);
+        await actualizarEstadoSesionRest(fromPhone, 'INICIO');
+
+        if (tarjetaCreada) {
+          await enviarConfirmacionSuscripcion(fromPhone, datosExtrada);
+          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Suscripción procesada y tarjeta creada: ${datosExtrada.nombre}` });
+          return res.status(200).json({ status: 'suscripcion_registrada' });
+        } else {
+          await enviarMensajeTexto(fromPhone, `Gracias *${datosExtrada.nombre}*, recibimos tus datos. Un asesor te contactará a la brevedad.`);
+          return res.status(200).json({ status: 'suscripcion_fallback' });
+        }
+      }
+
+      // Si el usuario escribe texto como "suscribirme" / "suscribirse"
+      const textLower = textBody.toLowerCase();
+      if (textLower.includes('suscrib') || textLower.includes('comprar') || textLower === '1') {
+        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_SUSCRIPCION');
+        await enviarInstruccionesSuscripcion(fromPhone);
+        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Instrucciones de suscripción enviadas por texto' });
+        return res.status(200).json({ status: 'instrucciones_enviadas' });
+      }
+
+      // Mostrar menú principal
       await enviarMenuPrincipal(fromPhone);
       await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Menú principal enviado' });
 

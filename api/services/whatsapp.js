@@ -146,18 +146,19 @@ export async function enviarMenuFallas(toPhone) {
   }
 }
 
-// ─── 5. Mensaje de Suscripción (placeholder Google Form) ─────────────────────
-export async function enviarLinkSuscripcion(toPhone) {
+// ─── 5. Mensaje de Instrucciones de Suscripción ──────────────────────────────
+export async function enviarInstruccionesSuscripcion(toPhone) {
   const { accessToken, phoneNumberId } = getCredentials();
   if (!accessToken) return;
   const mensaje =
-`✅ *SUSCRIBIRSE AL SERVICIO*
+`¡Excelente! 🚀 Para procesar tu solicitud de suscripción, por favor envíanos la siguiente información en *UN SOLO MENSAJE*:
 
-Para completar tu suscripción, accede al formulario en el siguiente enlace:
+1. *Nombre y Apellido* (Obligatorio)
+2. *Sector donde vives* (Obligatorio)
+3. *Número de contacto* (Opcional - si no lo indicas, te contactaremos a este mismo número de WhatsApp)
 
-🔗 *[Formulario de suscripción - próximamente]*
-
-_En breve recibirás el enlace actualizado. Gracias por tu interés._`;
+📌 *Ejemplo de mensaje:*
+Juan Pérez, Sector Las Delicias, 04141234567`;
 
   try {
     return await apiPost(phoneNumberId, accessToken, {
@@ -169,6 +170,125 @@ _En breve recibirás el enlace actualizado. Gracias por tu interés._`;
     });
   } catch (err) {
     console.error('[WHATSAPP SUSCRIPCION ERROR]:', err);
+  }
+}
+
+export async function enviarConfirmacionSuscripcion(toPhone, datos) {
+  const { accessToken, phoneNumberId } = getCredentials();
+  if (!accessToken) return;
+  const mensaje =
+`¡Gracias, *${datos.nombre}*! 🎉 Tu solicitud de suscripción ha sido registrada con éxito en nuestro sistema.
+
+📍 *Sector registrado:* ${datos.sector}
+📱 *Teléfono de contacto:* ${datos.telefono}
+
+Un asesor comercial se pondrá en contacto contigo muy pronto. ¡Que tengas un excelente día!`;
+
+  try {
+    return await apiPost(phoneNumberId, accessToken, {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'text',
+      text: { body: mensaje }
+    });
+  } catch (err) {
+    console.error('[WHATSAPP CONFIRMACION SUSCRIPCION ERROR]:', err);
+  }
+}
+
+// ─── Helpers REST de Supabase para Vercel Functions ─────────────────────────
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+export async function obtenerEstadoSesionRest(numeroTelefono) {
+  const cleanNumber = (numeroTelefono || '').replace(/\D/g, '');
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !cleanNumber) {
+    return { numero_telefono: cleanNumber, estado: 'INICIO' };
+  }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sesiones?numero_telefono=eq.${cleanNumber}&select=*`, {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]) return data[0];
+    return { numero_telefono: cleanNumber, estado: 'INICIO' };
+  } catch (err) {
+    console.error('[SESION REST ERROR]:', err);
+    return { numero_telefono: cleanNumber, estado: 'INICIO' };
+  }
+}
+
+export async function actualizarEstadoSesionRest(numeroTelefono, nuevoEstado, datosTemporales = {}) {
+  const cleanNumber = (numeroTelefono || '').replace(/\D/g, '');
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !cleanNumber) return;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sesiones`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        numero_telefono: cleanNumber,
+        estado: nuevoEstado,
+        datos_temporales: datosTemporales,
+        updated_at: new Date().toISOString()
+      })
+    });
+  } catch (err) {
+    console.error('[UPDATE SESION REST ERROR]:', err);
+  }
+}
+
+export async function crearTarjetaVentaOnlineRest(datos) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+  try {
+    const resListas = await fetch(`${SUPABASE_URL}/rest/v1/listas?nombre=ilike.*ventas%20online*&select=id,empresa_id&limit=5`, {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+    const listas = await resListas.json();
+    let targetListaId = Array.isArray(listas) && listas[0] ? listas[0].id : null;
+    let empresaId = Array.isArray(listas) && listas[0] ? listas[0].empresa_id : null;
+
+    if (!targetListaId) {
+      console.error('[CREAR TARJETA REST ERROR]: No se encontró la lista ventas online.');
+      return false;
+    }
+
+    const resCard = await fetch(`${SUPABASE_URL}/rest/v1/tarjetas`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        lista_id: targetListaId,
+        empresa_id: empresaId,
+        datos_valores: {
+          nombreApellido: datos.nombre,
+          sector: datos.sector,
+          telefonoMovil: datos.telefono,
+          origen: 'WhatsApp Bot',
+          fechaVenta: new Date().toISOString().split('T')[0]
+        }
+      })
+    });
+
+    return resCard.ok;
+  } catch (err) {
+    console.error('[CREAR TARJETA REST EXCEPTION]:', err);
+    return false;
   }
 }
 

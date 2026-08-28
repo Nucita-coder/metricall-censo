@@ -107,3 +107,61 @@ Responde siempre en español venezolano.`;
     return '¡Hola! 👋 Soy MetricallBot. ¿En qué te puedo ayudar hoy?';
   }
 }
+
+// ─── Extraer datos de suscripción (Nombre, Sector, Teléfono) ─────────────────
+export async function extraerDatosSuscripcion(userText, numeroEmisor) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const fallback = {
+    nombre: 'Cliente WhatsApp',
+    sector: 'No especificado',
+    telefono: numeroEmisor
+  };
+
+  if (!userText || !userText.trim()) return fallback;
+  if (!apiKey) return fallback;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const prompt = `Un cliente envió el siguiente mensaje para suscribirse a un servicio.
+Extrae la información y responde ÚNICAMENTE con un JSON plano (sin formato markdown ni \`\`\`json) con la siguiente estructura:
+
+{
+  "nombre": "Nombre y Apellido del cliente",
+  "sector": "Sector, urbanización, barrio o zona donde vive",
+  "telefono": "Número telefónico de contacto si el cliente especificó uno distinto en el texto, de lo contrario la palabra 'DEFAULT'"
+}
+
+Si el cliente no especificó un teléfono diferente, coloca "DEFAULT".
+
+Mensaje del cliente:
+"${userText.replace(/"/g, '\\"')}"`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 250
+        }
+      })
+    });
+
+    const data = await response.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+
+    const nombre = parsed.nombre && parsed.nombre !== 'No especificado' ? String(parsed.nombre).trim() : 'Cliente WhatsApp';
+    const sector = parsed.sector && parsed.sector !== 'No especificado' ? String(parsed.sector).trim() : 'No especificado';
+    let telefono = parsed.telefono && parsed.telefono !== 'DEFAULT' ? String(parsed.telefono).replace(/\D/g, '') : numeroEmisor;
+    if (!telefono || telefono.length < 7) telefono = numeroEmisor;
+
+    return { nombre, sector, telefono };
+  } catch (err) {
+    console.error('[GEMINI SUSCRIPCION ERROR]:', err);
+    return fallback;
+  }
+}
+

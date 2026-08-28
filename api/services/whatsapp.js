@@ -200,8 +200,9 @@ Un asesor se estará contactando con usted próximamente.`;
 }
 
 // ─── Helpers REST de Supabase con fallback en memoria para Vercel Functions ─
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+// Usar Service Role Key para bypasear RLS y tener acceso total desde el servidor
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 // Sesiones en memoria para funciones warm de Vercel
 if (!global.whatsappSessions) {
@@ -218,12 +219,12 @@ export async function obtenerEstadoSesionRest(numeroTelefono) {
   }
 
   // 2. Verificar Supabase REST
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  if (SUPABASE_URL && SUPABASE_KEY) {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sesiones?numero_telefono=eq.${cleanNumber}&select=*`, {
         headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
         }
       });
       if (res.ok) {
@@ -258,13 +259,13 @@ export async function actualizarEstadoSesionRest(numeroTelefono, nuevoEstado, da
   global.whatsappSessions[cleanNumber] = sesionObj;
 
   // 2. Persistir en Supabase REST con on_conflict
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  if (SUPABASE_URL && SUPABASE_KEY) {
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sesiones?on_conflict=numero_telefono`, {
         method: 'POST',
         headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
           'Content-Type': 'application/json',
           'Prefer': 'resolution=merge-duplicates'
         },
@@ -277,63 +278,45 @@ export async function actualizarEstadoSesionRest(numeroTelefono, nuevoEstado, da
 }
 
 export async function crearTarjetaVentaOnlineRest(datos) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+  if (!SUPABASE_URL) {
+    console.error('[CREAR TARJETA REST]: Falta variable de entorno SUPABASE_URL');
+    return false;
+  }
+  // La RPC usa SECURITY DEFINER, bypasea RLS. La anon key es suficiente.
+  const keyToUse = SUPABASE_KEY;
+  if (!keyToUse) {
+    console.error('[CREAR TARJETA REST]: Falta SUPABASE_KEY o EXPO_PUBLIC_SUPABASE_ANON_KEY');
+    return false;
+  }
   try {
-    const resListas = await fetch(`${SUPABASE_URL}/rest/v1/listas?select=id,nombre,empresa_id,tablero_id&limit=100`, {
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      }
+    console.log('[CREAR TARJETA RPC] Invocando bot_crear_tarjeta_suscripcion:', JSON.stringify(datos));
+    const rpcBody = JSON.stringify({
+      p_nombre:   datos.nombre,
+      p_sector:   datos.sector,
+      p_telefono: datos.telefono
     });
 
-    if (!resListas.ok) {
-      console.error('[CREAR TARJETA REST ERROR]: Error consultando listas:', resListas.status);
-      return false;
-    }
-
-    const listas = await resListas.json();
-    if (!Array.isArray(listas) || listas.length === 0) {
-      console.error('[CREAR TARJETA REST ERROR]: No hay listas registradas en la BD');
-      return false;
-    }
-
-    // Buscar lista de ventas online
-    let targetLista = listas.find(l => (l.nombre || '').toLowerCase().includes('ventas online'))
-                   || listas.find(l => (l.nombre || '').toLowerCase().includes('ventas'))
-                   || listas[0];
-
-    const targetListaId = targetLista.id;
-    const empresaId = targetLista.empresa_id || null;
-
-    const resCard = await fetch(`${SUPABASE_URL}/rest/v1/tarjetas`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/bot_crear_tarjeta_suscripcion`, {
       method: 'POST',
       headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
+        'apikey': keyToUse,
+        'Authorization': `Bearer ${keyToUse}`,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        lista_id: targetListaId,
-        empresa_id: empresaId,
-        datos_valores: {
-          nombreApellido: datos.nombre,
-          sector: datos.sector,
-          telefonoMovil: datos.telefono,
-          origen: 'WhatsApp Bot',
-          fechaVenta: new Date().toISOString().split('T')[0]
-        }
-      })
+      body: rpcBody
     });
 
-    if (!resCard.ok) {
-      console.error('[CREAR TARJETA REST ERROR]: Falló la creación de tarjeta:', resCard.status, await resCard.text());
+    const resText = await res.text();
+    console.log('[CREAR TARJETA RPC] Resultado:', res.status, resText.slice(0, 300));
+
+    if (!res.ok) {
+      console.error('[CREAR TARJETA RPC ERROR]:', res.status, resText);
       return false;
     }
 
     return true;
   } catch (err) {
-    console.error('[CREAR TARJETA REST EXCEPTION]:', err);
+    console.error('[CREAR TARJETA RPC EXCEPTION]:', err);
     return false;
   }
 }

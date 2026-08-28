@@ -93,7 +93,11 @@ export const FaseGestionOnline = ({
     setConfirmandoNoQuiso(false);
     try {
       await onUpdateTarjeta({
-        motivoNoDesea: 'Cliente manifestó no querer el servicio',
+        nombreApellido: tarjeta.datos_valores?.nombreApellido || tarjeta.datos_valores?.nombre || 'Cliente WhatsApp',
+        telefonoMovil: tarjeta.datos_valores?.telefonoMovil || tarjeta.datos_valores?.telefono || '',
+        sector: tarjeta.datos_valores?.sector || '',
+        dispuestoCambiar: 'No',
+        motivoNoDesea: 'Cliente manifestó no querer el servicio (WhatsApp Bot)',
         estadoGestion: 'no_quiso_servicio',
       });
 

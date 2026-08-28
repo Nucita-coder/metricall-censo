@@ -222,12 +222,29 @@ const KanbanCardComponent = ({
                   <Text style={{ fontSize: 9, color: '#FFF', fontWeight: 'bold' }}>REASIGNADA</Text>
                 </View>
               )}
-              <Text style={styles.censoClient} numberOfLines={2}>
-                Cliente: {data.nombreApellido || 'Nuevo Censo (Borrador)'}
-              </Text>
-              <Text style={styles.censoMeta}>Tel: {data.nroTelefonoMovil || 'N/A'}</Text>
-              <Text style={styles.censoMeta}>Fecha: {data.fechaCenso || 'N/A'}</Text>
-              <Text style={styles.censoMeta}>Vendedor: {data.asesorComercial || 'N/A'}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <Text style={styles.censoClient} numberOfLines={2}>
+                  Cliente: {data.nombreApellido || data.nombre || 'Nuevo Censo (Borrador)'}
+                </Text>
+              </View>
+
+              {/* Etiqueta de Origen */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                {data.origen === 'WhatsApp Bot' && (
+                  <View style={{ backgroundColor: 'rgba(37, 211, 102, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(37, 211, 102, 0.4)' }}>
+                    <Text style={{ fontSize: 9, color: '#25D366', fontWeight: 'bold' }}>EXTRAÍDA DE GESTIÓN ONLINE</Text>
+                  </View>
+                )}
+                {data.origen === 'censo' && (
+                  <View style={{ backgroundColor: '#EBF8FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#BEE3F8' }}>
+                    <Text style={{ fontSize: 9, color: '#2B6CB0', fontWeight: 'bold' }}>EXTRAÍDA DE CENSO</Text>
+                  </View>
+                )}
+              </View>
+
+              <Text style={styles.censoMeta}>Tel: {data.nroTelefonoMovil || data.telefonoMovil || data.telefono || 'N/A'}</Text>
+              <Text style={styles.censoMeta}>Fecha: {data.fechaCenso || data.fechaVenta || new Date(item.created_at).toLocaleDateString()}</Text>
+              <Text style={styles.censoMeta}>Vendedor/Origen: {data.asesorComercial || (data.origen === 'WhatsApp Bot' ? 'WhatsApp Bot' : 'N/A')}</Text>
             </View>
           ) : (
             !data.nombreApellido ? (

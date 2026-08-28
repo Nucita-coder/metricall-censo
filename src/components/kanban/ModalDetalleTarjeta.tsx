@@ -115,8 +115,10 @@ export const ModalDetalleTarjeta = ({
     if (clean.includes('proceso')) return <FaseEnProceso {...faseProps} />;
     if (clean.includes('activar')) return <FasePorActivar {...faseProps} />;
     if (clean.includes('activo')) return <FaseClienteActivo {...faseProps} />;
-    // Tarjetas de Gestión Online (WhatsApp Bot) mientras están en su lista original
-    if (clean.includes('ventas online') || clean.includes('gestion online') || clean.includes('gestión online') || tarjetaSeleccionada?.datos_valores?.origen === 'WhatsApp Bot') return <FaseGestionOnline {...faseProps} />;
+    // Tarjetas de Gestión Online (WhatsApp Bot) solo mientras estén en la lista de gestión online (nunca en Censo)
+    if ((clean.includes('ventas online') || clean.includes('gestion online') || clean.includes('gestión online')) && !isCensoFormat) {
+      return <FaseGestionOnline {...faseProps} />;
+    }
     if (clean.includes('venta')) return <FaseVenta {...faseProps} />;
     return null;
   };

@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react-native';
 import { FaseProps, findListaTarget } from './types';
 import { renderSection } from './SeccionRegistro';
 import { useErrorDiagnostics } from '../../../context/ErrorDiagnosticsContext';
+import { supabase } from '../../../lib/supabase';
 
 /**
  * FaseGestionOnline
@@ -39,16 +40,38 @@ export const FaseGestionOnline = ({
         estadoGestion: 'liberada_sin_caja',
       });
 
-      // Mover a LIBERADA
-      const listaDestino =
-        findListaTarget(listasGlobales, 'liberada') ||
-        listasGlobales.find(l => (l.nombre || '').toLowerCase().includes('liberada'));
+      // 1. Buscar primero en las listas del tablero actual
+      let destId =
+        findListaTarget(listasGlobales, 'liberada')?.id ||
+        listasGlobales.find(l => (l.nombre || '').toLowerCase().includes('liberada'))?.id;
 
-      if (!listaDestino?.id) {
-        throw new Error("No se encontró la lista 'Liberada' en este tablero.");
+      // 2. Si la lista 'Liberada' está en otro tablero (ej: Ventas/Instalaciones), buscarla en Supabase
+      if (!destId) {
+        let query = supabase
+          .from('listas')
+          .select('id, nombre')
+          .ilike('nombre', '%liberada%');
+
+        if (tarjeta.empresa_id) {
+          query = query.eq('empresa_id', tarjeta.empresa_id);
+        }
+
+        const { data: listasBd, error: errBd } = await query.limit(1);
+
+        if (errBd) {
+          console.error('[GESTION ONLINE] Error buscando lista Liberada en BD:', errBd);
+        }
+
+        if (listasBd && listasBd.length > 0) {
+          destId = listasBd[0].id;
+        }
       }
 
-      await autoMoverTarjeta(tarjeta, listaDestino.id);
+      if (!destId) {
+        throw new Error("No se encontró la lista 'Liberada' en la base de datos.");
+      }
+
+      await autoMoverTarjeta(tarjeta, destId);
 
       if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);

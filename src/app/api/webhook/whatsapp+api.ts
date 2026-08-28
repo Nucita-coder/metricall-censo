@@ -104,10 +104,11 @@ export async function POST(request: Request) {
 
       if (tarjetaCreada) {
         const mensajeConfirmacion =
-          `¡Gracias, *${datosExtrada.nombre}*! 🎉 Tu solicitud de suscripción ha sido registrada con éxito en nuestro sistema.\n\n` +
-          `📍 *Sector registrado:* ${datosExtrada.sector}\n` +
-          `📱 *Teléfono de contacto:* ${datosExtrada.telefono}\n\n` +
-          `Un asesor comercial se pondrá en contacto contigo muy pronto. ¡Que tengas un excelente día!`;
+          `✅ *Solicitud procesada*\n\n` +
+          `Gracias *${datosExtrada.nombre}*, hemos recibido tus datos correctamente.\n\n` +
+          `📍 *Sector:* ${datosExtrada.sector}\n` +
+          `📱 *Contacto:* ${datosExtrada.telefono}\n\n` +
+          `Un asesor se estará contactando con usted próximamente.`;
 
         await enviarMensajeTextoWhatsApp(from, mensajeConfirmacion);
         return Response.json({ status: 'success', flow: 'tarjeta_creada' }, { status: 200 });

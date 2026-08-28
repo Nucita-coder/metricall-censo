@@ -99,55 +99,28 @@ export async function crearTarjetaVentaOnline(datos: {
   telefono: string;
 }): Promise<boolean> {
   try {
-    // 1. Buscar la lista 'ventas online'
-    const { data: listas } = await supabase
+    // Buscar la lista 'ventas online'
+    const { data: listas, error: fetchError } = await supabase
       .from('listas')
-      .select('id, tablero_id, empresa_id, tableros(nombre, tipo)')
-      .ilike('nombre', '%ventas online%')
-      .limit(10);
+      .select('id, nombre, tablero_id, empresa_id, tableros(nombre, tipo)')
+      .limit(100);
 
-    let targetListaId = listas?.[0]?.id;
-
-    // Buscar preferentemente la lista dentro de un tablero de tipo 'gestion_online' o 'Gestión Online'
-    if (listas && listas.length > 0) {
-      const matchBoard = listas.find(
-        (l: any) =>
-          l.tableros?.tipo === 'gestion_online' ||
-          (l.tableros?.nombre || '').toLowerCase().includes('gestión online') ||
-          (l.tableros?.nombre || '').toLowerCase().includes('gestion online')
-      );
-      if (matchBoard) {
-        targetListaId = matchBoard.id;
-      }
-    }
-
-    if (!targetListaId) {
-      // Fallback: Si no existe aún la lista, buscar cualquier lista del tablero Gestión Online
-      const { data: tableros } = await supabase
-        .from('tableros')
-        .select('id, empresa_id, listas(id, nombre)')
-        .or('tipo.eq.gestion_online,nombre.ilike.%gestión online%,nombre.ilike.%gestion online%')
-        .limit(1);
-
-      if (tableros?.[0]?.listas?.[0]) {
-        targetListaId = tableros[0].listas[0].id;
-      }
-    }
-
-    if (!targetListaId) {
-      console.error('[CREAR TARJETA ERROR]: No se encontró ninguna lista de ventas online.');
+    if (fetchError || !listas || listas.length === 0) {
+      console.error('[CREAR TARJETA ERROR]: Error al consultar listas:', fetchError);
       return false;
     }
 
-    const { data: listaActual } = await supabase
-      .from('listas')
-      .select('empresa_id')
-      .eq('id', targetListaId)
-      .single();
+    const targetLista =
+      listas.find((l: any) => (l.nombre || '').toLowerCase().includes('ventas online')) ||
+      listas.find((l: any) => (l.nombre || '').toLowerCase().includes('ventas')) ||
+      listas[0];
+
+    const targetListaId = targetLista.id;
+    const empresaId = targetLista.empresa_id || null;
 
     const { error: insertError } = await supabase.from('tarjetas').insert({
       lista_id: targetListaId,
-      empresa_id: listaActual?.empresa_id || null,
+      empresa_id: empresaId,
       datos_valores: {
         nombreApellido: datos.nombre,
         sector: datos.sector,

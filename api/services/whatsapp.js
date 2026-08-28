@@ -177,12 +177,14 @@ export async function enviarConfirmacionSuscripcion(toPhone, datos) {
   const { accessToken, phoneNumberId } = getCredentials();
   if (!accessToken) return;
   const mensaje =
-`¡Gracias, *${datos.nombre}*! 🎉 Tu solicitud de suscripción ha sido registrada con éxito en nuestro sistema.
+`✅ *Solicitud procesada*
 
-📍 *Sector registrado:* ${datos.sector}
-📱 *Teléfono de contacto:* ${datos.telefono}
+Gracias *${datos.nombre}*, hemos recibido tus datos correctamente.
 
-Un asesor comercial se pondrá en contacto contigo muy pronto. ¡Que tengas un excelente día!`;
+📍 *Sector:* ${datos.sector}
+📱 *Contacto:* ${datos.telefono}
+
+Un asesor se estará contactando con usted próximamente.`;
 
   try {
     return await apiPost(phoneNumberId, accessToken, {
@@ -197,72 +199,111 @@ Un asesor comercial se pondrá en contacto contigo muy pronto. ¡Que tengas un e
   }
 }
 
-// ─── Helpers REST de Supabase para Vercel Functions ─────────────────────────
+// ─── Helpers REST de Supabase con fallback en memoria para Vercel Functions ─
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
+// Sesiones en memoria para funciones warm de Vercel
+if (!global.whatsappSessions) {
+  global.whatsappSessions = {};
+}
+
 export async function obtenerEstadoSesionRest(numeroTelefono) {
   const cleanNumber = (numeroTelefono || '').replace(/\D/g, '');
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !cleanNumber) {
-    return { numero_telefono: cleanNumber, estado: 'INICIO' };
+  if (!cleanNumber) return { numero_telefono: cleanNumber, estado: 'INICIO' };
+
+  // 1. Verificar cache en memoria primero
+  if (global.whatsappSessions[cleanNumber]) {
+    return global.whatsappSessions[cleanNumber];
   }
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sesiones?numero_telefono=eq.${cleanNumber}&select=*`, {
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+
+  // 2. Verificar Supabase REST
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sesiones?numero_telefono=eq.${cleanNumber}&select=*`, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data[0]) {
+          global.whatsappSessions[cleanNumber] = data[0];
+          return data[0];
+        }
       }
-    });
-    const data = await res.json();
-    if (Array.isArray(data) && data[0]) return data[0];
-    return { numero_telefono: cleanNumber, estado: 'INICIO' };
-  } catch (err) {
-    console.error('[SESION REST ERROR]:', err);
-    return { numero_telefono: cleanNumber, estado: 'INICIO' };
+    } catch (err) {
+      console.error('[SESION REST ERROR]:', err);
+    }
   }
+
+  const defaultSesion = { numero_telefono: cleanNumber, estado: 'INICIO' };
+  global.whatsappSessions[cleanNumber] = defaultSesion;
+  return defaultSesion;
 }
 
 export async function actualizarEstadoSesionRest(numeroTelefono, nuevoEstado, datosTemporales = {}) {
   const cleanNumber = (numeroTelefono || '').replace(/\D/g, '');
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !cleanNumber) return;
-  try {
-    await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sesiones`, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify({
-        numero_telefono: cleanNumber,
-        estado: nuevoEstado,
-        datos_temporales: datosTemporales,
-        updated_at: new Date().toISOString()
-      })
-    });
-  } catch (err) {
-    console.error('[UPDATE SESION REST ERROR]:', err);
+  if (!cleanNumber) return;
+
+  const sesionObj = {
+    numero_telefono: cleanNumber,
+    estado: nuevoEstado,
+    datos_temporales: datosTemporales,
+    updated_at: new Date().toISOString()
+  };
+
+  // 1. Guardar en memoria de inmediato
+  global.whatsappSessions[cleanNumber] = sesionObj;
+
+  // 2. Persistir en Supabase REST con on_conflict
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sesiones?on_conflict=numero_telefono`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(sesionObj)
+      });
+    } catch (err) {
+      console.error('[UPDATE SESION REST ERROR]:', err);
+    }
   }
 }
 
 export async function crearTarjetaVentaOnlineRest(datos) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
-    const resListas = await fetch(`${SUPABASE_URL}/rest/v1/listas?nombre=ilike.*ventas%20online*&select=id,empresa_id&limit=5`, {
+    const resListas = await fetch(`${SUPABASE_URL}/rest/v1/listas?select=id,nombre,empresa_id,tablero_id&limit=100`, {
       headers: {
         'apikey': SUPABASE_ANON_KEY,
         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
       }
     });
-    const listas = await resListas.json();
-    let targetListaId = Array.isArray(listas) && listas[0] ? listas[0].id : null;
-    let empresaId = Array.isArray(listas) && listas[0] ? listas[0].empresa_id : null;
 
-    if (!targetListaId) {
-      console.error('[CREAR TARJETA REST ERROR]: No se encontró la lista ventas online.');
+    if (!resListas.ok) {
+      console.error('[CREAR TARJETA REST ERROR]: Error consultando listas:', resListas.status);
       return false;
     }
+
+    const listas = await resListas.json();
+    if (!Array.isArray(listas) || listas.length === 0) {
+      console.error('[CREAR TARJETA REST ERROR]: No hay listas registradas en la BD');
+      return false;
+    }
+
+    // Buscar lista de ventas online
+    let targetLista = listas.find(l => (l.nombre || '').toLowerCase().includes('ventas online'))
+                   || listas.find(l => (l.nombre || '').toLowerCase().includes('ventas'))
+                   || listas[0];
+
+    const targetListaId = targetLista.id;
+    const empresaId = targetLista.empresa_id || null;
 
     const resCard = await fetch(`${SUPABASE_URL}/rest/v1/tarjetas`, {
       method: 'POST',
@@ -285,7 +326,12 @@ export async function crearTarjetaVentaOnlineRest(datos) {
       })
     });
 
-    return resCard.ok;
+    if (!resCard.ok) {
+      console.error('[CREAR TARJETA REST ERROR]: Falló la creación de tarjeta:', resCard.status, await resCard.text());
+      return false;
+    }
+
+    return true;
   } catch (err) {
     console.error('[CREAR TARJETA REST EXCEPTION]:', err);
     return false;

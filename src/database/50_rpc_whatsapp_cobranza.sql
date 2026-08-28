@@ -24,11 +24,11 @@ DECLARE
   v_tarjeta_id UUID;
   v_nombre_final TEXT;
 BEGIN
-  -- 1. Buscar la lista de Cobranza (o "cobranza", "reporte de pago", "recupero")
+  -- 1. Buscar primero la lista "REPORTE PAGO" o "pago" (Gestión Online)
   SELECT id, empresa_id
   INTO v_lista_id, v_empresa_id
   FROM public.listas
-  WHERE lower(nombre) LIKE '%cobranza%'
+  WHERE lower(nombre) LIKE '%reporte%pago%' OR lower(nombre) LIKE '%reporte de pago%' OR lower(nombre) = 'reporte pago'
   ORDER BY created_at ASC
   LIMIT 1;
 
@@ -36,7 +36,16 @@ BEGIN
     SELECT id, empresa_id
     INTO v_lista_id, v_empresa_id
     FROM public.listas
-    WHERE lower(nombre) LIKE '%pago%' OR lower(nombre) LIKE '%recupero%'
+    WHERE lower(nombre) LIKE '%pago%'
+    ORDER BY created_at ASC
+    LIMIT 1;
+  END IF;
+
+  IF v_lista_id IS NULL THEN
+    SELECT id, empresa_id
+    INTO v_lista_id, v_empresa_id
+    FROM public.listas
+    WHERE lower(nombre) LIKE '%cobranza%' OR lower(nombre) LIKE '%recupero%'
     ORDER BY created_at ASC
     LIMIT 1;
   END IF;

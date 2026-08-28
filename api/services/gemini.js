@@ -219,18 +219,43 @@ export async function extraerDatosPago(userText, numeroEmisor) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   const extraerBasicosPago = (text) => {
-    const txt = text || '';
-    const cedulaMatch = txt.match(/(?:[VvEeJjPp]-?)?\s*(\d{6,9})/);
-    const refMatch = txt.match(/(?:ref|referencia|num|nro|#)?\s*:?\s*(\d{6,14})/i);
-    const montoMatch = txt.match(/(?:monto|\$|usd|bs|\$bs)?\s*:?\s*(\d+(?:[.,]\d{1,2})?\s*(?:\$|usd|bs)?)/i);
+    const txt = (text || '').trim();
+    if (!txt) {
+      return { cedula: 'No especificada', referencia: 'S/N', monto: 'Por verificar', banco: 'No especificado', telefono: numeroEmisor };
+    }
+
+    let cedula = null;
+    let referencia = null;
+    let monto = null;
+    let banco = null;
+
+    // 1. Coincidencia explícita con etiquetas
+    const cedulaMatch = txt.match(/(?:cedula|cédula|abonado|ci|v-?)\s*:?\s*([VvEeJjPp]?-?\d{6,9})/i);
+    const refMatch = txt.match(/(?:ref|referencia|num|nro|#)\s*:?\s*(\d{6,14})/i);
+    const montoMatch = txt.match(/(?:monto|\$|usd|bs|\$bs)\s*:?\s*(\d+(?:[.,]\d{1,2})?\s*(?:\$|usd|bs)?)/i);
     const bancoMatch = txt.match(/(banesco|mercantil|provincial|venezuela|bancamiga|bvc|bnc|bod|exterior|sofitasa|plaza)/i);
 
+    if (cedulaMatch) cedula = cedulaMatch[1];
+    if (refMatch) referencia = refMatch[1];
+    if (montoMatch) monto = montoMatch[1];
+    if (bancoMatch) banco = bancoMatch[0].toUpperCase();
+
+    // 2. Extracción por posición si los tokens fueron enviados en lista (ej: "30953712 11111111 28.029.33 04123757313 mercantil")
+    const subTokens = txt.split(/[\s,;\n]+/).filter(Boolean);
+    const numeros = subTokens.filter(t => /^\d+([.,]\d+)*$/.test(t) || /^[VvEeJjPp]-\d+$/.test(t));
+    const bancoToken = subTokens.find(t => /(banesco|mercantil|provincial|venezuela|bancamiga|bvc|bnc|bod|exterior|sofitasa|plaza)/i.test(t));
+
+    if (!cedula && numeros[0]) cedula = numeros[0];
+    if (!referencia && numeros[1]) referencia = numeros[1];
+    if (!monto && numeros[2]) monto = numeros[2];
+    if (!banco && bancoToken) banco = bancoToken.toUpperCase();
+
     return {
-      cedula: cedulaMatch ? cedulaMatch[1] : 'No especificada',
-      referencia: refMatch ? refMatch[1] : 'S/N',
-      monto: montoMatch ? montoMatch[1] : 'Por verificar',
-      banco: bancoMatch ? bancoMatch[0].toUpperCase() : 'No especificado',
-      telefono: numeroEmisor
+      cedula:     cedula     || 'No especificada',
+      referencia: referencia || 'S/N',
+      monto:      monto      || 'Por verificar',
+      banco:      banco      || 'No especificado',
+      telefono:   numeroEmisor
     };
   };
 
@@ -244,19 +269,23 @@ export async function extraerDatosPago(userText, numeroEmisor) {
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-  const prompt = `Un cliente de internet envió el siguiente mensaje reportando un pago.
+  const prompt = `Un cliente de internet envió un reporte de pago por WhatsApp.
 Extrae la información requerida y responde ÚNICAMENTE con un JSON plano (sin formato markdown ni \`\`\`json):
 
 {
-  "cedula": "Cédula, RIF o Nro de Abonado (solo números o prefijo V/J)",
-  "referencia": "Número de referencia de la transferencia o pago móvil",
-  "monto": "Monto pagado (ej: '25$', '500 Bs', '30')",
-  "banco": "Nombre del banco de origen o emisor (ej: Banesco, Mercantil, Venezuela, etc.)"
+  "cedula": "Cédula, RIF o Nro de Abonado del cliente",
+  "referencia": "Número de referencia bancaria o comprobante de pago",
+  "monto": "Monto pagado con moneda si especifica (ej: '28.029,33', '25$')",
+  "banco": "Nombre del banco de origen (ej: Banesco, Mercantil, Venezuela, etc.)"
 }
 
-Reglas:
-1. Si un campo no está explícito en el texto, coloca 'No especificado'.
-2. Responde SOLO el JSON.
+REGLAS DE EXTRACCIÓN POR POSICIÓN:
+- Si el usuario envió valores separados por espacios o comas sin etiquetas explícitas (ejemplo: "30953712 11111111 28.029.33 04123757313 mercantil"):
+  1. El 1er número suele ser la Cédula/Abonado (ej: 30953712).
+  2. El 2do número es la Referencia (ej: 11111111).
+  3. El 3er número es el Monto (ej: 28.029.33).
+  4. El texto con el nombre del banco es el Banco (ej: Mercantil).
+- Si falta algún dato, coloca 'No especificado'. Responde SOLO el JSON.
 
 Mensaje del cliente:
 "${userText.replace(/"/g, '\\"')}"`;
@@ -282,6 +311,11 @@ Mensaje del cliente:
     const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleanJson);
 
+    // Fallback a extracción posicional si Gemini colocó el mismo número en cédula, ref y monto
+    if (parsed.cedula && parsed.cedula === parsed.referencia && parsed.cedula === parsed.monto) {
+      return extraerBasicosPago(userText);
+    }
+
     return {
       cedula:     parsed.cedula     || 'No especificada',
       referencia: parsed.referencia || 'S/N',
@@ -294,4 +328,5 @@ Mensaje del cliente:
     return extraerBasicosPago(userText);
   }
 }
+
 

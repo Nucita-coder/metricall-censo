@@ -108,29 +108,57 @@ Responde siempre en español venezolano.`;
   }
 }
 
+// ─── Extracción básica sin IA (fallback robusto) ─────────────────────────────
+function extraerDatosBasicosJS(texto, numeroEmisor) {
+  // Separar por coma, punto y coma, salto de línea
+  const partes = texto.split(/[,;\n]+/).map(p => p.trim()).filter(Boolean);
+
+  // Capitalizar primera letra de cada palabra
+  const capitalizar = str => str.replace(/\b\w/g, c => c.toUpperCase());
+
+  const nombre = partes[0] ? capitalizar(partes[0]) : null;
+  const sector = partes[1] ? capitalizar(partes[1]) : null;
+
+  // Buscar teléfono en el texto
+  const matchTel = texto.match(/(?:04\d{9}|584\d{9}|\+?58\d{10}|\d{10,11})/);
+  const telefono = matchTel ? matchTel[0].replace(/\D/g, '') : numeroEmisor;
+
+  return {
+    nombre:   nombre || 'Cliente WhatsApp',
+    sector:   sector || 'No especificado',
+    telefono: telefono || numeroEmisor
+  };
+}
+
 // ─── Extraer datos de suscripción (Nombre, Sector, Teléfono) ─────────────────
 export async function extraerDatosSuscripcion(userText, numeroEmisor) {
   const apiKey = process.env.GEMINI_API_KEY;
-  const fallback = {
-    nombre: 'Cliente WhatsApp',
-    sector: 'No especificado',
-    telefono: numeroEmisor
-  };
 
-  if (!userText || !userText.trim()) return fallback;
-  if (!apiKey) return fallback;
+  if (!userText || !userText.trim()) {
+    return { nombre: 'Cliente WhatsApp', sector: 'No especificado', telefono: numeroEmisor };
+  }
+
+  // Sin API key → extracción básica directamente
+  if (!apiKey) {
+    console.warn('[GEMINI] Sin API key, usando extracción básica');
+    return extraerDatosBasicosJS(userText, numeroEmisor);
+  }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-  const prompt = `Un cliente envió el siguiente mensaje para suscribirse a un servicio.
+  const prompt = `Un cliente envió el siguiente mensaje para suscribirse a un servicio de internet.
 Extrae la información y responde ÚNICAMENTE con un JSON plano (sin formato markdown ni \`\`\`json) con la siguiente estructura:
 
 {
-  "nombre": "Nombre y Apellido del cliente",
-  "sector": "Sector, urbanización, barrio o zona donde vive",
-  "telefono": "Número telefónico de contacto si el cliente especificó uno distinto en el texto, de lo contrario la palabra 'DEFAULT'"
+  "nombre": "Nombre y Apellido del cliente (si solo dio un nombre, úsalo igual)",
+  "sector": "Sector, urbanización, barrio, ciudad o zona residencial donde vive",
+  "telefono": "Número telefónico de contacto si el cliente especificó uno distinto en el texto, de lo contrario la palabra DEFAULT"
 }
 
-Si el cliente no especificó un teléfono diferente, coloca "DEFAULT".
+Reglas:
+1. Acepta nombres simples (sin apellido) como válidos.
+2. Si falta el nombre o el sector, extráelo del contexto o del texto.
+3. Si no hay teléfono diferente, pon DEFAULT.
+4. Responde SOLO el JSON, sin texto adicional.
 
 Mensaje del cliente:
 "${userText.replace(/"/g, '\\"')}"`;
@@ -141,27 +169,47 @@ Mensaje del cliente:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 250
-        }
+        generationConfig: { temperature: 0.1, maxOutputTokens: 250 }
       })
     });
 
+    if (!response.ok) {
+      console.error('[GEMINI HTTP ERROR]:', response.status);
+      return extraerDatosBasicosJS(userText, numeroEmisor);
+    }
+
     const data = await response.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!rawText) {
+      return extraerDatosBasicosJS(userText, numeroEmisor);
+    }
+
     const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleanJson);
 
-    const nombre = parsed.nombre && parsed.nombre !== 'No especificado' ? String(parsed.nombre).trim() : 'Cliente WhatsApp';
-    const sector = parsed.sector && parsed.sector !== 'No especificado' ? String(parsed.sector).trim() : 'No especificado';
-    let telefono = parsed.telefono && parsed.telefono !== 'DEFAULT' ? String(parsed.telefono).replace(/\D/g, '') : numeroEmisor;
-    if (!telefono || telefono.length < 7) telefono = numeroEmisor;
+    const nombreRaw = String(parsed.nombre || '').trim();
+    const sectorRaw = String(parsed.sector || '').trim();
 
-    return { nombre, sector, telefono };
+    // Aceptar cualquier valor no vacío y que no sea el placeholder exacto
+    const nombre = (nombreRaw && nombreRaw !== 'Nombre y Apellido del cliente') ? nombreRaw : null;
+    const sector = (sectorRaw && sectorRaw !== 'Sector, urbanización, barrio o zona donde vive') ? sectorRaw : null;
+
+    let telefono = parsed.telefono && parsed.telefono !== 'DEFAULT'
+      ? String(parsed.telefono).replace(/\D/g, '')
+      : null;
+    if (!telefono || telefono.length < 7) telefono = null;
+
+    // Si Gemini no extrajo bien, usar extracción básica como respaldo
+    const basico = extraerDatosBasicosJS(userText, numeroEmisor);
+
+    return {
+      nombre:   nombre   || basico.nombre,
+      sector:   sector   || basico.sector,
+      telefono: telefono || basico.telefono
+    };
+
   } catch (err) {
     console.error('[GEMINI SUSCRIPCION ERROR]:', err);
-    return fallback;
+    return extraerDatosBasicosJS(userText, numeroEmisor);
   }
 }
-

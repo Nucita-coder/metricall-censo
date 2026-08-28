@@ -69,18 +69,22 @@ Mensaje del cliente:
 
     const parsed = JSON.parse(cleanJson);
 
-    const nombreFinal = parsed.nombre && parsed.nombre !== 'No especificado' ? String(parsed.nombre).trim() : 'Cliente WhatsApp';
-    const sectorFinal = parsed.sector && parsed.sector !== 'No especificado' ? String(parsed.sector).trim() : 'No especificado';
-    let telefonoFinal = parsed.telefono && parsed.telefono !== 'DEFAULT' ? String(parsed.telefono).replace(/\D/g, '') : numeroEmisor;
+    const nombreRaw = String(parsed.nombre || '').trim();
+    const sectorRaw = String(parsed.sector || '').trim();
 
-    if (!telefonoFinal || telefonoFinal.length < 7) {
-      telefonoFinal = numeroEmisor;
-    }
+    const nombre = (nombreRaw && nombreRaw !== 'Nombre y Apellido del cliente') ? nombreRaw : null;
+    const sector = (sectorRaw && sectorRaw !== 'Sector, urbanización, barrio o zona donde vive') ? sectorRaw : null;
+    let telefono = parsed.telefono && parsed.telefono !== 'DEFAULT'
+      ? String(parsed.telefono).replace(/\D/g, '')
+      : null;
+    if (!telefono || telefono.length < 7) telefono = null;
 
+    // Si Gemini no extrajo bien, usar extracción básica como respaldo
+    const basico = extraerDatosBasicos(mensajeTexto, numeroEmisor);
     return {
-      nombre: nombreFinal,
-      sector: sectorFinal,
-      telefono: telefonoFinal,
+      nombre:   nombre   || basico.nombre,
+      sector:   sector   || basico.sector,
+      telefono: telefono || basico.telefono,
     };
   } catch (error) {
     console.error('[GEMINI EXCEPTION]:', error);
@@ -90,8 +94,13 @@ Mensaje del cliente:
 
 function extraerDatosBasicos(texto: string, numeroEmisor: string): DatosSuscripcionExtraidos {
   const partes = texto.split(/[,;\n]+/).map(p => p.trim()).filter(Boolean);
-  const nombre = partes[0] || 'Cliente WhatsApp';
-  const sector = partes[1] || texto;
+
+  // Capitalizar primera letra de cada palabra
+  const capitalizar = (str: string) => str.replace(/\b\w/g, c => c.toUpperCase());
+
+  const nombre = partes[0] ? capitalizar(partes[0]) : 'Cliente WhatsApp';
+  const sector = partes[1] ? capitalizar(partes[1]) : 'No especificado';
+
   const matchTel = texto.match(/(?:04\d{9}|584\d{9}|\+?58\d{10}|\d{10,11})/);
   const telefono = matchTel ? matchTel[0].replace(/\D/g, '') : numeroEmisor;
 

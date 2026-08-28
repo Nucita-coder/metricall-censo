@@ -112,27 +112,49 @@ export default async function handler(req, res) {
         let textContent = textBody;
         let comprobanteUrl = null;
 
+        // ── Procesar imagen si viene en este mensaje ───────────────────────────
         if (messageType === 'image' && message.image?.id) {
+          console.log('[WEBHOOK PAGO] Imagen recibida, mediaId:', message.image.id);
           comprobanteUrl = await procesarImagenWhatsApp(message.image.id, fromPhone);
+          console.log('[WEBHOOK PAGO] comprobanteUrl resultado:', comprobanteUrl);
+          // Si el cliente escribió un caption, usarlo como texto de datos
           if (message.image?.caption) {
             textContent = message.image.caption;
           }
         }
 
+        // ── Datos temporales de mensajes anteriores ────────────────────────────
         const datosTemp = sesion.datos_temporales || {};
-        let datosPago = await extraerDatosPago(textContent, fromPhone);
 
+        // ── Extraer datos del texto (caption o mensaje de texto puro) ──────────
+        let datosPago;
+        if (textContent && textContent.trim()) {
+          datosPago = await extraerDatosPago(textContent, fromPhone);
+        } else {
+          // Solo imagen sin caption → usar datos temporales o valores vacíos
+          datosPago = {
+            cedula:     datosTemp.cedula     || 'No especificada',
+            referencia: datosTemp.referencia || 'S/N',
+            monto:      datosTemp.monto      || 'Por verificar',
+            banco:      datosTemp.banco      || 'No especificado',
+            telefono:   fromPhone
+          };
+        }
+
+        // ── Asignar comprobante_url: prioridad → mensaje actual → temporales ───
         if (comprobanteUrl) {
           datosPago.comprobante_url = comprobanteUrl;
         } else if (datosTemp.comprobante_url) {
           datosPago.comprobante_url = datosTemp.comprobante_url;
         }
 
-        // Mezclar con datos temporales si el usuario envió texto primero y luego foto
-        if (datosTemp.cedula && datosPago.cedula === 'No especificada') datosPago.cedula = datosTemp.cedula;
-        if (datosTemp.referencia && datosPago.referencia === 'S/N') datosPago.referencia = datosTemp.referencia;
-        if (datosTemp.monto && datosPago.monto === 'Por verificar') datosPago.monto = datosTemp.monto;
-        if (datosTemp.banco && datosPago.banco === 'No especificado') datosPago.banco = datosTemp.banco;
+        // ── Rellenar campos vacíos con datos temporales si el usuario envió texto primero y luego foto
+        if (datosTemp.cedula     && datosPago.cedula     === 'No especificada')  datosPago.cedula     = datosTemp.cedula;
+        if (datosTemp.referencia && datosPago.referencia === 'S/N')              datosPago.referencia = datosTemp.referencia;
+        if (datosTemp.monto      && datosPago.monto      === 'Por verificar')    datosPago.monto      = datosTemp.monto;
+        if (datosTemp.banco      && datosPago.banco      === 'No especificado')  datosPago.banco      = datosTemp.banco;
+
+        console.log('[WEBHOOK PAGO] datosPago finales a enviar al RPC:', JSON.stringify(datosPago));
 
         if (comprobanteUrl || textContent || datosTemp.comprobante_url) {
           await crearTarjetaCobranzaRest(datosPago);
@@ -141,6 +163,7 @@ export default async function handler(req, res) {
           await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Reporte de pago registrado: Ref ${datosPago.referencia}` });
           return res.status(200).json({ status: 'pago_registrado' });
         } else {
+          // Guardar datos temporales hasta recibir la foto
           await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO', datosPago);
         }
       }

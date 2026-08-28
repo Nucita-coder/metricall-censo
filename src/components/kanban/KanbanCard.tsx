@@ -75,6 +75,7 @@ const KanbanCardComponent = ({
   else if (esPymes) { badgeBg = KANBAN_COLORS.badge.pymes.bg; badgeColor = KANBAN_COLORS.badge.pymes.text; }
   else if (tipoServicio === 'dedicado') { badgeBg = KANBAN_COLORS.badge.dedicado.bg; badgeColor = KANBAN_COLORS.badge.dedicado.text; }
   else if (tipoServicio === 'isp') { badgeBg = KANBAN_COLORS.badge.isp.bg; badgeColor = KANBAN_COLORS.badge.isp.text; }
+  else if (data.origen === 'WhatsApp Bot') { badgeBg = 'rgba(37, 211, 102, 0.2)'; badgeColor = '#25D366'; }
 
   const isCensoFormat = ['Censo', 'si desea', 'no desea', 'es posible'].includes(listaNombre || '');
   const isMaterialesFormat = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'].includes(listaNombre || '') || data.codigoMaterial !== undefined || data.nroOrdenEntrega !== undefined;
@@ -241,13 +242,18 @@ const KanbanCardComponent = ({
                 <View style={styles.cardHeader}>
                   <View style={[styles.badge, { backgroundColor: badgeBg }]}>
                     <Text style={[styles.badgeText, { color: badgeColor }]}>
-                      {tipoServicio ? tipoServicio.toUpperCase() : 'N/A'}
+                      {tipoServicio ? tipoServicio.toUpperCase() : (data.origen === 'WhatsApp Bot' ? 'GESTIÓN ONLINE' : 'N/A')}
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     {data.origen === 'censo' && (
                       <View style={{ backgroundColor: '#EBF8FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#BEE3F8' }}>
                         <Text style={{ fontSize: 9, color: '#2B6CB0', fontWeight: 'bold' }}>EXTRAÍDA DE CENSO</Text>
+                      </View>
+                    )}
+                    {data.origen === 'WhatsApp Bot' && (
+                      <View style={{ backgroundColor: 'rgba(37, 211, 102, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(37, 211, 102, 0.3)' }}>
+                        <Text style={{ fontSize: 9, color: '#25D366', fontWeight: 'bold' }}>GESTIÓN ONLINE</Text>
                       </View>
                     )}
                     <Text style={styles.cardDate}>{new Date(item.created_at).toLocaleDateString()}</Text>

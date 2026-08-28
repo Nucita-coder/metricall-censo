@@ -4,13 +4,16 @@ import {
   enviarMenuFallas,
   enviarInstruccionesSuscripcion,
   enviarConfirmacionSuscripcion,
+  enviarConfirmacionPago,
   enviarConfirmacionFalla,
   enviarMensajeTexto,
   obtenerEstadoSesionRest,
   actualizarEstadoSesionRest,
-  crearTarjetaVentaOnlineRest
+  crearTarjetaVentaOnlineRest,
+  crearTarjetaCobranzaRest,
+  procesarImagenWhatsApp
 } from '../services/whatsapp.js';
-import { extraerDatosSuscripcion } from '../services/gemini.js';
+import { extraerDatosSuscripcion, extraerDatosPago } from '../services/gemini.js';
 import { insertarLog } from '../services/logger.js';
 
 // Etiquetas legibles para tipos de falla
@@ -64,6 +67,7 @@ export default async function handler(req, res) {
         await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Botón: ${buttonTitle}`, contenido: { buttonId } });
 
         if (buttonId === 'btn_reporte_pago') {
+          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
           await enviarFormularioPago(fromPhone);
 
         } else if (buttonId === 'btn_reporte_falla') {
@@ -90,7 +94,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: 'falla_registrada' });
       }
 
-      // ── Mensaje de texto ─────────────────────────────────────────────────────
+      // ── Mensajes de texto o imágenes ─────────────────────────────────────────
       const textBody = (message.text?.body || '').trim();
 
       await insertarLog({
@@ -102,6 +106,44 @@ export default async function handler(req, res) {
 
       // Obtener estado de la conversación desde Supabase
       const sesion = await obtenerEstadoSesionRest(fromPhone);
+
+      // Si el cliente está en estado ESPERANDO_DATOS_PAGO
+      if (sesion.estado === 'ESPERANDO_DATOS_PAGO') {
+        let textContent = textBody;
+        let comprobanteUrl = null;
+
+        if (messageType === 'image' && message.image?.id) {
+          comprobanteUrl = await procesarImagenWhatsApp(message.image.id, fromPhone);
+          if (message.image?.caption) {
+            textContent = message.image.caption;
+          }
+        }
+
+        const datosTemp = sesion.datos_temporales || {};
+        let datosPago = await extraerDatosPago(textContent, fromPhone);
+
+        if (comprobanteUrl) {
+          datosPago.comprobante_url = comprobanteUrl;
+        } else if (datosTemp.comprobante_url) {
+          datosPago.comprobante_url = datosTemp.comprobante_url;
+        }
+
+        // Mezclar con datos temporales si el usuario envió texto primero y luego foto
+        if (datosTemp.cedula && datosPago.cedula === 'No especificada') datosPago.cedula = datosTemp.cedula;
+        if (datosTemp.referencia && datosPago.referencia === 'S/N') datosPago.referencia = datosTemp.referencia;
+        if (datosTemp.monto && datosPago.monto === 'Por verificar') datosPago.monto = datosTemp.monto;
+        if (datosTemp.banco && datosPago.banco === 'No especificado') datosPago.banco = datosTemp.banco;
+
+        if (comprobanteUrl || textContent || datosTemp.comprobante_url) {
+          await crearTarjetaCobranzaRest(datosPago);
+          await actualizarEstadoSesionRest(fromPhone, 'INICIO');
+          await enviarConfirmacionPago(fromPhone, datosPago);
+          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Reporte de pago registrado: Ref ${datosPago.referencia}` });
+          return res.status(200).json({ status: 'pago_registrado' });
+        } else {
+          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO', datosPago);
+        }
+      }
 
       // Si el cliente está en estado ESPERANDO_DATOS_SUSCRIPCION
       if (sesion.estado === 'ESPERANDO_DATOS_SUSCRIPCION' && textBody) {

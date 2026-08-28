@@ -213,3 +213,85 @@ Mensaje del cliente:
     return extraerDatosBasicosJS(userText, numeroEmisor);
   }
 }
+
+// ─── Extraer datos de reporte de pago (Cédula, Referencia, Monto, Banco) ──────
+export async function extraerDatosPago(userText, numeroEmisor) {
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  const extraerBasicosPago = (text) => {
+    const txt = text || '';
+    const cedulaMatch = txt.match(/(?:[VvEeJjPp]-?)?\s*(\d{6,9})/);
+    const refMatch = txt.match(/(?:ref|referencia|num|nro|#)?\s*:?\s*(\d{6,14})/i);
+    const montoMatch = txt.match(/(?:monto|\$|usd|bs|\$bs)?\s*:?\s*(\d+(?:[.,]\d{1,2})?\s*(?:\$|usd|bs)?)/i);
+    const bancoMatch = txt.match(/(banesco|mercantil|provincial|venezuela|bancamiga|bvc|bnc|bod|exterior|sofitasa|plaza)/i);
+
+    return {
+      cedula: cedulaMatch ? cedulaMatch[1] : 'No especificada',
+      referencia: refMatch ? refMatch[1] : 'S/N',
+      monto: montoMatch ? montoMatch[1] : 'Por verificar',
+      banco: bancoMatch ? bancoMatch[0].toUpperCase() : 'No especificado',
+      telefono: numeroEmisor
+    };
+  };
+
+  if (!userText || !userText.trim()) {
+    return extraerBasicosPago('');
+  }
+
+  if (!apiKey) {
+    console.warn('[GEMINI] Sin API key, usando extracción básica de pago');
+    return extraerBasicosPago(userText);
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const prompt = `Un cliente de internet envió el siguiente mensaje reportando un pago.
+Extrae la información requerida y responde ÚNICAMENTE con un JSON plano (sin formato markdown ni \`\`\`json):
+
+{
+  "cedula": "Cédula, RIF o Nro de Abonado (solo números o prefijo V/J)",
+  "referencia": "Número de referencia de la transferencia o pago móvil",
+  "monto": "Monto pagado (ej: '25$', '500 Bs', '30')",
+  "banco": "Nombre del banco de origen o emisor (ej: Banesco, Mercantil, Venezuela, etc.)"
+}
+
+Reglas:
+1. Si un campo no está explícito en el texto, coloca 'No especificado'.
+2. Responde SOLO el JSON.
+
+Mensaje del cliente:
+"${userText.replace(/"/g, '\\"')}"`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 250 }
+      })
+    });
+
+    if (!response.ok) {
+      return extraerBasicosPago(userText);
+    }
+
+    const data = await response.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!rawText) return extraerBasicosPago(userText);
+
+    const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+
+    return {
+      cedula:     parsed.cedula     || 'No especificada',
+      referencia: parsed.referencia || 'S/N',
+      monto:      parsed.monto      || 'Por verificar',
+      banco:      parsed.banco      || 'No especificado',
+      telefono:   numeroEmisor
+    };
+  } catch (err) {
+    console.error('[GEMINI PAGO ERROR]:', err);
+    return extraerBasicosPago(userText);
+  }
+}
+

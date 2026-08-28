@@ -321,7 +321,118 @@ export async function crearTarjetaVentaOnlineRest(datos) {
   }
 }
 
-// ─── 6. Confirmación de falla recibida ───────────────────────────────────────
+export async function crearTarjetaCobranzaRest(datos) {
+  if (!SUPABASE_URL) return false;
+  const keyToUse = SUPABASE_KEY;
+  if (!keyToUse) return false;
+
+  try {
+    console.log('[CREAR TARJETA COBRANZA RPC] Invocando bot_crear_tarjeta_cobranza:', JSON.stringify(datos));
+    const rpcBody = JSON.stringify({
+      p_cedula:          datos.cedula || '',
+      p_referencia:      datos.referencia || '',
+      p_monto:           datos.monto || '',
+      p_banco:           datos.banco || '',
+      p_telefono:        datos.telefono || '',
+      p_comprobante_url: datos.comprobante_url || '',
+      p_nombre:          datos.nombre || 'Cliente Pago WhatsApp'
+    });
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/bot_crear_tarjeta_cobranza`, {
+      method: 'POST',
+      headers: {
+        'apikey': keyToUse,
+        'Authorization': `Bearer ${keyToUse}`,
+        'Content-Type': 'application/json'
+      },
+      body: rpcBody
+    });
+
+    const resText = await res.text();
+    console.log('[CREAR TARJETA COBRANZA RPC] Resultado:', res.status, resText.slice(0, 300));
+
+    if (!res.ok) {
+      console.error('[CREAR TARJETA COBRANZA RPC ERROR]:', res.status, resText);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[CREAR TARJETA COBRANZA RPC EXCEPTION]:', err);
+    return false;
+  }
+}
+
+// ─── 6. Procesamiento de imagen enviada por WhatsApp ─────────────────────────
+export async function procesarImagenWhatsApp(mediaId, fromPhone) {
+  const { accessToken } = getCredentials();
+  if (!accessToken || !SUPABASE_URL || !SUPABASE_KEY) return null;
+
+  try {
+    const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    if (!metaRes.ok) return null;
+    const metaData = await metaRes.json();
+    const downloadUrl = metaData.url;
+    if (!downloadUrl) return null;
+
+    const imageRes = await fetch(downloadUrl, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    if (!imageRes.ok) return null;
+    const imageBuffer = await imageRes.arrayBuffer();
+
+    const filename = `comprobantes/pago_${Date.now()}_${fromPhone}.jpg`;
+    const storageRes = await fetch(`${SUPABASE_URL}/storage/v1/object/evidencias/${filename}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'image/jpeg',
+        'x-upsert': 'true'
+      },
+      body: imageBuffer
+    });
+
+    if (storageRes.ok) {
+      return `${SUPABASE_URL}/storage/v1/object/public/evidencias/${filename}`;
+    }
+    return downloadUrl;
+  } catch (err) {
+    console.error('[PROCESAR IMAGEN WHATSAPP ERROR]:', err);
+    return null;
+  }
+}
+
+// ─── 7. Confirmación de pago recibido ────────────────────────────────────────
+export async function enviarConfirmacionPago(toPhone, datos) {
+  const { accessToken, phoneNumberId } = getCredentials();
+  if (!accessToken) return;
+  const mensaje =
+`✅ *Reporte de pago recibido*
+
+📋 *Cédula/Abonado:* ${datos.cedula || 'No especificada'}
+🔢 *Referencia:* ${datos.referencia || 'S/N'}
+💵 *Monto:* ${datos.monto || 'Por verificar'}
+🏦 *Banco:* ${datos.banco || 'No especificado'}
+
+Un asesor de cobranza verificará la transacción a la brevedad. ¡Gracias por preferir Metricall!`;
+
+  try {
+    return await apiPost(phoneNumberId, accessToken, {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'text',
+      text: { body: mensaje }
+    });
+  } catch (err) {
+    console.error('[WHATSAPP CONFIRMACION PAGO ERROR]:', err);
+  }
+}
+
+// ─── 8. Confirmación de falla recibida ───────────────────────────────────────
 export async function enviarConfirmacionFalla(toPhone, tipoFalla) {
   const { accessToken, phoneNumberId } = getCredentials();
   if (!accessToken) return;
@@ -346,3 +457,4 @@ _MetricallBot • Soporte Técnico_`;
     console.error('[WHATSAPP CONFIRMACION ERROR]:', err);
   }
 }
+

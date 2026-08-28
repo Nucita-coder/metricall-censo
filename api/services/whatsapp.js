@@ -369,22 +369,33 @@ export async function procesarImagenWhatsApp(mediaId, fromPhone) {
   if (!accessToken || !SUPABASE_URL || !SUPABASE_KEY) return null;
 
   try {
+    console.log('[PROCESAR IMAGEN WHATSAPP] Solicitando URL a Meta para mediaId:', mediaId);
     const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     });
-    if (!metaRes.ok) return null;
+    if (!metaRes.ok) {
+      console.error('[PROCESAR IMAGEN WHATSAPP Meta Error]:', metaRes.status, await metaRes.text());
+      return null;
+    }
     const metaData = await metaRes.json();
     const downloadUrl = metaData.url;
     if (!downloadUrl) return null;
 
+    console.log('[PROCESAR IMAGEN WHATSAPP] Descargando imagen desde Meta URL...');
     const imageRes = await fetch(downloadUrl, {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     });
-    if (!imageRes.ok) return null;
+    if (!imageRes.ok) {
+      console.error('[PROCESAR IMAGEN WHATSAPP Download Error]:', imageRes.status);
+      return null;
+    }
     const imageBuffer = await imageRes.arrayBuffer();
 
-    const filename = `comprobantes/pago_${Date.now()}_${fromPhone}.jpg`;
-    const storageRes = await fetch(`${SUPABASE_URL}/storage/v1/object/evidencias/${filename}`, {
+    const filename = `whatsapp/pago_${Date.now()}_${fromPhone}.jpg`;
+    console.log('[PROCESAR IMAGEN WHATSAPP] Subiendo a Supabase Storage (bucket adjuntos)...', filename);
+
+    // Intentar primero en el bucket 'adjuntos'
+    let storageRes = await fetch(`${SUPABASE_URL}/storage/v1/object/adjuntos/${filename}`, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_KEY,
@@ -396,11 +407,36 @@ export async function procesarImagenWhatsApp(mediaId, fromPhone) {
     });
 
     if (storageRes.ok) {
-      return `${SUPABASE_URL}/storage/v1/object/public/evidencias/${filename}`;
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/adjuntos/${filename}`;
+      console.log('[PROCESAR IMAGEN WHATSAPP] Subida exitosa a bucket adjuntos:', publicUrl);
+      return publicUrl;
     }
-    return downloadUrl;
+
+    // Fallback a bucket 'evidencias'
+    const storageErrText = await storageRes.text();
+    console.warn('[PROCESAR IMAGEN WHATSAPP] Subida a adjuntos falló, probando evidencias:', storageRes.status, storageErrText);
+
+    storageRes = await fetch(`${SUPABASE_URL}/storage/v1/object/evidencias/${filename}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'image/jpeg',
+        'x-upsert': 'true'
+      },
+      body: imageBuffer
+    });
+
+    if (storageRes.ok) {
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/evidencias/${filename}`;
+      console.log('[PROCESAR IMAGEN WHATSAPP] Subida exitosa a bucket evidencias:', publicUrl);
+      return publicUrl;
+    }
+
+    console.error('[PROCESAR IMAGEN WHATSAPP Error final Storage]:', storageRes.status, await storageRes.text());
+    return null;
   } catch (err) {
-    console.error('[PROCESAR IMAGEN WHATSAPP ERROR]:', err);
+    console.error('[PROCESAR IMAGEN WHATSAPP EXCEPTION]:', err);
     return null;
   }
 }

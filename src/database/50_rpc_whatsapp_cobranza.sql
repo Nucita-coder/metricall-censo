@@ -82,7 +82,7 @@ BEGIN
     v_nombre_final := v_nombre_final || ' (' || p_cedula || ')';
   END IF;
 
-  -- 3. Crear tarjeta de Cobranza
+  -- 3. Crear tarjeta de Cobranza con adjuntos
   INSERT INTO public.tarjetas (lista_id, empresa_id, creador_id, datos_valores)
   VALUES (
     v_lista_id,
@@ -97,7 +97,8 @@ BEGIN
       'bancoOrigen',         COALESCE(p_banco, ''),
       'telefonoMovil',       COALESCE(p_telefono, ''),
       'comprobantePagoUrl',  COALESCE(p_comprobante_url, ''),
-      'origen',              'WhatsApp Bot (Reporte de Pago)',
+      'adjuntos',            CASE WHEN p_comprobante_url IS NOT NULL AND p_comprobante_url <> '' THEN jsonb_build_array(p_comprobante_url) ELSE jsonb_build_array() END,
+      'origen',              'WhatsApp Bot',
       'fechaPago',           to_char(now(), 'YYYY-MM-DD'),
       'estadoCobranza',      'Pendiente Verificación'
     )
@@ -110,3 +111,4 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.bot_crear_tarjeta_cobranza(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.bot_crear_tarjeta_cobranza(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+

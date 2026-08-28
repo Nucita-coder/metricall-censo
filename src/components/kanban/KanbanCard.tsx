@@ -1,4 +1,4 @@
-import { Hash, Phone, User } from 'lucide-react-native';
+import { Hash, Paperclip, Phone, User } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
@@ -301,7 +301,7 @@ const KanbanCardComponent = ({
                     </View>
                   ) : null}
                 </View>
-                {(data.tipoContacto || data.resultadoContacto) && (
+                {(data.tipoContacto || data.resultadoContacto || data.comprobantePagoUrl || (Array.isArray(data.adjuntos) && data.adjuntos.length > 0)) && (
                   <View style={{ marginTop: 6, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                     {data.tipoContacto ? (
                       <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.3)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
@@ -321,6 +321,14 @@ const KanbanCardComponent = ({
                           </View>
                         );
                       })()
+                    ) : null}
+                    {(data.comprobantePagoUrl || (Array.isArray(data.adjuntos) && data.adjuntos.length > 0)) ? (
+                      <View style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.3)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, flexDirection: 'row', alignItems: 'center' }}>
+                        <Paperclip size={10} color="#4ADE80" style={{ marginRight: 3 }} />
+                        <Text style={{ fontSize: 9, color: '#4ADE80', fontWeight: 'bold' }}>
+                          COMPROBANTE ADJUNTO
+                        </Text>
+                      </View>
                     ) : null}
                   </View>
                 )}

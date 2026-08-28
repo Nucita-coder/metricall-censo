@@ -77,9 +77,9 @@ BEGIN
     LIMIT 1;
   END IF;
 
-  v_nombre_final := COALESCE(NULLIF(p_nombre, ''), 'Cliente Pago WhatsApp');
+  v_nombre_final := COALESCE(NULLIF(p_nombre, ''), 'Pago');
   IF p_cedula IS NOT NULL AND p_cedula <> '' THEN
-    v_nombre_final := v_nombre_final || ' (' || p_cedula || ')';
+    v_nombre_final := 'Pago (' || p_cedula || ')';
   END IF;
 
   -- 3. Crear tarjeta de Cobranza con adjuntos

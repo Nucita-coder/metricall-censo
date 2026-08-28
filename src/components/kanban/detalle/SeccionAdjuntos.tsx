@@ -10,9 +10,11 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
   const data = tarjeta.datos_valores || {};
   const [subiendoImagen, setSubiendoImagen] = useState(false);
 
-  // La evidencia es inmutable si ya se registró la gestión de contacto o la tarjeta fue enviada
+  // La evidencia es inmutable si ya se registró la gestión de contacto, la tarjeta fue enviada,
+  // o si el adjunto proviene del bot de WhatsApp (comprobantePagoUrl presente = no se puede eliminar)
   const esEvidenciaInmutable = Boolean(
     data.adjuntosRegistrados ||
+    data.comprobantePagoUrl ||           // ← imagen de WhatsApp: siempre permanente
     (Array.isArray(data.gestionesCobranza) && data.gestionesCobranza.length > 0) ||
     data.resultadoContacto ||
     (Array.isArray(data.gestiones) && data.gestiones.length > 0)

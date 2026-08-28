@@ -18,6 +18,7 @@ AS $$
 DECLARE
   v_lista_id   UUID;
   v_empresa_id UUID;
+  v_creador_id UUID;
   v_tarjeta_id UUID;
 BEGIN
   -- Buscar la lista "ventas online" (case-insensitive)
@@ -38,15 +39,48 @@ BEGIN
     LIMIT 1;
   END IF;
 
+  -- Fallback final: primera lista disponible
   IF v_lista_id IS NULL THEN
-    RAISE EXCEPTION 'No se encontró ninguna lista de ventas online en la base de datos';
+    SELECT id, empresa_id
+    INTO v_lista_id, v_empresa_id
+    FROM public.listas
+    ORDER BY created_at ASC
+    LIMIT 1;
   END IF;
 
-  -- Insertar la tarjeta
-  INSERT INTO public.tarjetas (lista_id, empresa_id, datos_valores)
+  IF v_lista_id IS NULL THEN
+    RAISE EXCEPTION 'No se encontró ninguna lista en la base de datos';
+  END IF;
+
+  -- Obtener el creador_id: el líder de la empresa (primer perfil con rol lider)
+  SELECT id
+  INTO v_creador_id
+  FROM public.perfiles
+  WHERE empresa_id = v_empresa_id
+    AND rol = 'lider'
+  ORDER BY created_at ASC
+  LIMIT 1;
+
+  -- Fallback: cualquier perfil de la empresa
+  IF v_creador_id IS NULL THEN
+    SELECT id
+    INTO v_creador_id
+    FROM public.perfiles
+    WHERE empresa_id = v_empresa_id
+    ORDER BY created_at ASC
+    LIMIT 1;
+  END IF;
+
+  IF v_creador_id IS NULL THEN
+    RAISE EXCEPTION 'No se encontró ningún perfil en la empresa para asignar como creador';
+  END IF;
+
+  -- Insertar la tarjeta con el creador_id del líder
+  INSERT INTO public.tarjetas (lista_id, empresa_id, creador_id, datos_valores)
   VALUES (
     v_lista_id,
     v_empresa_id,
+    v_creador_id,
     jsonb_build_object(
       'nombreApellido', p_nombre,
       'sector',         p_sector,
@@ -61,6 +95,7 @@ BEGIN
 END;
 $$;
 
--- Dar acceso a usuarios anónimos para ejecutar esta función
+-- Dar acceso a usuarios anónimos y autenticados para ejecutar esta función
 GRANT EXECUTE ON FUNCTION public.bot_crear_tarjeta_suscripcion(TEXT, TEXT, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.bot_crear_tarjeta_suscripcion(TEXT, TEXT, TEXT) TO authenticated;
+

@@ -134,9 +134,6 @@ export const ModalDetalleTarjeta = ({
 
   const renderFaseDinamica = () => {
     const clean = listaActualNombre.toLowerCase().trim().replace(/_/g, ' ');
-    if (clean.includes('cobranza') || clean.includes('efectiva') || clean.includes('negativa') || tarjetaSeleccionada?.datos_valores?.origenImportacion === 'COBRANZA-RECUPERO-CHURN' || tarjetaSeleccionada?.datos_valores?.nroAbonado !== undefined) {
-      return <FaseCobranza {...faseProps} />;
-    }
     if (clean.includes('factibilidad')) return <FaseFactibilidad {...faseProps} />;
     if (clean.includes('liberad')) return <FaseLiberada {...faseProps} />;
     if (clean.includes('por instalar') || clean.includes('instalar')) return <FasePorInstalar {...faseProps} />;
@@ -144,11 +141,17 @@ export const ModalDetalleTarjeta = ({
     if (clean.includes('proceso')) return <FaseEnProceso {...faseProps} />;
     if (clean.includes('activar')) return <FasePorActivar {...faseProps} />;
     if (clean.includes('activo')) return <FaseClienteActivo {...faseProps} />;
+    if (clean.includes('cobranza') || clean.includes('efectiva') || clean.includes('negativa')) {
+      return <FaseCobranza {...faseProps} />;
+    }
     // Tarjetas de Gestión Online (WhatsApp Bot) solo mientras estén en la lista de gestión online (nunca en Censo)
     if ((clean.includes('ventas online') || clean.includes('gestion online') || clean.includes('gestión online')) && !isCensoFormat) {
       return <FaseGestionOnline {...faseProps} />;
     }
     if (clean.includes('venta')) return <FaseVenta {...faseProps} />;
+    if (tarjetaSeleccionada?.datos_valores?.origenImportacion === 'COBRANZA-RECUPERO-CHURN') {
+      return <FaseCobranza {...faseProps} />;
+    }
     return null;
   };
 

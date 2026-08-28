@@ -10,8 +10,8 @@ interface ModalCrearRecursoProps {
   setInputNombre: (v: string) => void;
   inputSecundario: string;
   setInputSecundario: (v: string) => void;
-  tipoTablero: 'instalaciones' | 'censo' | 'almacen' | 'cobranza';
-  setTipoTablero: (v: 'instalaciones' | 'censo' | 'almacen' | 'cobranza') => void;
+  tipoTablero: 'instalaciones' | 'censo' | 'almacen' | 'cobranza' | 'gestion_online';
+  setTipoTablero: (v: 'instalaciones' | 'censo' | 'almacen' | 'cobranza' | 'gestion_online') => void;
   isCreating: boolean;
   onConfirmar: () => void;
   onClose: () => void;
@@ -78,6 +78,14 @@ export function ModalCrearRecurso({
                 >
                   <Text style={[styles.selectorBtnText, tipoTablero === 'censo' && styles.selectorBtnTextActive]}>
                     Censo
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.selectorBtn, tipoTablero === 'gestion_online' && styles.selectorBtnActive]}
+                  onPress={() => setTipoTablero('gestion_online')}
+                >
+                  <Text style={[styles.selectorBtnText, tipoTablero === 'gestion_online' && styles.selectorBtnTextActive]}>
+                    Gestión Online
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -167,12 +175,15 @@ const styles = StyleSheet.create({
   },
   selectorContainer: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 24,
   },
   selectorBtn: {
     flex: 1,
+    minWidth: 100,
     paddingVertical: 12,
+    paddingHorizontal: 8,
     borderWidth: 2,
     borderColor: '#384148',
     borderRadius: 12,

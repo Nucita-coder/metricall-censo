@@ -7,7 +7,7 @@ export interface Tablero {
   id: string;
   nombre: string;
   descripcion: string | null;
-  tipo: 'instalaciones' | 'censo' | 'almacen' | 'cobranza';
+  tipo: 'instalaciones' | 'censo' | 'almacen' | 'cobranza' | 'gestion_online';
   fondo_url?: string;
   es_favorito?: boolean;
   es_anclado?: boolean;

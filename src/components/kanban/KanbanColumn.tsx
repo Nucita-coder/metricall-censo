@@ -252,6 +252,15 @@ const KanbanColumnComponent = ({
             ListFooterComponent={() => {
               if (!puedeCrear || isCobranzaBoard) return null;
               const nombreLower = item.nombre ? item.nombre.toLowerCase().trim() : '';
+
+              if (
+                nombreLower.includes('ventas online') ||
+                nombreLower.includes('reporte falla') ||
+                nombreLower.includes('reporte pago')
+              ) {
+                return null;
+              }
+
               const isDevolucionCentralColumn = nombreLower.includes('almacén central') || nombreLower.includes('almacen central');
               const isDevolucionAsignacionColumn = !isDevolucionCentralColumn && (nombreLower.includes('devolución de asignación') || nombreLower.includes('devolucion de asignacion') || nombreLower.includes('devolucion'));
 

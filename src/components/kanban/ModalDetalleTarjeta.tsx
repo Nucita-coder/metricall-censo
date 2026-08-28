@@ -109,15 +109,15 @@ export const ModalDetalleTarjeta = ({
       return <FaseCobranza {...faseProps} />;
     }
     if (clean.includes('factibilidad')) return <FaseFactibilidad {...faseProps} />;
-    // Tarjetas de Gestión Online (WhatsApp Bot)
-    if (clean.includes('ventas online') || clean.includes('gestion online') || clean.includes('gestión online') || tarjetaSeleccionada?.datos_valores?.origen === 'WhatsApp Bot') return <FaseGestionOnline {...faseProps} />;
-    if (clean.includes('venta')) return <FaseVenta {...faseProps} />;
+    if (clean.includes('liberad')) return <FaseLiberada {...faseProps} />;
     if (clean.includes('por instalar') || clean.includes('instalar')) return <FasePorInstalar {...faseProps} />;
     if (clean.includes('asignado')) return <FaseAsignadoA {...faseProps} />;
-    if (clean.includes('liberad')) return <FaseLiberada {...faseProps} />;
     if (clean.includes('proceso')) return <FaseEnProceso {...faseProps} />;
     if (clean.includes('activar')) return <FasePorActivar {...faseProps} />;
     if (clean.includes('activo')) return <FaseClienteActivo {...faseProps} />;
+    // Tarjetas de Gestión Online (WhatsApp Bot) mientras están en su lista original
+    if (clean.includes('ventas online') || clean.includes('gestion online') || clean.includes('gestión online') || tarjetaSeleccionada?.datos_valores?.origen === 'WhatsApp Bot') return <FaseGestionOnline {...faseProps} />;
+    if (clean.includes('venta')) return <FaseVenta {...faseProps} />;
     return null;
   };
 

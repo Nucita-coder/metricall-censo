@@ -37,6 +37,7 @@ export const FaseGestionOnline = ({
       // Registrar motivo en datos_valores
       await onUpdateTarjeta({
         motivoLiberada: 'No se pudo instalar por no haber caja en el sector',
+        motivoLiberacion: 'No se pudo instalar por no haber caja en el sector',
         estadoGestion: 'liberada_sin_caja',
       });
 

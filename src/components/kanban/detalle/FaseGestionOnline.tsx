@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
-import { AlertTriangle } from 'lucide-react-native';
+import { AlertTriangle, UserX } from 'lucide-react-native';
 import { FaseProps, findListaTarget } from './types';
 import { renderSection } from './SeccionRegistro';
 import { useErrorDiagnostics } from '../../../context/ErrorDiagnosticsContext';
@@ -23,30 +23,29 @@ export const FaseGestionOnline = ({
 }: FaseProps) => {
   const { showDiagnosticError } = useErrorDiagnostics();
   const [confirmandoSinCaja, setConfirmandoSinCaja] = useState(false);
+  const [confirmandoNoQuiso, setConfirmandoNoQuiso] = useState(false);
 
+  // 1. Handler: Sector sin caja (Mueve a LIBERADA en Ventas/Instalaciones)
   const handleSectorSinCaja = async () => {
     if (!confirmandoSinCaja) {
-      // Primer toque: pedir confirmación
       setConfirmandoSinCaja(true);
+      setConfirmandoNoQuiso(false);
       return;
     }
 
     setIsSaving(true);
     setConfirmandoSinCaja(false);
     try {
-      // Registrar motivo en datos_valores
       await onUpdateTarjeta({
         motivoLiberada: 'No se pudo instalar por no haber caja en el sector',
         motivoLiberacion: 'No se pudo instalar por no haber caja en el sector',
         estadoGestion: 'liberada_sin_caja',
       });
 
-      // 1. Buscar primero en las listas del tablero actual
       let destId =
         findListaTarget(listasGlobales, 'liberada')?.id ||
         listasGlobales.find(l => (l.nombre || '').toLowerCase().includes('liberada'))?.id;
 
-      // 2. Si la lista 'Liberada' está en otro tablero (ej: Ventas/Instalaciones), buscarla en Supabase
       if (!destId) {
         let query = supabase
           .from('listas')
@@ -58,14 +57,8 @@ export const FaseGestionOnline = ({
         }
 
         const { data: listasBd, error: errBd } = await query.limit(1);
-
-        if (errBd) {
-          console.error('[GESTION ONLINE] Error buscando lista Liberada en BD:', errBd);
-        }
-
-        if (listasBd && listasBd.length > 0) {
-          destId = listasBd[0].id;
-        }
+        if (errBd) console.error('[GESTION ONLINE] Error buscando lista Liberada en BD:', errBd);
+        if (listasBd && listasBd.length > 0) destId = listasBd[0].id;
       }
 
       if (!destId) {
@@ -88,13 +81,69 @@ export const FaseGestionOnline = ({
     }
   };
 
+  // 2. Handler: No quiso servicio (Mueve a NO DESEA en Censo)
+  const handleNoQuisoServicio = async () => {
+    if (!confirmandoNoQuiso) {
+      setConfirmandoNoQuiso(true);
+      setConfirmandoSinCaja(false);
+      return;
+    }
+
+    setIsSaving(true);
+    setConfirmandoNoQuiso(false);
+    try {
+      await onUpdateTarjeta({
+        motivoNoDesea: 'Cliente manifestó no querer el servicio',
+        estadoGestion: 'no_quiso_servicio',
+      });
+
+      let destId =
+        findListaTarget(listasGlobales, 'no_desea')?.id ||
+        findListaTarget(listasGlobales, 'no desea')?.id ||
+        listasGlobales.find(l => (l.nombre || '').toLowerCase().includes('no desea'))?.id;
+
+      if (!destId) {
+        let query = supabase
+          .from('listas')
+          .select('id, nombre')
+          .ilike('nombre', '%no desea%');
+
+        if (tarjeta.empresa_id) {
+          query = query.eq('empresa_id', tarjeta.empresa_id);
+        }
+
+        const { data: listasBd, error: errBd } = await query.limit(1);
+        if (errBd) console.error('[GESTION ONLINE] Error buscando lista NO DESEA en BD:', errBd);
+        if (listasBd && listasBd.length > 0) destId = listasBd[0].id;
+      }
+
+      if (!destId) {
+        throw new Error("No se encontró la lista 'NO DESEA' en la base de datos.");
+      }
+
+      await autoMoverTarjeta(tarjeta, destId);
+
+      if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
+      if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
+    } catch (e: any) {
+      showDiagnosticError(
+        'ERR-GESTION-ONLINE-NO-QUIZO',
+        'Error al mover la tarjeta a la lista NO DESEA de Censo.',
+        e,
+        'GestionOnline'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return renderSection('Acciones de Gestión Online', (
     <View>
       <Text style={{ fontSize: 13, color: '#8C9BAB', marginBottom: 16, lineHeight: 20 }}>
         Selecciona la acción correspondiente para esta solicitud recibida por WhatsApp.
       </Text>
 
-      {/* ── Botón: Sector sin caja ───────────────────────────── */}
+      {/* ── Botón 1: Sector sin caja ──────────────────────────── */}
       <TouchableOpacity
         style={{
           backgroundColor: confirmandoSinCaja ? '#E84040' : '#2C333A',
@@ -112,7 +161,7 @@ export const FaseGestionOnline = ({
         onPress={handleSectorSinCaja}
         disabled={isSaving}
       >
-        {isSaving ? (
+        {isSaving && confirmandoSinCaja ? (
           <ActivityIndicator color="#FFF" />
         ) : (
           <>
@@ -148,10 +197,64 @@ export const FaseGestionOnline = ({
         </View>
       )}
 
-      {/* ── Placeholder para los 3 botones restantes ─────────── */}
+      {/* ── Botón 2: No quiso servicio ───────────────────────── */}
+      <TouchableOpacity
+        style={{
+          backgroundColor: confirmandoNoQuiso ? '#D97706' : '#2C333A',
+          borderWidth: 1,
+          borderColor: confirmandoNoQuiso ? '#D97706' : '#F59E0B',
+          borderRadius: 8,
+          padding: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          marginBottom: 10,
+          opacity: isSaving ? 0.6 : 1,
+        }}
+        onPress={handleNoQuisoServicio}
+        disabled={isSaving}
+      >
+        {isSaving && confirmandoNoQuiso ? (
+          <ActivityIndicator color="#FFF" />
+        ) : (
+          <>
+            <UserX size={16} color={confirmandoNoQuiso ? '#FFF' : '#F59E0B'} />
+            <Text style={{ color: confirmandoNoQuiso ? '#FFF' : '#F59E0B', fontWeight: 'bold', fontSize: 14 }}>
+              {confirmandoNoQuiso ? '¿Confirmar? Toca de nuevo para mover a Censo' : 'No quiso servicio'}
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
+
+      {confirmandoNoQuiso && (
+        <View style={{
+          backgroundColor: '#2A2115',
+          borderRadius: 8,
+          padding: 12,
+          marginBottom: 10,
+          borderWidth: 1,
+          borderColor: '#F59E0B44',
+        }}>
+          <Text style={{ color: '#FBBF24', fontSize: 12, lineHeight: 18 }}>
+            ⚠️ La tarjeta se moverá al tablero <Text style={{ fontWeight: 'bold' }}>Censo</Text> en la lista <Text style={{ fontWeight: 'bold' }}>NO DESEA</Text>.
+          </Text>
+          <TouchableOpacity
+            style={{ marginTop: 8, alignSelf: 'flex-start' }}
+            onPress={() => setConfirmandoNoQuiso(false)}
+          >
+            <Text style={{ color: '#8C9BAB', fontSize: 12, textDecorationLine: 'underline' }}>
+              Cancelar
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── Placeholder para los 2 botones restantes ─────────── */}
       <Text style={{ fontSize: 11, color: '#4A5568', marginTop: 8, fontStyle: 'italic' }}>
         Más acciones próximamente...
       </Text>
     </View>
   ));
 };
+

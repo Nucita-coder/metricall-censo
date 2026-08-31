@@ -1,7 +1,8 @@
-import { Save, X } from 'lucide-react-native';
+import { MapPin, Save, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
+import { ModalMapaUbicacion } from '../../tarjetas/ModalMapaUbicacion';
 import { DatePickerInput, InputTexto, SelectDropdown } from '../../venta/CamposVenta';
 
 export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting }: any) => {
@@ -20,6 +21,11 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting }:
     equipoAdicional: '',
     nroAbonado: '',
   });
+
+  // Estado de ubicación
+  const [ubicacion, setUbicacion] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [ubicacionTemporal, setUbicacionTemporal] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mostrarMapa, setMostrarMapa] = useState(false);
 
   const updateForm = (key: string, value: string) => setFormData(prev => ({ ...prev, [key]: value }));
 
@@ -40,7 +46,15 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting }:
       return;
     }
 
-    onConfirm(formData);
+    // Añadir ubicación al formData si existe
+    const datosFinales: any = { ...formData };
+    if (ubicacion) {
+      datosFinales.latitud = ubicacion.latitude;
+      datosFinales.longitud = ubicacion.longitude;
+      datosFinales.ubicacion_cliente = { lat: ubicacion.latitude, lng: ubicacion.longitude };
+    }
+
+    onConfirm(datosFinales);
   };
 
   return (
@@ -105,6 +119,35 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting }:
           <InputTexto label="Nro. de Abonado" value={formData.nroAbonado} onChangeText={(v: string) => updateForm('nroAbonado', v)} placeholder="Si aplica" keyboardType="numeric" />
         </View>
 
+        {/* ── Sección Ubicación ──────────────────────────────── */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Ubicación del Cliente</Text>
+
+          <TouchableOpacity
+            style={[
+              styles.mapBtn,
+              ubicacion ? styles.mapBtnSuccess : styles.mapBtnDefault,
+            ]}
+            onPress={() => {
+              setUbicacionTemporal(ubicacion);
+              setMostrarMapa(true);
+            }}
+          >
+            <MapPin size={18} color={ubicacion ? '#16A34A' : '#0C66E4'} />
+            <Text style={[styles.mapBtnText, { color: ubicacion ? '#16A34A' : '#0C66E4' }]}>
+              {ubicacion
+                ? `📍 Ubicación fijada (${ubicacion.latitude.toFixed(5)}, ${ubicacion.longitude.toFixed(5)})`
+                : 'Abrir mapa para fijar ubicación'}
+            </Text>
+          </TouchableOpacity>
+
+          {ubicacion && (
+            <TouchableOpacity onPress={() => setUbicacion(null)} style={{ marginTop: 6, alignSelf: 'flex-start' }}>
+              <Text style={{ color: '#8C9BAB', fontSize: 12, textDecorationLine: 'underline' }}>Quitar ubicación</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -114,6 +157,20 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting }:
           <Text style={styles.saveBtnText}>{isSubmitting ? "Convirtiendo..." : "Confirmar y Enviar a Factibilidad"}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Modal del Mapa */}
+      <ModalMapaUbicacion
+        visible={mostrarMapa}
+        latitud={ubicacion?.latitude ?? null}
+        longitud={ubicacion?.longitude ?? null}
+        ubicacionTemporal={ubicacionTemporal}
+        setUbicacionTemporal={setUbicacionTemporal}
+        onConfirmar={(loc) => {
+          setUbicacion(loc);
+          setMostrarMapa(false);
+        }}
+        onCancelar={() => setMostrarMapa(false)}
+      />
     </View>
   );
 };
@@ -135,5 +192,12 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '900', color: '#B6C2CF', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#384148', paddingBottom: 8, width: '100%' },
   footer: { backgroundColor: '#2C333A', padding: 16, borderTopWidth: 1, borderTopColor: '#384148', paddingBottom: 30 },
   saveBtn: { backgroundColor: '#0C66E4', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12 },
-  saveBtnText: { color: '#FFF', fontWeight: '900', fontSize: 18, marginLeft: 8 }
+  saveBtnText: { color: '#FFF', fontWeight: '900', fontSize: 18, marginLeft: 8 },
+  mapBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderWidth: 1, borderRadius: 10, paddingVertical: 14, paddingHorizontal: 16,
+  },
+  mapBtnDefault: { borderColor: '#0C66E4', backgroundColor: '#1A2A3A' },
+  mapBtnSuccess: { borderColor: '#16A34A', backgroundColor: '#0F2B1A' },
+  mapBtnText: { fontWeight: 'bold', fontSize: 14, flex: 1 },
 });

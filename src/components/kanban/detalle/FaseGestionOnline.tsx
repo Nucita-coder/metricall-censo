@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
-import { AlertTriangle, Clock, UserX } from 'lucide-react-native';
+import { ActivityIndicator, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { AlertTriangle, Clock, ShoppingCart, UserX, X } from 'lucide-react-native';
 import { FaseProps, findListaTarget } from './types';
 import { renderSection } from './SeccionRegistro';
 import { useErrorDiagnostics } from '../../../context/ErrorDiagnosticsContext';
 import { supabase } from '../../../lib/supabase';
+import { FormularioConversionVenta } from './FormularioConversionVenta';
 
 /**
  * FaseGestionOnline
@@ -22,9 +23,13 @@ export const FaseGestionOnline = ({
   setTarjetaSeleccionada,
 }: FaseProps) => {
   const { showDiagnosticError } = useErrorDiagnostics();
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
   const [confirmandoSinCaja, setConfirmandoSinCaja] = useState(false);
   const [confirmandoNoQuiso, setConfirmandoNoQuiso] = useState(false);
   const [confirmandoCompraraLuego, setConfirmandoCompraraLuego] = useState(false);
+  const [mostrarFormularioVenta, setMostrarFormularioVenta] = useState(false);
+  const [isSavingVenta, setIsSavingVenta] = useState(false);
 
   // 1. Handler: Sector sin caja (Mueve a LIBERADA en Ventas/Instalaciones)
   const handleSectorSinCaja = async () => {
@@ -372,12 +377,86 @@ export const FaseGestionOnline = ({
         </View>
       )}
 
-      {/* ── Placeholder para el último botón restante ───────── */}
-      <Text style={{ fontSize: 11, color: '#4A5568', marginTop: 8, fontStyle: 'italic' }}>
-        Más acciones próximamente...
-      </Text>
+      {/* ── Botón 4: Compra Efectiva ───────────────────── */}
+      <TouchableOpacity
+        style={{
+          backgroundColor: '#2C333A',
+          borderWidth: 1,
+          borderColor: '#22C55E',
+          borderRadius: 8,
+          padding: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          marginBottom: 10,
+          opacity: isSaving ? 0.6 : 1,
+        }}
+        onPress={() => {
+          setConfirmandoSinCaja(false);
+          setConfirmandoNoQuiso(false);
+          setConfirmandoCompraraLuego(false);
+          setMostrarFormularioVenta(true);
+        }}
+        disabled={isSaving}
+      >
+        <ShoppingCart size={16} color="#22C55E" />
+        <Text style={{ color: '#22C55E', fontWeight: 'bold', fontSize: 14 }}>
+          Compra Efectiva
+        </Text>
+      </TouchableOpacity>
+
+      {/* ── Modal: Formulario de Datos de Venta ───────── */}
+      <Modal
+        visible={mostrarFormularioVenta}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setMostrarFormularioVenta(false)}
+        {...(Platform.OS === 'web' ? {} : {})}
+      >
+        <FormularioConversionVenta
+          isSubmitting={isSavingVenta}
+          onCancel={() => setMostrarFormularioVenta(false)}
+          onConfirm={async (datosComerciales: any) => {
+            setIsSavingVenta(true);
+            try {
+              const oldData = tarjeta.datos_valores || {};
+
+              // Mapear campos de la tarjeta WhatsApp al formato de ventas
+              const nuevosDatos = {
+                ...oldData,
+                ...datosComerciales,
+                tipoServicio: datosComerciales.tipoServicio || '',
+                documentoIdentidad: oldData.documentoIdentidad || oldData.cedula || '',
+                telefonoMovil: oldData.telefonoMovil || oldData.telefono || '',
+                sector: oldData.sector || '',
+                origen: 'WhatsApp Bot → Venta Efectiva',
+                estadoGestion: 'compra_efectiva',
+              };
+
+              const { error: rpcError } = await supabase.rpc('convertir_venta_factibilidad', {
+                p_tarjeta_id: tarjeta.id,
+                p_nuevos_datos: nuevosDatos,
+              });
+
+              if (rpcError) throw rpcError;
+
+              setMostrarFormularioVenta(false);
+              if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
+              if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
+            } catch (e: any) {
+              showDiagnosticError(
+                'ERR-GESTION-ONLINE-COMPRA-EFECTIVA',
+                'Error al convertir la tarjeta a Venta Efectiva en Instalaciones.',
+                e,
+                'GestionOnline'
+              );
+            } finally {
+              setIsSavingVenta(false);
+            }
+          }}
+        />
+      </Modal>
     </View>
   ));
 };
-
-

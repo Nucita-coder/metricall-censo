@@ -68,8 +68,8 @@ export const COBRANZA_RESULTADO_COLORS: Record<string, ResultadoColorConfig> = {
   'ABONO PARCIALMENTE':      { bg: 'rgba(59,130,246,0.18)',  text: '#60A5FA', border: '#2563EB', barColor: '#3B82F6' },
   // 4. Verde Menta / Teal
   'RECUPERADO':              { bg: 'rgba(20,184,166,0.18)',  text: '#2DD4BF', border: '#0D9488', barColor: '#14B8A6' },
-  // 5. Gris Pizarra – contesto pero neutro
-  'NO CONTESTO':             { bg: 'rgba(100,116,139,0.22)', text: '#CBD5E1', border: '#475569', barColor: '#64748B' },
+  // 5. Azul Cobalto – no contestó
+  'NO CONTESTO':             { bg: 'rgba(59, 130, 246, 0.15)', text: '#3B82F6', border: 'rgba(59, 130, 246, 0.35)', barColor: '#3B82F6' },
   // 6. Índigo Suave
   'LUEGO PASA POR OFIC':     { bg: 'rgba(99,102,241,0.18)', text: '#818CF8', border: '#4F46E5', barColor: '#6366F1' },
   // 7. Ámbar Dorado – zona límite

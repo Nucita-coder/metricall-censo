@@ -27,11 +27,11 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
   const GROUPS = [
     {
       title: '1. Información del Cliente (Identidad)',
-      keys: ['nombreApellido', 'tipoDocumento', 'documentoIdentidad', 'fechaNacimiento']
+      keys: ['nombreCliente', 'nombre', 'cliente', 'nombreApellido', 'tipoFalla', 'tipoDocumento', 'documentoIdentidad', 'fechaNacimiento']
     },
     {
       title: '2. Datos de Contacto',
-      keys: ['telefonoMovil', 'telefonoAdicional', 'telefonoResidencial', 'correo']
+      keys: ['telefonoMovil', 'telefono', 'nroTelefonoMovil', 'celular', 'telefonoAdicional', 'telefonoResidencial', 'correo', 'email']
     },
     {
       title: '3. Dirección y Geolocalización',
@@ -64,14 +64,21 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
     const docId = String(data.documentoIdentidad || data.nroIdentidad || '').trim();
     const abonadoVal = String(data.nroAbonado || data.abonado || '').trim();
 
-    const isReportePago = Boolean(
+    const lowerLista = (tarjeta.lista_id ? String(tarjeta.lista_id) : '').toLowerCase();
+    const isReporteFalla = Boolean(
+      data.tipoFalla || data.estadoSoporte ||
+      nombreAp.toLowerCase().includes('falla') ||
+      lowerLista.includes('falla') || lowerLista.includes('soporte')
+    );
+
+    const isReportePago = !isReporteFalla && Boolean(
       data.comprobantePagoUrl || data.bancoOrigen || data.montoPago ||
       (data.estadoCobranza && ['Pago Procesado', 'Pago Rechazado', 'Pago Pendiente Revisión', 'Pago En Revisión', 'Pendiente Verificación'].includes(data.estadoCobranza)) ||
       nombreAp.toLowerCase().startsWith('pago (')
     );
 
     const isDocRedundante = isReportePago || (docId !== '' && nombreAp.includes(docId));
-    const isAbonadoRedundante = isReportePago && (abonadoVal === '' || abonadoVal === docId || nombreAp.includes(abonadoVal));
+    const isAbonadoRedundante = isReportePago || isReporteFalla || (abonadoVal !== '' && (abonadoVal === docId || nombreAp.includes(abonadoVal)));
 
     const getValue = (k: string) => {
       const v = data[k];
@@ -83,6 +90,13 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
     };
 
     const getDisplayLabel = (k: string, defaultKey: string) => {
+      if (['nombreCliente', 'nombre', 'cliente'].includes(k)) return 'NOMBRE APELLIDO';
+      if (['telefonoMovil', 'telefono', 'nroTelefonoMovil', 'celular'].includes(k)) return 'TELÉFONO MÓVIL';
+      if (k === 'telefonoAdicional') return 'TELÉFONO ADICIONAL';
+      if (k === 'telefonoResidencial') return 'TELÉFONO RESIDENCIAL';
+      if (k === 'correo' || k === 'email') return 'CORREO ELECTRÓNICO';
+      if (k === 'tipoFalla') return 'TIPO DE FALLA';
+      if (isReporteFalla && k === 'nombreApellido') return 'ASUNTO / DETALLE DE FALLA';
       if (isReportePago) {
         if (k === 'nombreApellido') return 'NRO DE ABONADO';
         if (k === 'montoPago' || k === 'monto') return 'MONTO PAGADO';
@@ -101,13 +115,35 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
       },
       GROUPS[4],
       GROUPS[5]
+    ] : isReporteFalla ? [
+      GROUPS[0],
+      GROUPS[1],
+      GROUPS[2],
+      GROUPS[4],
+      GROUPS[5]
     ] : GROUPS;
 
     const groupsUI = activeGroups.map((group, idx) => {
+      let clientNameAdded = false;
+      let mainPhoneAdded = false;
       let fieldsToRender = group.keys.filter(k => {
         if (!data.hasOwnProperty(k)) return false;
         if (isDocRedundante && (k === 'documentoIdentidad' || k === 'tipoDocumento')) return false;
         if (isAbonadoRedundante && (k === 'nroAbonado' || k === 'abonado')) return false;
+
+        if (['nombreCliente', 'nombre', 'cliente'].includes(k)) {
+          if (clientNameAdded) return false;
+          const val = String(data[k] || '').trim();
+          if (!val || val.toLowerCase() === 'cliente whatsapp') return false;
+          clientNameAdded = true;
+        }
+
+        if (['telefonoMovil', 'telefono', 'nroTelefonoMovil', 'celular'].includes(k)) {
+          if (mainPhoneAdded) return false;
+          const val = String(data[k] || '').trim();
+          if (!val) return false;
+          mainPhoneAdded = true;
+        }
         return true;
       }).map(k => {
         processedKeys.add(k);

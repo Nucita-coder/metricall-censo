@@ -343,20 +343,32 @@ export async function extraerDatosFalla(userText, numeroEmisor) {
     let telefono = null;
     let nombre = null;
 
+    // 1. Extraer Cédula / Abonado (6 a 9 dígitos, opcionalmente prefijada con V, E, J, P)
     const cedulaMatch = txt.match(/(?:cedula|cédula|abonado|ci|v-?)\s*:?\s*([VvEeJjPp]?-?\d{6,9})/i);
-    if (cedulaMatch) cedula = cedulaMatch[1];
+    if (cedulaMatch) {
+      cedula = cedulaMatch[1];
+    } else {
+      const numMatch = txt.match(/\b([VvEeJjPp]?-?\d{6,9})\b/);
+      if (numMatch) cedula = numMatch[0];
+    }
 
+    // 2. Extraer Teléfono
     const telMatch = txt.match(/(?:telefono|teléfono|contacto|movil|móvil|nro|celular)\s*:?\s*(\+?\d{10,13})/i);
     if (telMatch) telefono = telMatch[1].replace(/\D/g, '');
 
-    const partes = txt.split(/[,;\n]+/).map(p => p.trim()).filter(Boolean);
-    if (partes[0] && !/\d{6,}/.test(partes[0])) {
-      nombre = partes[0].replace(/\b\w/g, c => c.toUpperCase());
-    }
+    // 3. Extraer Nombre: Remover cédula y teléfono del texto para aislar las palabras del nombre
+    let textoSinNumeros = txt;
+    if (cedula) textoSinNumeros = textoSinNumeros.replace(cedula, '');
+    if (telefono) textoSinNumeros = textoSinNumeros.replace(telefono, '');
+    textoSinNumeros = textoSinNumeros.replace(/(?:cedula|cédula|abonado|ci|v-?|telefono|teléfono|contacto|movil|móvil|nro|celular|nombre|cliente)\s*:?/gi, '');
 
-    if (!cedula) {
-      const numMatch = txt.match(/\b\d{6,9}\b/);
-      if (numMatch) cedula = numMatch[0];
+    const palabrasNombre = textoSinNumeros
+      .split(/[,;\n\s]+/)
+      .map(p => p.trim())
+      .filter(p => p.length > 1 && /^[a-zA-ZáéíóúÁÉÍÓÚñÑ]+$/.test(p));
+
+    if (palabrasNombre.length > 0) {
+      nombre = palabrasNombre.map(c => c.charAt(0).toUpperCase() + c.slice(1).toLowerCase()).join(' ');
     }
 
     return {
@@ -374,7 +386,7 @@ export async function extraerDatosFalla(userText, numeroEmisor) {
 Extrae la información requerida y responde ÚNICAMENTE con un JSON plano (sin formato markdown ni \`\`\`json):
 
 {
-  "nombre": "Nombre y Apellido del cliente (o 'Cliente WhatsApp' si no lo especifica)",
+  "nombre": "Nombre y Apellido del cliente (extrae el nombre real del texto; NUNCA devuelvas 'Cliente WhatsApp' si hay un nombre en el texto)",
   "cedula": "Cédula de Identidad o Número de Abonado (o 'No especificada')",
   "telefono": "Número telefónico de contacto si especificó uno distinto en el texto, de lo contrario 'DEFAULT'"
 }
@@ -410,9 +422,14 @@ Mensaje del cliente:
       : null;
     if (!tel || tel.length < 7) tel = numeroEmisor;
 
+    const basico = extraerBasicosFalla(userText);
+    const nombreFinal = (parsed.nombre && parsed.nombre !== 'Cliente WhatsApp' && parsed.nombre !== 'Nombre y Apellido del cliente')
+      ? parsed.nombre
+      : basico.nombre;
+
     return {
-      nombre:   parsed.nombre   || 'Cliente WhatsApp',
-      cedula:   parsed.cedula   || 'No especificada',
+      nombre:   nombreFinal || 'Cliente WhatsApp',
+      cedula:   parsed.cedula && parsed.cedula !== 'No especificada' ? parsed.cedula : basico.cedula,
       telefono: tel
     };
   } catch (err) {

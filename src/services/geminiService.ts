@@ -93,16 +93,35 @@ Mensaje del cliente:
 }
 
 function extraerDatosBasicos(texto: string, numeroEmisor: string): DatosSuscripcionExtraidos {
-  const partes = texto.split(/[,;\n]+/).map(p => p.trim()).filter(Boolean);
+  const txt = (texto || '').trim();
+  if (!txt) {
+    return { nombre: 'Cliente WhatsApp', sector: 'No especificado', telefono: numeroEmisor };
+  }
 
-  // Capitalizar primera letra de cada palabra
+  const matchTel = txt.match(/(?:04\d{9}|584\d{9}|\+?58\d{10}|\d{10,11})/);
+  const telefono = matchTel ? matchTel[0].replace(/\D/g, '') : numeroEmisor;
+
+  let textoSinTel = txt;
+  if (telefono) textoSinTel = textoSinTel.replace(telefono, '');
+  textoSinTel = textoSinTel.replace(/(?:cedula|cédula|abonado|ci|v-?|telefono|teléfono|contacto|movil|móvil|nro|celular|nombre|cliente)\s*:?/gi, '');
+
+  const partes = textoSinTel.split(/[,;\n]+/).map(p => p.trim()).filter(Boolean);
+
   const capitalizar = (str: string) => str.replace(/\b\w/g, c => c.toUpperCase());
 
-  const nombre = partes[0] ? capitalizar(partes[0]) : 'Cliente WhatsApp';
-  const sector = partes[1] ? capitalizar(partes[1]) : 'No especificado';
+  let nombre = 'Cliente WhatsApp';
+  let sector = 'No especificado';
 
-  const matchTel = texto.match(/(?:04\d{9}|584\d{9}|\+?58\d{10}|\d{10,11})/);
-  const telefono = matchTel ? matchTel[0].replace(/\D/g, '') : numeroEmisor;
+  if (partes.length > 0) {
+    const palabras = partes[0].split(/\s+/).filter(p => /^[a-zA-ZáéíóúÁÉÍÓÚñÑ]+$/.test(p));
+    if (palabras.length > 0) {
+      nombre = palabras.map(capitalizar).join(' ');
+    }
+  }
+
+  if (partes.length > 1) {
+    sector = capitalizar(partes[1]);
+  }
 
   return { nombre, sector, telefono };
 }

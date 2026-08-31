@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
-import { AlertTriangle, CheckCircle2, Clock, Hourglass, ShoppingCart, UserX, X, XCircle } from 'lucide-react-native';
-import { FaseProps, findListaTarget } from './types';
+import { ActivityIndicator, Alert, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, Clock, Hourglass, Paperclip, ShoppingCart, UserX, Wrench, X, XCircle } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { FaseProps, findListaTarget, getAtencionFallasListaId } from './types';
 import { renderSection } from './SeccionRegistro';
 import { useErrorDiagnostics } from '../../../context/ErrorDiagnosticsContext';
 import { supabase } from '../../../lib/supabase';
 import { FormularioConversionVenta } from './FormularioConversionVenta';
 import { KANBAN_COLORS } from '../../../constants/theme';
+import { uploadImageToSupabase } from '../../../services/uploadImage';
 
 /**
  * FaseGestionOnline
@@ -213,7 +215,14 @@ export const FaseGestionOnline = ({
   };
 
   const datosValores = tarjeta.datos_valores || {};
-  const esReportePago = Boolean(
+  const isReporteFalla = Boolean(
+    datosValores.tipoFalla ||
+    datosValores.estadoSoporte ||
+    (datosValores.origen && String(datosValores.origen).toLowerCase().includes('soporte')) ||
+    (datosValores.origen && String(datosValores.origen).toLowerCase().includes('falla')) ||
+    String(datosValores.nombreApellido || '').toLowerCase().includes('falla')
+  );
+  const esReportePago = !isReporteFalla && Boolean(
     datosValores.comprobantePagoUrl ||
     datosValores.bancoOrigen ||
     datosValores.montoPago ||
@@ -241,7 +250,145 @@ export const FaseGestionOnline = ({
     }
   };
 
-  return renderSection(esReportePago ? 'Gestión de Reporte de Pago' : 'Acciones de Gestión Online', (
+  const handleProcesadoSAE = async () => {
+    setIsSaving(true);
+    try {
+      await onUpdateTarjeta({
+        estadoSoporte: 'Procesado en SAE',
+        accionFalla: 'Procesado en SAE',
+        estadoGestion: 'procesado_en_sae',
+        fechaUltimaGestionFalla: new Date().toISOString(),
+      });
+
+      if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
+      Alert.alert('¡Procesado en SAE!', 'La tarjeta fue marcada correctamente como resuelta.');
+    } catch (e: any) {
+      showDiagnosticError('ERR-GESTION-FALLA-SAE', 'Error al marcar Procesado en SAE.', e, 'GestionOnline');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const [mostrarFormFalla, setMostrarFormFalla] = useState(false);
+  const [nroOrden, setNroOrden] = useState('');
+  const [fechaOrden] = useState(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+  const [adjuntoOrdenUrl, setAdjuntoOrdenUrl] = useState<string | null>(null);
+  const [nombreAdjunto, setNombreAdjunto] = useState<string | null>(null);
+  const [subiendoAdjunto, setSubiendoAdjunto] = useState(false);
+
+  const pickDocumentOrImage = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*,.pdf,application/pdf';
+        input.onchange = async (e: any) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            setSubiendoAdjunto(true);
+            try {
+              const fileUri = URL.createObjectURL(file);
+              const publicUrl = await uploadImageToSupabase(fileUri, 'adjuntos', 'ordenes');
+              setAdjuntoOrdenUrl(publicUrl || fileUri);
+              setNombreAdjunto(file.name);
+            } catch (err: any) {
+              Alert.alert('Error al subir archivo', err.message || 'Ocurrió un error inesperado');
+            } finally {
+              setSubiendoAdjunto(false);
+            }
+          }
+        };
+        input.click();
+        return;
+      }
+
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Se requiere acceso a los archivos para adjuntar la orden.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setSubiendoAdjunto(true);
+        try {
+          const asset = result.assets[0];
+          const publicUrl = await uploadImageToSupabase(asset.uri, 'adjuntos', 'ordenes');
+          setAdjuntoOrdenUrl(publicUrl || asset.uri);
+          setNombreAdjunto(asset.fileName || 'orden_adjunta.jpg');
+        } catch (err: any) {
+          Alert.alert('Error al subir imagen', err.message || 'Ocurrió un error inesperado');
+        } finally {
+          setSubiendoAdjunto(false);
+        }
+      }
+    } catch (e: any) {
+      console.error('[ASISTENCIA TECNICA] Error selector de archivo:', e);
+      Alert.alert('Error', e.message || 'No se pudo seleccionar el archivo');
+    }
+  };
+
+  const handleProcesarAsistenciaTecnica = async () => {
+    if (!nroOrden.trim()) {
+      Alert.alert('Campo obligatorio', 'Por favor ingresa el Número de Orden.');
+      return;
+    }
+
+    const adjuntosActuales = Array.isArray(tarjeta.datos_valores?.adjuntos)
+      ? tarjeta.datos_valores.adjuntos
+      : [];
+    const nuevosAdjuntos = adjuntoOrdenUrl
+      ? Array.from(new Set([...adjuntosActuales, adjuntoOrdenUrl]))
+      : adjuntosActuales;
+
+    setIsSaving(true);
+    try {
+      await onUpdateTarjeta({
+        nroOrden: nroOrden.trim(),
+        fechaOrdenGenerada: fechaOrden,
+        archivoOrdenUrl: adjuntoOrdenUrl || '',
+        adjuntos: nuevosAdjuntos,
+        estadoSoporte: 'Asistencia Técnica',
+        accionFalla: 'Asistencia Técnica',
+        estadoGestion: 'asistencia_tecnica',
+        fechaUltimaGestionFalla: new Date().toISOString(),
+      });
+
+      let destId = await getAtencionFallasListaId('Por asignar', tarjeta.empresa_id);
+
+      if (!destId) {
+        throw new Error("No se encontró la lista 'Por asignar' en el tablero 'Atención de Fallas'.");
+      }
+
+      await autoMoverTarjeta(tarjeta, destId);
+
+      if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
+      if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
+      Alert.alert('¡Orden Procesada!', `La orden ${nroOrden.trim()} fue procesada y enviada a Atención de Fallas (Por Asignar).`);
+    } catch (e: any) {
+      showDiagnosticError(
+        'ERR-GESTION-FALLA-ASISTENCIA-TECNICA',
+        'Error al procesar la asistencia técnica.',
+        e,
+        'GestionOnline'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const sectionTitle = esReportePago ? 'Gestión de Reporte de Pago' : isReporteFalla ? 'Gestión de Reporte de Falla' : 'Acciones de Gestión Online';
+
+  return renderSection(sectionTitle, (
     <View>
       {/* ── SECCIÓN DE ESTADO DE PAGO (Si es reporte de pago) ───── */}
       {esReportePago ? (
@@ -256,7 +403,6 @@ export const FaseGestionOnline = ({
             Estatus del Pago:
           </Text>
 
-          {/* Badge de Estatus Actual */}
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -291,7 +437,6 @@ export const FaseGestionOnline = ({
             Selecciona una acción para este pago:
           </Text>
 
-          {/* Botones de Cambio de Estado de Pago */}
           <View style={{ gap: 8 }}>
             <TouchableOpacity
               style={{
@@ -359,6 +504,184 @@ export const FaseGestionOnline = ({
               </Text>
             </TouchableOpacity>
           </View>
+        </View>
+      ) : isReporteFalla ? (
+        <View style={{
+          backgroundColor: '#1E232A',
+          borderRadius: 10,
+          padding: 14,
+          borderWidth: 1,
+          borderColor: '#384148',
+        }}>
+          <Text style={{ fontSize: 12, color: '#8C9BAB', marginBottom: 12, lineHeight: 18 }}>
+            Selecciona la acción correspondiente para esta falla técnica:
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: '#1F2937',
+                borderWidth: 1,
+                borderColor: '#3B82F6',
+                borderRadius: 8,
+                paddingVertical: 12,
+                paddingHorizontal: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                opacity: isSaving ? 0.6 : 1,
+              }}
+              onPress={handleProcesadoSAE}
+              disabled={isSaving}
+            >
+              <CheckCircle2 size={16} color="#3B82F6" />
+              <Text style={{ color: '#60A5FA', fontWeight: 'bold', fontSize: 13, textAlign: 'center' }}>
+                Procesado en SAE
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: mostrarFormFalla ? '#B45309' : '#1F2937',
+                borderWidth: 1,
+                borderColor: '#F59E0B',
+                borderRadius: 8,
+                paddingVertical: 12,
+                paddingHorizontal: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                opacity: isSaving ? 0.6 : 1,
+              }}
+              onPress={() => setMostrarFormFalla(!mostrarFormFalla)}
+              disabled={isSaving}
+            >
+              <Wrench size={16} color={mostrarFormFalla ? '#FFF' : '#F59E0B'} />
+              <Text style={{ color: mostrarFormFalla ? '#FFF' : '#FBBF24', fontWeight: 'bold', fontSize: 13, textAlign: 'center' }}>
+                Asistencia Técnica
+              </Text>
+              <ChevronDown size={14} color={mostrarFormFalla ? '#FFF' : '#FBBF24'} style={{ transform: [{ rotate: mostrarFormFalla ? '180deg' : '0deg' }] }} />
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Mini Formulario Desplegable: Asistencia Técnica ── */}
+          {mostrarFormFalla && (
+            <View style={{
+              backgroundColor: '#151921',
+              borderRadius: 8,
+              padding: 14,
+              marginTop: 12,
+              borderWidth: 1,
+              borderColor: 'rgba(245, 158, 11, 0.4)',
+            }}>
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FBBF24', marginBottom: 12 }}>
+                Registro de Orden de Asistencia Técnica
+              </Text>
+
+              {/* 1. Número de Orden */}
+              <Text style={{ fontSize: 11, color: '#B6C2CF', marginBottom: 4, fontWeight: 'bold' }}>
+                NÚMERO DE ORDEN *
+              </Text>
+              <TextInput
+                style={{
+                  backgroundColor: '#22272B',
+                  color: '#FFF',
+                  borderRadius: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  fontSize: 13,
+                  borderWidth: 1,
+                  borderColor: '#384148',
+                  marginBottom: 10,
+                }}
+                placeholder="Ej. ORD-10294"
+                placeholderTextColor="#6B7280"
+                value={nroOrden}
+                onChangeText={setNroOrden}
+              />
+
+              {/* 2. Fecha de Orden Generada */}
+              <Text style={{ fontSize: 11, color: '#B6C2CF', marginBottom: 4, fontWeight: 'bold' }}>
+                FECHA DE ORDEN GENERADA
+              </Text>
+              <View style={{
+                backgroundColor: '#1E232A',
+                borderRadius: 6,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderWidth: 1,
+                borderColor: '#2C333A',
+                marginBottom: 10,
+              }}>
+                <Text style={{ color: '#9CA3AF', fontSize: 13 }}>
+                  {fechaOrden}
+                </Text>
+              </View>
+
+              {/* 3. Adjuntar Orden */}
+              <Text style={{ fontSize: 11, color: '#B6C2CF', marginBottom: 4, fontWeight: 'bold' }}>
+                ADJUNTAR ORDEN
+              </Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: adjuntoOrdenUrl ? '#064E3B' : '#22272B',
+                  borderRadius: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderWidth: 1,
+                  borderColor: adjuntoOrdenUrl ? '#10B981' : '#384148',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  marginBottom: 14,
+                }}
+                onPress={pickDocumentOrImage}
+                disabled={subiendoAdjunto}
+              >
+                {subiendoAdjunto ? (
+                  <ActivityIndicator size="small" color="#FBBF24" />
+                ) : (
+                  <>
+                    <Paperclip size={15} color={adjuntoOrdenUrl ? '#34D399' : '#9CA3AF'} />
+                    <Text style={{ color: adjuntoOrdenUrl ? '#34D399' : '#9CA3AF', fontSize: 12, fontWeight: 'bold' }}>
+                      {nombreAdjunto || (adjuntoOrdenUrl ? 'Orden Adjuntada' : 'Adjuntar')}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {/* 4. Botón de Procesar */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#F59E0B',
+                  borderRadius: 6,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 6,
+                  opacity: (isSaving || subiendoAdjunto) ? 0.6 : 1,
+                }}
+                onPress={handleProcesarAsistenciaTecnica}
+                disabled={isSaving || subiendoAdjunto}
+              >
+                {isSaving ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <>
+                    <Check size={16} color="#000" />
+                    <Text style={{ color: '#000', fontWeight: '900', fontSize: 13, textTransform: 'uppercase' }}>
+                      Procesar
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       ) : (
         <>

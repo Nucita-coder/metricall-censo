@@ -25,6 +25,9 @@ export const uploadImageToSupabase = async (
     const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const fileName = folderName ? `${folderName}/${uniqueId}.${ext}` : `${uniqueId}.${ext}`;
 
+    const cleanExt = ext.toLowerCase();
+    const mimeType = cleanExt === 'pdf' ? 'application/pdf' : cleanExt === 'png' ? 'image/png' : cleanExt === 'webp' ? 'image/webp' : 'image/jpeg';
+
     let error: any;
 
     if (Platform.OS === 'web') {
@@ -34,7 +37,7 @@ export const uploadImageToSupabase = async (
       const response = await supabase.storage
         .from(bucket)
         .upload(fileName, blob, {
-          contentType: `image/${ext}`,
+          contentType: blob.type || mimeType,
         });
       error = response.error;
     } else {
@@ -47,7 +50,7 @@ export const uploadImageToSupabase = async (
       const response = await supabase.storage
         .from(bucket)
         .upload(fileName, decode(base64), {
-          contentType: `image/${ext}`,
+          contentType: mimeType,
         });
       error = response.error;
     }

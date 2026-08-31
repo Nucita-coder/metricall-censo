@@ -96,6 +96,8 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
       if (k === 'telefonoResidencial') return 'TELÉFONO RESIDENCIAL';
       if (k === 'correo' || k === 'email') return 'CORREO ELECTRÓNICO';
       if (k === 'tipoFalla') return 'TIPO DE FALLA';
+      if (k === 'nroOrden') return 'NÚMERO DE ORDEN';
+      if (k === 'fechaOrdenGenerada') return 'FECHA ORDEN GENERADA';
       if (isReportePago) {
         if (k === 'nombreApellido') return 'NRO DE ABONADO';
         if (k === 'montoPago' || k === 'monto') return 'MONTO PAGADO';
@@ -117,7 +119,7 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
     ] : isReporteFalla ? [
       {
         title: '1. Información del Cliente y Reporte',
-        keys: ['nombreCliente', 'nombre', 'cliente', 'documentoIdentidad', 'tipoDocumento', 'telefonoMovil', 'telefono', 'nroTelefonoMovil', 'celular', 'tipoFalla', 'fechaNacimiento']
+        keys: ['nombreCliente', 'nombre', 'cliente', 'documentoIdentidad', 'tipoDocumento', 'telefonoMovil', 'telefono', 'nroTelefonoMovil', 'celular', 'tipoFalla', 'nroOrden', 'fechaOrdenGenerada', 'fechaNacimiento']
       },
       GROUPS[2],
       GROUPS[4]

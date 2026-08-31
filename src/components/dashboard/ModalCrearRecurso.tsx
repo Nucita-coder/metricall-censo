@@ -10,8 +10,8 @@ interface ModalCrearRecursoProps {
   setInputNombre: (v: string) => void;
   inputSecundario: string;
   setInputSecundario: (v: string) => void;
-  tipoTablero: 'instalaciones' | 'censo' | 'almacen' | 'cobranza' | 'gestion_online';
-  setTipoTablero: (v: 'instalaciones' | 'censo' | 'almacen' | 'cobranza' | 'gestion_online') => void;
+  tipoTablero: 'instalaciones' | 'censo' | 'almacen' | 'cobranza' | 'gestion_online' | 'atencion_fallas';
+  setTipoTablero: (v: 'instalaciones' | 'censo' | 'almacen' | 'cobranza' | 'gestion_online' | 'atencion_fallas') => void;
   isCreating: boolean;
   onConfirmar: () => void;
   onClose: () => void;
@@ -103,6 +103,19 @@ export function ModalCrearRecurso({
                 >
                   <Text style={[styles.selectorBtnText, tipoTablero === 'cobranza' && styles.selectorBtnTextActive]}>
                     Cobranza
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.selectorBtn, tipoTablero === 'atencion_fallas' && styles.selectorBtnActive]}
+                  onPress={() => {
+                    setTipoTablero('atencion_fallas');
+                    if (!inputNombre || inputNombre === 'Ventas' || inputNombre === 'Censo') {
+                      setInputNombre('Atención de Fallas');
+                    }
+                  }}
+                >
+                  <Text style={[styles.selectorBtnText, tipoTablero === 'atencion_fallas' && styles.selectorBtnTextActive]}>
+                    Atención de Fallas
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity

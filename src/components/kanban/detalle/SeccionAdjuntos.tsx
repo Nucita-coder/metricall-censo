@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ImageBackground, ActivityIndicator, Alert, Platform } from 'react-native';
-import { Image as ImageIcon, X, Lock } from 'lucide-react-native';
+import { Image as ImageIcon, X, Lock, FileText } from 'lucide-react-native';
+import * as Linking from 'expo-linking';
 import * as ImagePicker from 'expo-image-picker';
 import { FaseProps } from './types';
 import { renderSection } from './SeccionRegistro';
@@ -12,7 +13,15 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
 
   // La evidencia es inmutable si ya se registró la gestión de contacto, la tarjeta fue enviada,
   // o si el adjunto proviene del bot de WhatsApp (comprobantePagoUrl presente = no se puede eliminar)
+  const isSolventada = Boolean(
+    data.estadoSoporte === 'Falla Solventada' ||
+    data.accionFalla === 'Falla Solventada' ||
+    data.estadoGestion === 'falla_solventada' ||
+    data.aprobadoPorAtc
+  );
+
   const esEvidenciaInmutable = Boolean(
+    isSolventada ||
     data.adjuntosRegistrados ||
     data.comprobantePagoUrl ||           // ← imagen de WhatsApp: siempre permanente
     (Array.isArray(data.gestionesCobranza) && data.gestionesCobranza.length > 0) ||
@@ -94,41 +103,60 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
 
   return renderSection("Archivos Adjuntos", (
     <View>
-      <TouchableOpacity
-        style={{
-          flexDirection: 'row',
-          backgroundColor: '#2C333A',
-          padding: 12,
-          borderRadius: 8,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 12,
-          borderWidth: 1,
-          borderColor: '#384148',
-        }}
-        onPress={handleAdjuntarImagen}
-        disabled={subiendoImagen}
-      >
-        {subiendoImagen ? (
-          <ActivityIndicator color="#B6C2CF" style={{ marginRight: 8 }} />
-        ) : (
-          <ImageIcon size={20} color="#B6C2CF" style={{ marginRight: 8 }} />
-        )}
-        <Text style={{ color: '#B6C2CF', fontWeight: 'bold' }}>
-          {subiendoImagen ? "Subiendo imagen..." : "Adjuntar Imagen"}
-        </Text>
-      </TouchableOpacity>
+      {!isSolventada && (
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            backgroundColor: '#2C333A',
+            padding: 12,
+            borderRadius: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 12,
+            borderWidth: 1,
+            borderColor: '#384148',
+          }}
+          onPress={handleAdjuntarImagen}
+          disabled={subiendoImagen}
+        >
+          {subiendoImagen ? (
+            <ActivityIndicator color="#B6C2CF" style={{ marginRight: 8 }} />
+          ) : (
+            <ImageIcon size={20} color="#B6C2CF" style={{ marginRight: 8 }} />
+          )}
+          <Text style={{ color: '#B6C2CF', fontWeight: 'bold' }}>
+            {subiendoImagen ? "Subiendo imagen..." : "Adjuntar Imagen"}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {data.adjuntos?.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
-          {data.adjuntos?.map((url: string, index: number) => (
-            <View key={index} style={{ marginRight: 12, position: 'relative', marginVertical: 4 }}>
-              <TouchableOpacity onPress={() => setImagenExpandida && setImagenExpandida(url)}>
-                <ImageBackground
-                  source={{ uri: url }}
-                  style={{ width: 80, height: 80, overflow: 'hidden', borderRadius: 8, backgroundColor: '#384148' }}
-                />
-              </TouchableOpacity>
+          {data.adjuntos?.map((url: string, index: number) => {
+            const isPdf = typeof url === 'string' && url.toLowerCase().includes('.pdf');
+            return (
+              <View key={index} style={{ marginRight: 12, position: 'relative', marginVertical: 4 }}>
+                <TouchableOpacity onPress={() => {
+                  if (isPdf) {
+                    Linking.openURL(url);
+                  } else if (setImagenExpandida) {
+                    setImagenExpandida(url);
+                  }
+                }}>
+                  {isPdf ? (
+                    <View style={{ width: 80, height: 80, borderRadius: 8, backgroundColor: '#1E232A', borderWidth: 1, borderColor: '#384148', alignItems: 'center', justifyContent: 'center', padding: 6 }}>
+                      <FileText size={28} color="#F59E0B" />
+                      <Text style={{ color: '#FBBF24', fontSize: 10, fontWeight: 'bold', marginTop: 4, textAlign: 'center' }} numberOfLines={1}>
+                        PDF Orden
+                      </Text>
+                    </View>
+                  ) : (
+                    <ImageBackground
+                      source={{ uri: url }}
+                      style={{ width: 80, height: 80, overflow: 'hidden', borderRadius: 8, backgroundColor: '#384148' }}
+                    />
+                  )}
+                </TouchableOpacity>
 
               {/* Si la evidencia ya fue registrada, no se puede eliminar (Inmutable) */}
               {esEvidenciaInmutable ? (
@@ -172,7 +200,8 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
                 </TouchableOpacity>
               )}
             </View>
-          ))}
+          );
+        })}
         </ScrollView>
       )}
     </View>

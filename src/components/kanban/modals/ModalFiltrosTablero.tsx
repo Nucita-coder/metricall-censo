@@ -144,6 +144,7 @@ export function ModalFiltrosTablero({
                   { key: 'PAGO PROCESADO', label: 'PAGO PROCESADO' },
                   { key: 'PAGO EN REVISIÓN', label: 'PAGO EN REVISIÓN' },
                   { key: 'PAGO RECHAZADO', label: 'PAGO RECHAZADO' },
+                  { key: 'PROCESADO EN SAE', label: 'PROCESADO EN SAE' },
                 ].map((item) => (
                   <TouchableOpacity
                     key={item.key}

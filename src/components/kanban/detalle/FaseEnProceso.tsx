@@ -7,14 +7,35 @@ import { captureRef } from 'react-native-view-shot';
 import { useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
-import { FaseProps, findListaTarget } from './types';
+import { FaseProps, findListaTarget, getAtencionFallasListaId } from './types';
 import { renderSection } from './SeccionRegistro';
 import { uploadImageToSupabase } from '../../../services/uploadImage';
 import { GeofotoTool } from './GeofotoTool';
 
-export const FaseEnProceso = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSaving, setIsSaving, listasGlobales = [] }: FaseProps) => {
+export const FaseEnProceso = ({
+  tarjeta,
+  onUpdateTarjeta,
+  autoMoverTarjeta,
+  isSaving,
+  setIsSaving,
+  listasGlobales = [],
+  readOnly = false,
+  onRemoveTarjetaLocal,
+  setTarjetaSeleccionada,
+}: FaseProps) => {
   const { nombreCompleto, empresaId } = useAuth();
   const data = tarjeta.datos_valores || {};
+
+  const matchLista = listasGlobales.find(l => l.id === tarjeta.lista_id);
+  const nombreTablero = (matchLista?.tableros?.nombre || '').toLowerCase();
+  const isFalla = Boolean(
+    data.tipoFalla ||
+    data.estadoSoporte ||
+    data.accionFalla ||
+    (tarjeta.origen && String(tarjeta.origen).toLowerCase().includes('soporte')) ||
+    nombreTablero.includes('atenci') ||
+    nombreTablero.includes('falla')
+  );
 
   const [tipoInstalacion, setTipoInstalacion] = useState(data.tipoInstalacion || '');
   const [serialEquipo, setSerialEquipo] = useState(data.serialEquipo || '');
@@ -119,162 +140,163 @@ export const FaseEnProceso = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSa
     });
   }, [tarjeta.id, tarjeta.empresa_id, empresaId, nombreCompleto, data.tecnicoAsignado, data.asignadoA]);
 
-  return (
+  return renderSection("Informe de Atención Técnica", (
     <View>
-      {renderSection("Reporte de Instalación", (
-        <View>
-          <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8, textTransform: 'uppercase' }}>Tipo de Instalación</Text>
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-            {['tradicional', 'preconectorizado'].map((tipo) => (
-              <TouchableOpacity
-                key={tipo}
-                style={{ flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: tipoInstalacion === tipo ? '#0C66E4' : '#384148', backgroundColor: tipoInstalacion === tipo ? '#0C66E4' : '#1D2125', alignItems: 'center' }}
-                onPress={() => !isSaving && setTipoInstalacion(tipo)}
-                disabled={isSaving}
-              >
-                <Text style={{ fontWeight: 'bold', color: tipoInstalacion === tipo ? '#FFF' : '#B6C2CF', textTransform: 'capitalize' }}>{tipo}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8 }}>SERIAL EQUIPO</Text>
-              <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 10, color: '#B6C2CF' }} value={serialEquipo} onChangeText={setSerialEquipo} editable={!isSaving} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8 }}>MAC EQUIPO</Text>
-              <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 10, color: '#B6C2CF' }} value={macEquipo} onChangeText={setMacEquipo} editable={!isSaving} />
-            </View>
-          </View>
-
-          <View style={{ flexWrap: 'wrap', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-            {[
-              { key: 'tensorPlastico', label: 'Tensor Plástico', cod: 'MAT-TENSOR-PLASTICO' },
-              { key: 'tensorHierro', label: 'Tensor Hierro', cod: 'MAT-TENSOR-HIERRO' },
-              { key: 'grapas', label: 'Grapas', cod: 'MAT-GRAPAS' },
-              { key: 'tirrap', label: 'Tirrap', cod: 'MAT-TIRRAP' },
-              { key: 'pachCordApc', label: 'Pach Cord APC', cod: 'MAT-PACH-APC' },
-              { key: 'pachCordUpc', label: 'Pach Cord UPC', cod: 'MAT-PACH-UPC' },
-              { key: 'pachCordApcUpc', label: 'Pach Cord APC/UPC', cod: 'MAT-PACH-APC-UPC' },
-              { key: 'cajaTerminalCon', label: 'Caja Term. Con Accesorios', cod: 'MAT-CAJA-TERM-CON' },
-              { key: 'cajaTerminalSin', label: 'Caja Term. Sin Accesorios', cod: 'MAT-CAJA-TERM-SIN' },
-              { key: 'conectorAcople', label: 'Conector/Acople H-H', cod: 'MAT-CONECTOR-ACOPLE-HH' },
-              { key: 'conectorMecanicoApc', label: 'Conector Mecánico APC', cod: 'MAT-CONECTOR-MEC-APC' },
-              { key: 'conectorMecanicoUpc', label: 'Conector Mecánico UPC', cod: 'MAT-CONECTOR-MEC-UPC' },
-              { key: 'precinto', label: 'Precinto', cod: 'MAT-PRECINTO' },
-            ].map(item => {
-              const disp = stockCustodia[item.cod] !== undefined ? stockCustodia[item.cod] : (stockCustodia[item.label.toUpperCase()] || 0);
-              const numVal = parseFloat(materiales[item.key as keyof typeof materiales] || '0') || 0;
-              return (
-                <View key={item.key} style={{ width: '48%', marginBottom: 12 }}>
-                  <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' }}>{item.label}</Text>
-                  <TextInput
-                    style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: numVal > disp && disp > 0 ? '#F87171' : '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }}
-                    keyboardType="numeric"
-                    value={String(materiales[item.key as keyof typeof materiales] || '')}
-                    onChangeText={val => {
-                      const cleaned = val.replace(/[^0-9]/g, '');
-                      if (!cleaned) {
-                        setMateriales((p: any) => ({ ...p, [item.key]: '' }));
-                        return;
-                      }
-                      const inputNum = parseInt(cleaned, 10);
-                      if (inputNum > 0 && inputNum > disp) {
-                        Alert.alert(
-                          "Acción no permitida",
-                          `No posees suficiente stock de ${item.label} en tu custodia (Disponible: ${disp} und.). Solicita una carga a Almacén.`
-                        );
-                        setMateriales((p: any) => ({ ...p, [item.key]: '' }));
-                        return;
-                      }
-                      setMateriales((p: any) => ({ ...p, [item.key]: cleaned }));
-                    }}
-                    editable={!isSaving}
-                  />
-                  {disp > 0 ? (
-                    <Text style={{ fontSize: 9, color: numVal > disp ? '#F87171' : '#4ADE80', marginTop: 2, fontWeight: numVal > disp ? 'bold' : 'normal' }}>
-                      {numVal > disp ? `⚠️ Excede tu stock (${disp} und.)` : `✓ En custodia: ${disp} und.`}
-                    </Text>
-                  ) : (
-                    <Text style={{ fontSize: 9, color: '#8C9BAB', marginTop: 2, fontStyle: 'italic' }}>Sin stock asignado</Text>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-
-          <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' }}>Cable Preconectorizado</Text>
+        <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8, textTransform: 'uppercase' }}>TIPO DE INSTALACIÓN / ATENCIÓN</Text>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          {['fibra', 'inalambrico'].map(tipo => (
             <TouchableOpacity
-              style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-              onPress={() => !isSaving && setMostrarDropdownCable(!mostrarDropdownCable)}
-              disabled={isSaving}
+              key={tipo}
+              style={{ flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: tipoInstalacion === tipo ? '#0C66E4' : '#384148', backgroundColor: tipoInstalacion === tipo ? '#0C66E4' : '#1D2125', alignItems: 'center' }}
+              onPress={() => !readOnly && !isSaving && setTipoInstalacion(tipo)}
+              disabled={readOnly || isSaving}
             >
-              <Text style={{ color: materiales.cablePreconectorizado ? '#B6C2CF' : '#8C9BAB' }}>
-                {materiales.cablePreconectorizado || 'Seleccionar...'}
-              </Text>
-              <ChevronDown size={16} color="#8C9BAB" />
+              <Text style={{ fontWeight: 'bold', color: tipoInstalacion === tipo ? '#FFF' : '#B6C2CF', textTransform: 'capitalize' }}>{tipo}</Text>
             </TouchableOpacity>
-            
-            {mostrarDropdownCable && !isSaving && (
-              <View style={{ backgroundColor: '#2C333A', borderWidth: 1, borderColor: '#384148', borderRadius: 8, marginTop: 4, overflow: 'hidden' }}>
-                {['50', '70', '100'].map(opcion => (
-                  <TouchableOpacity
-                    key={opcion}
-                    style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#384148' }}
-                    onPress={() => {
-                      const dispCable = stockCustodia['MAT-CABLE-PRECONECTORIZADO'] !== undefined ? stockCustodia['MAT-CABLE-PRECONECTORIZADO'] : (stockCustodia['CABLE PRECONECTORIZADO'] || 0);
-                      const cantCable = parseFloat(opcion) || 0;
-                      if (cantCable > dispCable) {
-                        Alert.alert(
-                          "Acción no permitida",
-                          `No posees suficiente stock de Cable Preconectorizado de ${opcion}m en tu custodia (Disponible: ${dispCable} und.).`
-                        );
-                        setMostrarDropdownCable(false);
-                        return;
-                      }
-                      setMateriales((p: any) => ({ ...p, cablePreconectorizado: opcion }));
-                      setMostrarDropdownCable(false);
-                    }}
-                  >
-                    <Text style={{ color: '#B6C2CF' }}>{opcion}</Text>
-                  </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, marginTop: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8 }}>SERIAL EQUIPO</Text>
+            <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 10, color: '#B6C2CF' }} value={serialEquipo} onChangeText={setSerialEquipo} editable={!readOnly && !isSaving} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8 }}>MAC EQUIPO</Text>
+            <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 10, color: '#B6C2CF' }} value={macEquipo} onChangeText={setMacEquipo} editable={!readOnly && !isSaving} />
+          </View>
+        </View>
+
+        <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8, textTransform: 'uppercase' }}>
+          {readOnly ? 'MATERIALES REGISTRADOS Y UTILIZADOS' : 'MATERIALES UTILIZADOS (SE DESCONTARÁN DE CUSTODIA)'}
+        </Text>
+        <View style={{ flexWrap: 'wrap', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+          {[
+            { key: 'tensorPlastico', label: 'Tensor Plástico', cod: 'MAT-TENSOR-PLASTICO' },
+            { key: 'tensorHierro', label: 'Tensor Hierro', cod: 'MAT-TENSOR-HIERRO' },
+            { key: 'grapas', label: 'Grapas', cod: 'MAT-GRAPAS' },
+            { key: 'tirrap', label: 'Tirrap', cod: 'MAT-TIRRAP' },
+            { key: 'pachCordApc', label: 'Pach Cord APC', cod: 'MAT-PACH-APC' },
+            { key: 'pachCordUpc', label: 'Pach Cord UPC', cod: 'MAT-PACH-UPC' },
+            { key: 'pachCordApcUpc', label: 'Pach Cord APC/UPC', cod: 'MAT-PACH-APC-UPC' },
+            { key: 'cajaTerminalCon', label: 'Caja Term. Con Accesorios', cod: 'MAT-CAJA-TERM-CON' },
+            { key: 'cajaTerminalSin', label: 'Caja Term. Sin Accesorios', cod: 'MAT-CAJA-TERM-SIN' },
+            { key: 'conectorAcople', label: 'Conector/Acople H-H', cod: 'MAT-CONECTOR-ACOPLE-HH' },
+            { key: 'conectorMecanicoApc', label: 'Conector Mecánico APC', cod: 'MAT-CONECTOR-MEC-APC' },
+            { key: 'conectorMecanicoUpc', label: 'Conector Mecánico UPC', cod: 'MAT-CONECTOR-MEC-UPC' },
+            { key: 'precinto', label: 'Precinto', cod: 'MAT-PRECINTO' },
+          ].map(item => {
+            const disp = stockCustodia[item.cod] !== undefined ? stockCustodia[item.cod] : (stockCustodia[item.label.toUpperCase()] || 0);
+            const numVal = parseFloat(materiales[item.key as keyof typeof materiales] || '0') || 0;
+            return (
+              <View key={item.key} style={{ width: '48%', marginBottom: 12 }}>
+                <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' }}>{item.label}</Text>
+                <TextInput
+                  style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: numVal > disp && disp > 0 ? '#F87171' : '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }}
+                  keyboardType="numeric"
+                  value={String(materiales[item.key as keyof typeof materiales] || '')}
+                  onChangeText={val => {
+                    const cleaned = val.replace(/[^0-9]/g, '');
+                    if (!cleaned) {
+                      setMateriales((p: any) => ({ ...p, [item.key]: '' }));
+                      return;
+                    }
+                    const inputNum = parseInt(cleaned, 10);
+                    if (inputNum > 0 && inputNum > disp) {
+                      Alert.alert(
+                        "Acción no permitida",
+                        `No posees suficiente stock de ${item.label} en tu custodia (Disponible: ${disp} und.). Solicita una carga a Almacén.`
+                      );
+                      setMateriales((p: any) => ({ ...p, [item.key]: '' }));
+                      return;
+                    }
+                    setMateriales((p: any) => ({ ...p, [item.key]: cleaned }));
+                  }}
+                  editable={!readOnly && !isSaving}
+                />
+                {!readOnly && (disp > 0 ? (
+                  <Text style={{ fontSize: 9, color: numVal > disp ? '#F87171' : '#4ADE80', marginTop: 2, fontWeight: numVal > disp ? 'bold' : 'normal' }}>
+                    {numVal > disp ? `⚠️ Excede tu stock (${disp} und.)` : `✓ En custodia: ${disp} und.`}
+                  </Text>
+                ) : (
+                  <Text style={{ fontSize: 9, color: '#8C9BAB', marginTop: 2, fontStyle: 'italic' }}>Sin stock asignado</Text>
                 ))}
               </View>
-            )}
-          </View>
+            );
+          })}
+        </View>
 
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' }}>Cable Preconectorizado</Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+            onPress={() => !readOnly && !isSaving && setMostrarDropdownCable(!mostrarDropdownCable)}
+            disabled={readOnly || isSaving}
+          >
+            <Text style={{ color: materiales.cablePreconectorizado ? '#B6C2CF' : '#8C9BAB' }}>
+              {materiales.cablePreconectorizado || 'Seleccionar...'}
+            </Text>
+            {!readOnly && <ChevronDown size={16} color="#8C9BAB" />}
+          </TouchableOpacity>
 
-          <View style={{ marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-              <View style={{ width: '48%', marginBottom: 12 }}>
-                <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>NRO DE NAP</Text>
-                <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={nroNap} onChangeText={setNroNap} editable={!isSaving} />
-              </View>
-              <View style={{ width: '48%', marginBottom: 12 }}>
-                <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>POTENCIA NAP</Text>
-                <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={potenciaNap} onChangeText={setPotenciaNap} editable={!isSaving} />
-              </View>
-              <View style={{ width: '48%', marginBottom: 12 }}>
-                <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>POTENCIA CASA</Text>
-                <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={potenciaCasa} onChangeText={setPotenciaCasa} editable={!isSaving} />
-              </View>
-              <View style={{ width: '48%', marginBottom: 12 }}>
-                <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>CABLE DROP</Text>
-                <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={cableDrop} onChangeText={setCableDrop} editable={!isSaving} />
-              </View>
-              <View style={{ width: '48%', marginBottom: 12 }}>
-                <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>PUERTO ASIGNADO</Text>
-                <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={puertoAsignado} onChangeText={setPuertoAsignado} editable={!isSaving} />
-              </View>
-              <View style={{ width: '48%', marginBottom: 12 }}>
-                <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>PUERTOS DISPONIBLES</Text>
-                <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} keyboardType="numeric" value={puertosDisponibles} onChangeText={setPuertosDisponibles} editable={!isSaving} />
-              </View>
+          {mostrarDropdownCable && !readOnly && !isSaving && (
+            <View style={{ backgroundColor: '#2C333A', borderWidth: 1, borderColor: '#384148', borderRadius: 8, marginTop: 4, overflow: 'hidden' }}>
+              {['50', '70', '100'].map(opcion => (
+                <TouchableOpacity
+                  key={opcion}
+                  style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#384148' }}
+                  onPress={() => {
+                    const dispCable = stockCustodia['MAT-CABLE-PRECONECTORIZADO'] !== undefined ? stockCustodia['MAT-CABLE-PRECONECTORIZADO'] : (stockCustodia['CABLE PRECONECTORIZADO'] || 0);
+                    const cantCable = parseFloat(opcion) || 0;
+                    if (cantCable > dispCable) {
+                      Alert.alert(
+                        "Acción no permitida",
+                        `No posees suficiente stock de Cable Preconectorizado de ${opcion}m en tu custodia (Disponible: ${dispCable} und.).`
+                      );
+                      setMostrarDropdownCable(false);
+                      return;
+                    }
+                    setMateriales((p: any) => ({ ...p, cablePreconectorizado: opcion }));
+                    setMostrarDropdownCable(false);
+                  }}
+                >
+                  <Text style={{ color: '#B6C2CF' }}>{opcion}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={{ marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+            <View style={{ width: '48%', marginBottom: 12 }}>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>NRO DE NAP</Text>
+              <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={nroNap} onChangeText={setNroNap} editable={!readOnly && !isSaving} />
+            </View>
+            <View style={{ width: '48%', marginBottom: 12 }}>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>POTENCIA NAP</Text>
+              <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={potenciaNap} onChangeText={setPotenciaNap} editable={!readOnly && !isSaving} />
+            </View>
+            <View style={{ width: '48%', marginBottom: 12 }}>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>POTENCIA CASA</Text>
+              <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={potenciaCasa} onChangeText={setPotenciaCasa} editable={!readOnly && !isSaving} />
+            </View>
+            <View style={{ width: '48%', marginBottom: 12 }}>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>CABLE DROP</Text>
+              <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={cableDrop} onChangeText={setCableDrop} editable={!readOnly && !isSaving} />
+            </View>
+            <View style={{ width: '48%', marginBottom: 12 }}>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>PUERTO ASIGNADO</Text>
+              <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={puertoAsignado} onChangeText={setPuertoAsignado} editable={!readOnly && !isSaving} />
+            </View>
+            <View style={{ width: '48%', marginBottom: 12 }}>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>PUERTOS DISPONIBLES</Text>
+              <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} keyboardType="numeric" value={puertosDisponibles} onChangeText={setPuertosDisponibles} editable={!readOnly && !isSaving} />
             </View>
           </View>
+        </View>
 
+        {!isFalla && !readOnly && (
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8, textTransform: 'uppercase' }}>GEO NAP Y CASA</Text>
             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
@@ -366,43 +388,93 @@ export const FaseEnProceso = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSa
               </ScrollView>
             )}
           </View>
+        )}
+
+        {!readOnly && (
           <TouchableOpacity
             style={{ backgroundColor: '#0C66E4', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 8 }}
             onPress={async () => {
               setIsSaving(true);
-              await onUpdateTarjeta({
-                tipoInstalacion,
-                serialEquipo,
-                macEquipo,
-                materiales,
-                puertoAsignado,
-                puertosDisponibles,
-                nroNap,
-                potenciaNap,
-                potencia_casa: potenciaCasa,
-                cable_drop: cableDrop,
-                geo_nap: geoNap,
-                geo_casa: geoCasa,
-                geofotos: geoFotos,
-                estadoLiberacion: 'exitosa',
-                puerto: puertoAsignado,
-                puertos_disponibles: puertosDisponibles,
-                nap: nroNap,
-                serial_onu: serialEquipo,
-                tecnico: data.tecnicoAsignado || tarjeta.asignado_a || ''
-              });
-              const destId = findListaTarget(listasGlobales, 'por_activar')?.id;
-              if (!destId) throw new Error("Lista destino 'Por Activar' no encontrada");
-              await autoMoverTarjeta(tarjeta, destId);
-              setIsSaving(false);
+              try {
+                await onUpdateTarjeta({
+                  tipoInstalacion,
+                  serialEquipo,
+                  macEquipo,
+                  materiales,
+                  puertoAsignado,
+                  puertosDisponibles,
+                  nroNap,
+                  potenciaNap,
+                  potencia_casa: potenciaCasa,
+                  cable_drop: cableDrop,
+                  geo_nap: geoNap,
+                  geo_casa: geoCasa,
+                  geofotos: geoFotos,
+                  estadoLiberacion: isFalla ? 'atendida' : 'exitosa',
+                  puerto: puertoAsignado,
+                  puertos_disponibles: puertosDisponibles,
+                  nap: nroNap,
+                  serial_onu: serialEquipo,
+                  tecnico: data.tecnicoAsignado || tarjeta.asignado_a || ''
+                });
+
+                let destId: string | undefined = undefined;
+
+                if (isFalla) {
+                  destId = (await getAtencionFallasListaId('En Revisión', tarjeta.empresa_id)) || undefined;
+                }
+
+                if (!destId) {
+                  const matchGlobal = listasGlobales.find(l => {
+                    const nombreL = (l.nombre || '').toLowerCase();
+                    const isSameTablero = l.tablero_id === tarjeta.tablero_id;
+                    return isSameTablero && nombreL.includes('revis');
+                  });
+                  if (matchGlobal) destId = matchGlobal.id;
+                }
+
+                if (!destId) {
+                  const targetSlug = isFalla ? 'en_revision' : 'por_activar';
+                  const fallback = findListaTarget(listasGlobales, targetSlug);
+                  if (fallback) destId = fallback.id;
+                }
+
+                if (!destId) {
+                  const targetSlug2 = isFalla ? 'revision' : 'activar';
+                  const fallback2 = listasGlobales.find(l => (l.nombre || '').toLowerCase().includes(targetSlug2));
+                  if (fallback2) destId = fallback2.id;
+                }
+
+                if (!destId) {
+                  throw new Error(isFalla ? "No se encontró la lista 'En Revisión'" : "Lista destino 'Por Activar' no encontrada");
+                }
+
+                await autoMoverTarjeta(tarjeta, destId);
+
+                if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
+                if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
+                Alert.alert(
+                  isFalla ? '¡Falla Atendida!' : '¡Instalación Exitosa!',
+                  isFalla ? "La tarjeta fue completada y enviada a 'En Revisión'." : "La tarjeta pasó a 'Por Activar'."
+                );
+              } catch (e: any) {
+                console.error('[FaseEnProceso] Error al procesar:', e);
+                Alert.alert('Error', e.message || 'No se pudo completar el proceso.');
+              } finally {
+                setIsSaving(false);
+              }
             }}
             disabled={isSaving}
           >
-            {isSaving ? <ActivityIndicator color="#FFF" /> : <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Instalación Exitosa (Activar)</Text>}
+            {isSaving ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={{ color: '#FFF', fontWeight: 'bold' }}>
+                {isFalla ? 'Falla Atendida (En Revisión)' : 'Instalación Exitosa (Activar)'}
+              </Text>
+            )}
           </TouchableOpacity>
-        </View>
-      ))}
-
-    </View>
-  );
+        )}
+      </View>
+    ));
 };

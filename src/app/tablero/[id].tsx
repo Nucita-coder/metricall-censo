@@ -533,17 +533,21 @@ export default function KanbanTableroScreen() {
           }
         }
 
-        // E. Filtro por Etiqueta / Estatus de Pago
+        // E. Filtro por Etiqueta / Estatus de Pago / Soporte
         if (filtrosTablero.etiqueta && filtrosTablero.etiqueta !== 'todas') {
           const targetBadge = filtrosTablero.etiqueta.trim().toUpperCase();
           const estadoCob = String(vals.estadoCobranza || vals.estado_cobranza || '').trim().toUpperCase();
-          if (targetBadge === 'PAGO PROCESADO' && estadoCob !== 'PAGO PROCESADO') {
+          const estadoSop = String(vals.estadoSoporte || vals.accionFalla || vals.estadoGestion || '').trim().toUpperCase();
+
+          if (targetBadge === 'PROCESADO EN SAE') {
+            if (estadoSop !== 'PROCESADO EN SAE' && vals.estadoGestion !== 'procesado_en_sae') {
+              return false;
+            }
+          } else if (targetBadge === 'PAGO PROCESADO' && estadoCob !== 'PAGO PROCESADO') {
             return false;
-          }
-          if (targetBadge === 'PAGO EN REVISIÓN' && estadoCob !== 'PAGO PENDIENTE REVISIÓN' && estadoCob !== 'PAGO EN REVISIÓN' && estadoCob !== 'PENDIENTE VERIFICACIÓN') {
+          } else if (targetBadge === 'PAGO EN REVISIÓN' && estadoCob !== 'PAGO PENDIENTE REVISIÓN' && estadoCob !== 'PAGO EN REVISIÓN' && estadoCob !== 'PENDIENTE VERIFICACIÓN') {
             return false;
-          }
-          if (targetBadge === 'PAGO RECHAZADO' && estadoCob !== 'PAGO RECHAZADO') {
+          } else if (targetBadge === 'PAGO RECHAZADO' && estadoCob !== 'PAGO RECHAZADO') {
             return false;
           }
         }

@@ -72,11 +72,21 @@ const KanbanCardComponent = ({
   const isVentaOnline = Boolean((listaNombre || '').toLowerCase().includes('ventas online') || (listaNombre || '').toLowerCase().includes('gestion online') || (listaNombre || '').toLowerCase().includes('gestión online'));
   const esWhatsappOrigin = Boolean(data.origen === 'WhatsApp Bot' || data.origen === 'whatsapp' || data.origen === 'Gestión Online' || data.origen === 'gestion online' || data.origenImportacion === 'WHATSAPP');
 
+  const isProcesadoSAE = Boolean(
+    data.estadoSoporte === 'Procesado en SAE' ||
+    data.accionFalla === 'Procesado en SAE' ||
+    data.estadoGestion === 'procesado_en_sae'
+  );
+
   let topBadgeText = '';
   let topBadgeBg = badgeBg;
   let topBadgeColor = badgeColor;
 
-  if (esReportePago) {
+  if (isProcesadoSAE) {
+    topBadgeBg = KANBAN_COLORS.badge.procesadoSAE?.bg || 'rgba(59, 130, 246, 0.15)';
+    topBadgeColor = KANBAN_COLORS.badge.procesadoSAE?.text || '#3B82F6';
+    topBadgeText = 'PROCESADO EN SAE';
+  } else if (esReportePago) {
     const est = data.estadoCobranza || 'Pago Pendiente Revisión';
     const isProc = est === 'Pago Procesado';
     const isRech = est === 'Pago Rechazado';

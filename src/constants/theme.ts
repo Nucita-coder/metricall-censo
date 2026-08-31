@@ -35,6 +35,7 @@ export const KANBAN_COLORS = {
     pagoProcesado: { bg: '#E6F4EA', text: '#137333' },
     pagoPendiente: { bg: '#FEF7E0', text: '#B06000' },
     pagoRechazado: { bg: '#FCE8E6', text: '#C5221F' },
+    procesadoSAE: { bg: 'rgba(59, 130, 246, 0.15)', text: '#3B82F6' },
     default: { bg: '#E2E8F0', text: '#4A5568' }
   },
   text: {

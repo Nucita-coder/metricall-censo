@@ -32,7 +32,7 @@ export default function DashboardScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [createType, setCreateType] = useState<'sucursal' | 'tablero'>('sucursal');
   const [targetSucursalId, setTargetSucursalId] = useState<string | null>(null);
-  const [tipoTablero, setTipoTablero] = useState<'instalaciones' | 'censo' | 'almacen' | 'cobranza' | 'gestion_online'>('instalaciones');
+  const [tipoTablero, setTipoTablero] = useState<'instalaciones' | 'censo' | 'almacen' | 'cobranza' | 'gestion_online' | 'atencion_fallas'>('instalaciones');
   const [inputNombre, setInputNombre] = useState('');
   const [inputSecundario, setInputSecundario] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -171,7 +171,9 @@ export default function DashboardScreen() {
                 ? ['Carga de cobranza clientes cortados', 'Acción efectiva', 'Acción negativa', 'Recupero', 'Acción efectiva (Recupero)', 'Acción negativa (Recupero)']
                 : tipoTablero === 'gestion_online'
                   ? ['ventas online', 'reporte falla', 'reporte pago']
-                  : ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'];
+                  : tipoTablero === 'atencion_fallas'
+                    ? ['Por asignar', 'Asignado a', 'En Proceso', 'En Revisión', 'Falla Solventada']
+                    : ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'];
 
           const defaultListas = nombresListas.map((nombre, index) => ({
             empresa_id: perfilData?.empresa_id,

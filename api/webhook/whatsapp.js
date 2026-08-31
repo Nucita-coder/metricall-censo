@@ -31,6 +31,8 @@ const FALLA_LABELS = {
 const PALABRAS_SI = ['si', 'sí', 'si!', 'sí!', 'yes', 'correcto', 'ok', 'dale', 'confirmar', 'confirmo', '1'];
 // Palabras que el usuario puede escribir para rechazar
 const PALABRAS_NO = ['no', 'no!', 'nope', 'cancelar', 'reintentar', 'mal', 'incorrecto', 'cambiar', '2'];
+// Palabras clave para salir o cancelar cualquier flujo activo
+const PALABRAS_CANCELAR = ['cancelar', 'salir', 'menu', 'menú', 'inicio', '0'];
 
 export default async function handler(req, res) {
 
@@ -64,30 +66,60 @@ export default async function handler(req, res) {
 
       const fromPhone   = message.from;
       const messageType = message.type;
+      const textBody    = (message.text?.body || '').trim();
 
-      // ── Botones interactivos (reply buttons) ─────────────────────────────────
+      // 1. Obtener estado de la conversación PRIMERO (con timeout automático de 5 min)
+      const sesion = await obtenerEstadoSesionRest(fromPhone);
+      const estadoActual = sesion.estado;
+      const enFlujoActivo = estadoActual !== 'INICIO';
+
+      // 2. Si el usuario escribe una palabra explícita de cancelación ("cancelar", "menu", "salir")
+      if (enFlujoActivo && textBody && PALABRAS_CANCELAR.includes(textBody.toLowerCase())) {
+        await actualizarEstadoSesionRest(fromPhone, 'INICIO');
+        await enviarMensajeTexto(fromPhone, '↩️ *Gestión cancelada.* Regresando al menú principal...');
+        await enviarMenuPrincipal(fromPhone);
+        return res.status(200).json({ status: 'flujo_cancelado_por_usuario' });
+      }
+
+      // ── 3. Botones interactivos (reply buttons) ─────────────────────────────
       if (messageType === 'interactive' && message.interactive?.type === 'button_reply') {
         const buttonId    = message.interactive.button_reply.id;
         const buttonTitle = message.interactive.button_reply.title;
 
         await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Botón: ${buttonTitle}`, contenido: { buttonId } });
 
-        // ── Botones del menú principal ──────────────────────────────────────────
+        // ── Validar clics en botones de confirmación obsoletos ────────────────
+        if ((buttonId === 'btn_confirmar_pago' || buttonId === 'btn_rechazar_pago') && estadoActual !== 'CONFIRMANDO_PAGO') {
+          await enviarMensajeTexto(fromPhone, '⚠️ *Esta confirmación ya expiró o fue procesada.*');
+          await enviarMenuPrincipal(fromPhone);
+          return res.status(200).json({ status: 'boton_confirmacion_expirado' });
+        }
+
+        // ── Botones del menú principal ────────────────────────────────────────
         if (buttonId === 'btn_reporte_pago') {
+          if (enFlujoActivo) {
+            await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un nuevo Reporte de Pago.');
+          }
           await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
           await enviarFormularioPago(fromPhone);
 
         } else if (buttonId === 'btn_reporte_falla') {
+          if (enFlujoActivo) {
+            await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un Reporte de Falla.');
+            await actualizarEstadoSesionRest(fromPhone, 'INICIO');
+          }
           await enviarMenuFallas(fromPhone);
 
         } else if (buttonId === 'btn_suscribirse') {
+          if (enFlujoActivo) {
+            await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar la Suscripción.');
+          }
           await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_SUSCRIPCION');
           await enviarInstruccionesSuscripcion(fromPhone);
 
-        // ── Botones de confirmación de pago ────────────────────────────────────
+        // ── Botones de confirmación de pago válidos ─────────────────────────
         } else if (buttonId === 'btn_confirmar_pago') {
-          const sesionActual = await obtenerEstadoSesionRest(fromPhone);
-          const datosGuardados = sesionActual.datos_temporales || {};
+          const datosGuardados = sesion.datos_temporales || {};
           await crearTarjetaCobranzaRest(datosGuardados);
           await actualizarEstadoSesionRest(fromPhone, 'INICIO');
           await enviarConfirmacionPago(fromPhone, datosGuardados);
@@ -105,21 +137,20 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: 'button_handled' });
       }
 
-      // ── Selección de lista (fallas) ───────────────────────────────────────────
+      // ── 4. Selección de lista (fallas) ───────────────────────────────────────
       if (messageType === 'interactive' && message.interactive?.type === 'list_reply') {
         const itemId    = message.interactive.list_reply.id;
         const itemTitle = message.interactive.list_reply.title;
         const label     = FALLA_LABELS[itemId] || itemTitle;
 
         await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Falla seleccionada: ${label}`, contenido: { itemId } });
+        await actualizarEstadoSesionRest(fromPhone, 'INICIO');
         await enviarConfirmacionFalla(fromPhone, label);
         await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Confirmación de falla enviada: ${label}` });
         return res.status(200).json({ status: 'falla_registrada' });
       }
 
-      // ── Mensajes de texto o imágenes ─────────────────────────────────────────
-      const textBody = (message.text?.body || '').trim();
-
+      // ── 5. Procesamiento de mensajes según Estado Actual ────────────────────
       await insertarLog({
         tipo: 'incoming',
         numero_telefono: fromPhone,
@@ -127,16 +158,12 @@ export default async function handler(req, res) {
         contenido: { messageType, textBody }
       });
 
-      // Obtener estado de la conversación (con timeout automático de 5 min)
-      const sesion = await obtenerEstadoSesionRest(fromPhone);
-
-      // ── ESTADO: CONFIRMANDO_PAGO ─ usuario responde Sí o No al resumen ───────
-      if (sesion.estado === 'CONFIRMANDO_PAGO') {
+      // ── ESTADO: CONFIRMANDO_PAGO ─ usuario responde por texto (Sí / No) ─────
+      if (estadoActual === 'CONFIRMANDO_PAGO') {
         const respuesta = textBody.toLowerCase().trim();
         const datosGuardados = sesion.datos_temporales || {};
 
         if (PALABRAS_SI.includes(respuesta)) {
-          // ✅ Confirmó → crear tarjeta
           await crearTarjetaCobranzaRest(datosGuardados);
           await actualizarEstadoSesionRest(fromPhone, 'INICIO');
           await enviarConfirmacionPago(fromPhone, datosGuardados);
@@ -144,22 +171,20 @@ export default async function handler(req, res) {
           return res.status(200).json({ status: 'pago_confirmado_y_registrado' });
 
         } else if (PALABRAS_NO.includes(respuesta)) {
-          // ❌ Rechazó → reiniciar flujo desde el paso 1
           await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
           await enviarFormularioPago(fromPhone);
           await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Usuario rechazó datos, se reinicia el formulario' });
           return res.status(200).json({ status: 'pago_rechazado_reintento' });
 
         } else {
-          // Respuesta no reconocida
           await enviarMensajeTexto(fromPhone,
-            '❓ No entendí tu respuesta. Por favor responde *Sí* para confirmar el pago o *No* para corregir los datos.');
+            '❓ Por favor responde tocando uno de los botones (✅ Confirmar / ❌ Corregir datos) o escribe *Sí* / *No*. Escribe *cancelar* para volver al menú.');
           return res.status(200).json({ status: 'confirmacion_pendiente' });
         }
       }
 
-      // ── ESTADO: ESPERANDO_COMPROBANTE ─ Paso 2: recibe SOLO la foto ──────────
-      if (sesion.estado === 'ESPERANDO_COMPROBANTE') {
+      // ── ESTADO: ESPERANDO_COMPROBANTE ─ Paso 2: recibe la foto ──────────────
+      if (estadoActual === 'ESPERANDO_COMPROBANTE') {
         const datosTemp = sesion.datos_temporales || {};
 
         if (messageType === 'image' && message.image?.id) {
@@ -170,30 +195,26 @@ export default async function handler(req, res) {
           const datosPago = { ...datosTemp };
           if (comprobanteUrl) datosPago.comprobante_url = comprobanteUrl;
 
-          // Mostrar resumen y pedir confirmación
           await actualizarEstadoSesionRest(fromPhone, 'CONFIRMANDO_PAGO', datosPago);
           await enviarResumenParaConfirmacion(fromPhone, datosPago);
           await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Comprobante recibido, resumen enviado para confirmación' });
           return res.status(200).json({ status: 'comprobante_recibido_esperando_confirmacion' });
 
-        } else if (messageType === 'text') {
-          // El usuario escribió texto en lugar de mandar la foto → recordarle
-          await enviarMensajeTexto(fromPhone,
-            '📸 Por favor envía la *foto del comprobante* de pago. Si no tienes comprobante, responde *sin foto* para continuar sin ella.');
-          return res.status(200).json({ status: 'esperando_foto' });
-
         } else if (textBody.toLowerCase().includes('sin foto') || textBody.toLowerCase().includes('no tengo')) {
-          // El usuario indicó que no tiene comprobante → mostrar resumen sin foto
           const datosPago = { ...datosTemp };
           await actualizarEstadoSesionRest(fromPhone, 'CONFIRMANDO_PAGO', datosPago);
           await enviarResumenParaConfirmacion(fromPhone, datosPago);
           return res.status(200).json({ status: 'sin_comprobante_esperando_confirmacion' });
+
+        } else if (messageType === 'text') {
+          await enviarMensajeTexto(fromPhone,
+            '📸 Por favor envía la *foto del comprobante* de pago. Si no tienes la foto, escribe *sin foto*. Escribe *cancelar* para salir.');
+          return res.status(200).json({ status: 'esperando_foto' });
         }
       }
 
-      // ── ESTADO: ESPERANDO_DATOS_PAGO ─ Paso 1: recibe SOLO texto con datos ───
-      if (sesion.estado === 'ESPERANDO_DATOS_PAGO') {
-        // Si el usuario mandó una imagen en el paso 1 (error de orden) → pedirle el texto primero
+      // ── ESTADO: ESPERANDO_DATOS_PAGO ─ Paso 1: recibe texto con datos ────────
+      if (estadoActual === 'ESPERANDO_DATOS_PAGO') {
         if (messageType === 'image') {
           await enviarMensajeTexto(fromPhone,
             '✏️ Por favor envía primero los *datos del pago en texto* (cédula, referencia, monto, banco). Luego te pediré la foto.');
@@ -207,15 +228,14 @@ export default async function handler(req, res) {
         const datosPago = await extraerDatosPago(textBody, fromPhone);
         console.log('[WEBHOOK PASO1] datosPago extraídos:', JSON.stringify(datosPago));
 
-        // Guardar datos y pasar al Paso 2: solicitar comprobante
         await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_COMPROBANTE', datosPago);
         await enviarSolicitudComprobante(fromPhone);
-        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Datos de texto recibidos, solicitando comprobante (paso 2)' });
+        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Datos recibidos, solicitando comprobante (paso 2)' });
         return res.status(200).json({ status: 'datos_recibidos_esperando_comprobante' });
       }
 
       // ── ESTADO: ESPERANDO_DATOS_SUSCRIPCION ──────────────────────────────────
-      if (sesion.estado === 'ESPERANDO_DATOS_SUSCRIPCION' && textBody) {
+      if (estadoActual === 'ESPERANDO_DATOS_SUSCRIPCION' && textBody) {
         const datosExtrada = await extraerDatosSuscripcion(textBody, fromPhone);
         const tarjetaCreada = await crearTarjetaVentaOnlineRest(datosExtrada);
         await actualizarEstadoSesionRest(fromPhone, 'INICIO');
@@ -233,13 +253,16 @@ export default async function handler(req, res) {
       // Si el usuario escribe "suscribirme" desde cualquier estado
       const textLower = textBody.toLowerCase();
       if (textLower.includes('suscrib') || textLower.includes('comprar') || textLower === '1') {
+        if (enFlujoActivo) {
+          await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar la Suscripción.');
+        }
         await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_SUSCRIPCION');
         await enviarInstruccionesSuscripcion(fromPhone);
         await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Instrucciones de suscripción enviadas' });
         return res.status(200).json({ status: 'instrucciones_enviadas' });
       }
 
-      // ── Menú principal ────────────────────────────────────────────────────────
+      // ── Menú principal (estado INICIO o comando no reconocido) ────────────────
       await enviarMenuPrincipal(fromPhone);
       await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Menú principal enviado' });
       return res.status(200).json({ status: 'menu_enviado' });

@@ -72,6 +72,7 @@ export default async function handler(req, res) {
 
         await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Botón: ${buttonTitle}`, contenido: { buttonId } });
 
+        // ── Botones del menú principal ──────────────────────────────────────────
         if (buttonId === 'btn_reporte_pago') {
           await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
           await enviarFormularioPago(fromPhone);
@@ -82,6 +83,22 @@ export default async function handler(req, res) {
         } else if (buttonId === 'btn_suscribirse') {
           await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_SUSCRIPCION');
           await enviarInstruccionesSuscripcion(fromPhone);
+
+        // ── Botones de confirmación de pago ────────────────────────────────────
+        } else if (buttonId === 'btn_confirmar_pago') {
+          const sesionActual = await obtenerEstadoSesionRest(fromPhone);
+          const datosGuardados = sesionActual.datos_temporales || {};
+          await crearTarjetaCobranzaRest(datosGuardados);
+          await actualizarEstadoSesionRest(fromPhone, 'INICIO');
+          await enviarConfirmacionPago(fromPhone, datosGuardados);
+          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Pago confirmado vía botón: Ref ${datosGuardados.referencia}` });
+          return res.status(200).json({ status: 'pago_confirmado_y_registrado' });
+
+        } else if (buttonId === 'btn_rechazar_pago') {
+          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
+          await enviarFormularioPago(fromPhone);
+          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Usuario rechazó datos vía botón, se reinicia el formulario' });
+          return res.status(200).json({ status: 'pago_rechazado_reintento' });
         }
 
         await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Respuesta a botón: ${buttonId}` });

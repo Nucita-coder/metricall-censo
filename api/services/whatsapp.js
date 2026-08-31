@@ -202,25 +202,38 @@ export async function enviarResumenParaConfirmacion(toPhone, datos) {
   if (!accessToken) return;
 
   const comprobante = datos.comprobante_url ? '📎 Comprobante adjunto ✅' : '📎 Sin comprobante';
-  const mensaje =
-`🔍 *Verifica los datos antes de enviar:*
-
-👤 *Cédula/Abonado:* ${datos.cedula || 'No especificada'}
+  const resumen =
+`👤 *Cédula/Abonado:* ${datos.cedula || 'No especificada'}
 🔖 *Referencia:* ${datos.referencia || 'S/N'}
 💰 *Monto:* ${datos.monto || 'Por verificar'}
 🏦 *Banco:* ${datos.banco || 'No especificado'}
-${comprobante}
-
-¿Es correcta esta información?
-Responde *Sí* para confirmar y registrar el pago, o *No* para reintentar.`;
+${comprobante}`;
 
   try {
     return await apiPost(phoneNumberId, accessToken, {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: toPhone,
-      type: 'text',
-      text: { body: mensaje }
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        header: {
+          type: 'text',
+          text: '🔍 Verifica los datos del pago'
+        },
+        body: {
+          text: resumen
+        },
+        footer: {
+          text: '¿Es correcta esta información?'
+        },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'btn_confirmar_pago',  title: '✅ Confirmar' } },
+            { type: 'reply', reply: { id: 'btn_rechazar_pago',   title: '❌ Corregir datos' } }
+          ]
+        }
+      }
     });
   } catch (err) {
     console.error('[WHATSAPP RESUMEN CONFIRMACION ERROR]:', err);

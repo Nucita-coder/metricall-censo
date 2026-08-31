@@ -268,11 +268,6 @@ const KanbanCardComponent = ({
                         <Text style={{ fontSize: 9, color: '#2B6CB0', fontWeight: 'bold' }}>EXTRAÍDA DE CENSO</Text>
                       </View>
                     )}
-                    {data.origen === 'WhatsApp Bot' && (
-                      <View style={{ backgroundColor: 'rgba(37, 211, 102, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(37, 211, 102, 0.3)' }}>
-                        <Text style={{ fontSize: 9, color: '#25D366', fontWeight: 'bold' }}>GESTIÓN ONLINE</Text>
-                      </View>
-                    )}
                     <Text style={styles.cardDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
                   </View>
                 </View>
@@ -301,7 +296,7 @@ const KanbanCardComponent = ({
                     </View>
                   ) : null}
                 </View>
-                {(data.tipoContacto || data.resultadoContacto || data.comprobantePagoUrl || (Array.isArray(data.adjuntos) && data.adjuntos.length > 0)) && (
+                {(data.tipoContacto || data.resultadoContacto || data.estadoCobranza || data.referencia || data.montoPago) && (
                   <View style={{ marginTop: 6, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                     {data.tipoContacto ? (
                       <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.3)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
@@ -321,14 +316,6 @@ const KanbanCardComponent = ({
                           </View>
                         );
                       })()
-                    ) : null}
-                    {(data.comprobantePagoUrl || (Array.isArray(data.adjuntos) && data.adjuntos.length > 0)) ? (
-                      <View style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.3)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, flexDirection: 'row', alignItems: 'center' }}>
-                        <Paperclip size={10} color="#4ADE80" style={{ marginRight: 3 }} />
-                        <Text style={{ fontSize: 9, color: '#4ADE80', fontWeight: 'bold' }}>
-                          COMPROBANTE ADJUNTO
-                        </Text>
-                      </View>
                     ) : null}
                     {(data.estadoCobranza || data.referencia || data.montoPago) ? (
                       (() => {

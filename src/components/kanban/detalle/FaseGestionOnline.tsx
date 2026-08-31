@@ -415,6 +415,7 @@ export const FaseGestionOnline = ({
         {...(Platform.OS === 'web' ? {} : {})}
       >
         <FormularioConversionVenta
+          initialData={tarjeta.datos_valores || {}}
           isSubmitting={isSavingVenta}
           onCancel={() => setMostrarFormularioVenta(false)}
           onConfirm={async (datosComerciales: any) => {

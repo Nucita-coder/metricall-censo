@@ -244,6 +244,7 @@ export const ModalDetalleTarjeta = ({
 
             {conversionData ? (
               <FormularioConversionVenta
+                initialData={tarjetaSeleccionada.datos_valores || {}}
                 isSubmitting={isSaving}
                 onCancel={() => setConversionData(null)}
                 onConfirm={async (datosComerciales: any) => {

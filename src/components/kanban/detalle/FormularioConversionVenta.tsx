@@ -5,7 +5,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { ModalMapaUbicacion } from '../../tarjetas/ModalMapaUbicacion';
 import { DatePickerInput, InputTexto, SelectDropdown } from '../../venta/CamposVenta';
 
-export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting }: any) => {
+export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, initialData }: any) => {
   const { session, userRol } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = width > 768;
@@ -13,13 +13,15 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting }:
   const [formData, setFormData] = useState({
     fechaVenta: new Date().toLocaleDateString('es-ES'),
     vendedor: session?.user?.email || userRol || 'Vendedor',
-    tipoServicio: '',
-    fechaNacimiento: '',
-    direccionFiscal: '',
+    tipoDocumento: initialData?.tipoDocumento || initialData?.tipoDocumentoIdentidad || 'V',
+    documentoIdentidad: initialData?.documentoIdentidad || initialData?.nroIdentidad || initialData?.cedula || '',
+    tipoServicio: initialData?.tipoServicio || '',
+    fechaNacimiento: initialData?.fechaNacimiento || '',
+    direccionFiscal: initialData?.direccionFiscal || '',
     phInstalacion: '', phConectados: '', phGamer: '', phCinefilos: '', phFamiliar: '',
     ppInstalacion: '', ppEmprendedores: '', ppComercios: '', ppOficinas: '', ppNegocios: '',
     equipoAdicional: '',
-    nroAbonado: '',
+    nroAbonado: initialData?.nroAbonado || initialData?.cedula || '',
   });
 
   // Estado de ubicación
@@ -70,6 +72,24 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting }:
         <View style={[styles.sectionCard, isDesktop && { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }]}>
           <InputTexto label="Fecha de Venta" value={formData.fechaVenta} readOnly />
           <InputTexto label="Vendedor" value={formData.vendedor} readOnly />
+
+          <SelectDropdown
+            label="Tipo Documento"
+            value={formData.tipoDocumento}
+            onSelect={(v: string) => updateForm('tipoDocumento', v)}
+            options={['V', 'E', 'J', 'P']}
+            placeholder="Seleccione"
+            isRequired
+          />
+
+          <InputTexto
+            label="Documento Identidad / Cédula"
+            value={formData.documentoIdentidad}
+            onChangeText={(v: string) => updateForm('documentoIdentidad', v)}
+            placeholder="Ej. 12345678"
+            keyboardType="numeric"
+            isRequired
+          />
 
           <SelectDropdown
             label="Tipo de Servicio"

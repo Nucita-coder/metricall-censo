@@ -235,15 +235,14 @@ export const FaseGestionOnline = ({
     }
   };
 
-  return renderSection('Acciones de Gestión Online', (
+  return renderSection(esReportePago ? 'Gestión de Reporte de Pago' : 'Acciones de Gestión Online', (
     <View>
       {/* ── SECCIÓN DE ESTADO DE PAGO (Si es reporte de pago) ───── */}
-      {esReportePago && (
+      {esReportePago ? (
         <View style={{
           backgroundColor: '#1E232A',
           borderRadius: 10,
           padding: 14,
-          marginBottom: 18,
           borderWidth: 1,
           borderColor: '#384148',
         }}>
@@ -283,7 +282,7 @@ export const FaseGestionOnline = ({
           </View>
 
           <Text style={{ fontSize: 12, color: '#8C9BAB', marginBottom: 10 }}>
-            Cambiar estatus del pago:
+            Selecciona una acción para este pago:
           </Text>
 
           {/* Botones de Cambio de Estado de Pago */}
@@ -355,30 +354,30 @@ export const FaseGestionOnline = ({
             </TouchableOpacity>
           </View>
         </View>
-      )}
+      ) : (
+        <>
+          <Text style={{ fontSize: 13, color: '#8C9BAB', marginBottom: 16, lineHeight: 20 }}>
+            Selecciona la acción correspondiente para esta solicitud recibida por WhatsApp.
+          </Text>
 
-      <Text style={{ fontSize: 13, color: '#8C9BAB', marginBottom: 16, lineHeight: 20 }}>
-        Selecciona la acción correspondiente para esta solicitud recibida por WhatsApp.
-      </Text>
-
-      {/* ── Botón 1: Sector sin caja ──────────────────────────── */}
-      <TouchableOpacity
-        style={{
-          backgroundColor: confirmandoSinCaja ? '#E84040' : '#2C333A',
-          borderWidth: 1,
-          borderColor: confirmandoSinCaja ? '#E84040' : '#D94F4F',
-          borderRadius: 8,
-          padding: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          marginBottom: 10,
-          opacity: isSaving ? 0.6 : 1,
-        }}
-        onPress={handleSectorSinCaja}
-        disabled={isSaving}
-      >
+          {/* ── Botón 1: Sector sin caja ──────────────────────────── */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: confirmandoSinCaja ? '#E84040' : '#2C333A',
+              borderWidth: 1,
+              borderColor: confirmandoSinCaja ? '#E84040' : '#D94F4F',
+              borderRadius: 8,
+              padding: 14,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              marginBottom: 10,
+              opacity: isSaving ? 0.6 : 1,
+            }}
+            onPress={handleSectorSinCaja}
+            disabled={isSaving}
+          >
         {isSaving && confirmandoSinCaja ? (
           <ActivityIndicator color="#FFF" />
         ) : (
@@ -602,6 +601,8 @@ export const FaseGestionOnline = ({
           }}
         />
       </Modal>
+        </>
+      )}
     </View>
   ));
 };

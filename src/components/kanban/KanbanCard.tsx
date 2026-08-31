@@ -330,6 +330,31 @@ const KanbanCardComponent = ({
                         </Text>
                       </View>
                     ) : null}
+                    {(data.estadoCobranza || data.referencia || data.montoPago) ? (
+                      (() => {
+                        const est = data.estadoCobranza || 'Pago Pendiente Revisión';
+                        const isProc = est === 'Pago Procesado';
+                        const isRech = est === 'Pago Rechazado';
+                        return (
+                          <View style={{
+                            backgroundColor: isProc ? 'rgba(34, 197, 94, 0.2)' : isRech ? 'rgba(239, 68, 68, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+                            borderWidth: 1,
+                            borderColor: isProc ? '#22C55E' : isRech ? '#EF4444' : '#EAB308',
+                            paddingHorizontal: 7,
+                            paddingVertical: 2,
+                            borderRadius: 4
+                          }}>
+                            <Text style={{
+                              fontSize: 9,
+                              color: isProc ? '#4ADE80' : isRech ? '#F87171' : '#FACC15',
+                              fontWeight: 'bold'
+                            }}>
+                              {isProc ? '✅ PAGO PROCESADO' : isRech ? '❌ PAGO RECHAZADO' : '🟡 PAGO PENDIENTE REVISIÓN'}
+                            </Text>
+                          </View>
+                        );
+                      })()
+                    ) : null}
                   </View>
                 )}
               </>

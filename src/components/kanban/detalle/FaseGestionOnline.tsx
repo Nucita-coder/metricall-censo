@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
-import { AlertTriangle, Clock, ShoppingCart, UserX, X } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, Clock, Hourglass, ShoppingCart, UserX, X, XCircle } from 'lucide-react-native';
 import { FaseProps, findListaTarget } from './types';
 import { renderSection } from './SeccionRegistro';
 import { useErrorDiagnostics } from '../../../context/ErrorDiagnosticsContext';
@@ -211,8 +211,152 @@ export const FaseGestionOnline = ({
     }
   };
 
+  const datosValores = tarjeta.datos_valores || {};
+  const esReportePago = Boolean(datosValores.referencia || datosValores.montoPago || datosValores.comprobantePagoUrl || datosValores.bancoOrigen);
+  const estadoPagoActual = datosValores.estadoCobranza || 'Pago Pendiente Revisión';
+
+  const handleCambiarEstadoPago = async (nuevoEstado: string) => {
+    setIsSaving(true);
+    try {
+      await onUpdateTarjeta({
+        estadoCobranza: nuevoEstado,
+        estadoGestion: nuevoEstado.toLowerCase().replace(/\s+/g, '_'),
+        fechaUltimaGestionPago: new Date().toISOString(),
+      });
+    } catch (e: any) {
+      showDiagnosticError(
+        'ERR-GESTION-PAGO-ESTADO',
+        'Error al actualizar el estado de pago.',
+        e,
+        'GestionOnline'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return renderSection('Acciones de Gestión Online', (
     <View>
+      {/* ── SECCIÓN DE ESTADO DE PAGO (Si es reporte de pago) ───── */}
+      {esReportePago && (
+        <View style={{
+          backgroundColor: '#1E232A',
+          borderRadius: 10,
+          padding: 14,
+          marginBottom: 18,
+          borderWidth: 1,
+          borderColor: '#384148',
+        }}>
+          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#B6C2CF', marginBottom: 8 }}>
+            Estatus del Pago:
+          </Text>
+
+          {/* Badge de Estatus Actual */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: 6,
+            marginBottom: 12,
+            backgroundColor:
+              estadoPagoActual === 'Pago Procesado' ? '#14532D' :
+              estadoPagoActual === 'Pago Rechazado' ? '#7F1D1D' : '#713F12',
+            borderWidth: 1,
+            borderColor:
+              estadoPagoActual === 'Pago Procesado' ? '#22C55E' :
+              estadoPagoActual === 'Pago Rechazado' ? '#EF4444' : '#EAB308',
+          }}>
+            {estadoPagoActual === 'Pago Procesado' && <CheckCircle2 size={16} color="#4ADE80" />}
+            {estadoPagoActual === 'Pago Rechazado' && <XCircle size={16} color="#F87171" />}
+            {estadoPagoActual !== 'Pago Procesado' && estadoPagoActual !== 'Pago Rechazado' && <Hourglass size={16} color="#FACC15" />}
+            <Text style={{
+              fontWeight: '900',
+              fontSize: 13,
+              color:
+                estadoPagoActual === 'Pago Procesado' ? '#4ADE80' :
+                estadoPagoActual === 'Pago Rechazado' ? '#F87171' : '#FACC15',
+            }}>
+              {estadoPagoActual}
+            </Text>
+          </View>
+
+          <Text style={{ fontSize: 12, color: '#8C9BAB', marginBottom: 10 }}>
+            Cambiar estatus del pago:
+          </Text>
+
+          {/* Botones de Cambio de Estado de Pago */}
+          <View style={{ gap: 8 }}>
+            <TouchableOpacity
+              style={{
+                backgroundColor: estadoPagoActual === 'Pago Procesado' ? '#15803D' : '#1F2937',
+                borderWidth: 1,
+                borderColor: '#22C55E',
+                borderRadius: 8,
+                padding: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                opacity: isSaving ? 0.6 : 1,
+              }}
+              onPress={() => handleCambiarEstadoPago('Pago Procesado')}
+              disabled={isSaving}
+            >
+              <CheckCircle2 size={16} color="#22C55E" />
+              <Text style={{ color: '#22C55E', fontWeight: 'bold', fontSize: 13 }}>
+                Pago Procesado
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: estadoPagoActual === 'Pago Rechazado' ? '#991B1B' : '#1F2937',
+                borderWidth: 1,
+                borderColor: '#EF4444',
+                borderRadius: 8,
+                padding: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                opacity: isSaving ? 0.6 : 1,
+              }}
+              onPress={() => handleCambiarEstadoPago('Pago Rechazado')}
+              disabled={isSaving}
+            >
+              <XCircle size={16} color="#EF4444" />
+              <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 13 }}>
+                Pago Rechazado
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: estadoPagoActual === 'Pago Pendiente Revisión' ? '#854D0E' : '#1F2937',
+                borderWidth: 1,
+                borderColor: '#EAB308',
+                borderRadius: 8,
+                padding: 10,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                opacity: isSaving ? 0.6 : 1,
+              }}
+              onPress={() => handleCambiarEstadoPago('Pago Pendiente Revisión')}
+              disabled={isSaving}
+            >
+              <Hourglass size={14} color="#EAB308" />
+              <Text style={{ color: '#EAB308', fontWeight: 'bold', fontSize: 12 }}>
+                Pago Pendiente Revisión
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <Text style={{ fontSize: 13, color: '#8C9BAB', marginBottom: 16, lineHeight: 20 }}>
         Selecciona la acción correspondiente para esta solicitud recibida por WhatsApp.
       </Text>

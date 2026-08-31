@@ -329,4 +329,97 @@ Mensaje del cliente:
   }
 }
 
+// ─── Extraer datos de reporte de falla (Nombre, Cédula, Teléfono) ─────────────
+export async function extraerDatosFalla(userText, numeroEmisor) {
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  const extraerBasicosFalla = (text) => {
+    const txt = (text || '').trim();
+    if (!txt) {
+      return { nombre: 'Cliente WhatsApp', cedula: 'No especificada', telefono: numeroEmisor };
+    }
+
+    let cedula = null;
+    let telefono = null;
+    let nombre = null;
+
+    const cedulaMatch = txt.match(/(?:cedula|cédula|abonado|ci|v-?)\s*:?\s*([VvEeJjPp]?-?\d{6,9})/i);
+    if (cedulaMatch) cedula = cedulaMatch[1];
+
+    const telMatch = txt.match(/(?:telefono|teléfono|contacto|movil|móvil|nro|celular)\s*:?\s*(\+?\d{10,13})/i);
+    if (telMatch) telefono = telMatch[1].replace(/\D/g, '');
+
+    const partes = txt.split(/[,;\n]+/).map(p => p.trim()).filter(Boolean);
+    if (partes[0] && !/\d{6,}/.test(partes[0])) {
+      nombre = partes[0].replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    if (!cedula) {
+      const numMatch = txt.match(/\b\d{6,9}\b/);
+      if (numMatch) cedula = numMatch[0];
+    }
+
+    return {
+      nombre:   nombre   || 'Cliente WhatsApp',
+      cedula:   cedula   || 'No especificada',
+      telefono: telefono || numeroEmisor
+    };
+  };
+
+  if (!userText || !userText.trim()) return extraerBasicosFalla('');
+  if (!apiKey) return extraerBasicosFalla(userText);
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const prompt = `Un cliente envió sus datos para reportar una falla técnica de internet por WhatsApp.
+Extrae la información requerida y responde ÚNICAMENTE con un JSON plano (sin formato markdown ni \`\`\`json):
+
+{
+  "nombre": "Nombre y Apellido del cliente (o 'Cliente WhatsApp' si no lo especifica)",
+  "cedula": "Cédula de Identidad o Número de Abonado (o 'No especificada')",
+  "telefono": "Número telefónico de contacto si especificó uno distinto en el texto, de lo contrario 'DEFAULT'"
+}
+
+Reglas:
+1. Si el usuario no especificó un teléfono de contacto en el texto, coloca 'DEFAULT'.
+2. Responde SOLO el JSON, sin texto adicional.
+
+Mensaje del cliente:
+"${userText.replace(/"/g, '\\"')}"`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 250 }
+      })
+    });
+
+    if (!response.ok) return extraerBasicosFalla(userText);
+
+    const data = await response.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!rawText) return extraerBasicosFalla(userText);
+
+    const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+
+    let tel = parsed.telefono && parsed.telefono !== 'DEFAULT'
+      ? String(parsed.telefono).replace(/\D/g, '')
+      : null;
+    if (!tel || tel.length < 7) tel = numeroEmisor;
+
+    return {
+      nombre:   parsed.nombre   || 'Cliente WhatsApp',
+      cedula:   parsed.cedula   || 'No especificada',
+      telefono: tel
+    };
+  } catch (err) {
+    console.error('[GEMINI FALLA ERROR]:', err);
+    return extraerBasicosFalla(userText);
+  }
+}
+
+
 

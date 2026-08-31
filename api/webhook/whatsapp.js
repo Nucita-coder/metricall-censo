@@ -1,6 +1,7 @@
 import {
   enviarMenuPrincipal,
   enviarFormularioPago,
+  enviarFormularioFalla,
   enviarMenuFallas,
   enviarInstruccionesSuscripcion,
   enviarConfirmacionSuscripcion,
@@ -13,9 +14,10 @@ import {
   actualizarEstadoSesionRest,
   crearTarjetaVentaOnlineRest,
   crearTarjetaCobranzaRest,
+  crearTarjetaFallaRest,
   procesarImagenWhatsApp
 } from '../services/whatsapp.js';
-import { extraerDatosSuscripcion, extraerDatosPago } from '../services/gemini.js';
+import { extraerDatosSuscripcion, extraerDatosPago, extraerDatosFalla } from '../services/gemini.js';
 import { insertarLog } from '../services/logger.js';
 
 // Etiquetas legibles para tipos de falla
@@ -106,9 +108,10 @@ export default async function handler(req, res) {
         } else if (buttonId === 'btn_reporte_falla') {
           if (enFlujoActivo) {
             await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un Reporte de Falla.');
-            await actualizarEstadoSesionRest(fromPhone, 'INICIO');
           }
-          await enviarMenuFallas(fromPhone);
+          // Paso 1 de Falla: solicitar datos de cliente (Nombre, Cédula, Teléfono)
+          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_FALLA');
+          await enviarFormularioFalla(fromPhone);
 
         } else if (buttonId === 'btn_suscribirse') {
           if (enFlujoActivo) {
@@ -144,9 +147,18 @@ export default async function handler(req, res) {
         const label     = FALLA_LABELS[itemId] || itemTitle;
 
         await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Falla seleccionada: ${label}`, contenido: { itemId } });
+
+        const datosCliente = sesion.datos_temporales || {};
+        const datosCompletosFalla = {
+          ...datosCliente,
+          tipoFalla: label
+        };
+
+        // Crear la tarjeta de falla en la base de datos para el técnico
+        await crearTarjetaFallaRest(datosCompletosFalla);
         await actualizarEstadoSesionRest(fromPhone, 'INICIO');
-        await enviarConfirmacionFalla(fromPhone, label);
-        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Confirmación de falla enviada: ${label}` });
+        await enviarConfirmacionFalla(fromPhone, label, datosCompletosFalla);
+        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Tarjeta de falla creada y confirmada: ${label}` });
         return res.status(200).json({ status: 'falla_registrada' });
       }
 
@@ -157,6 +169,23 @@ export default async function handler(req, res) {
         mensaje_texto: textBody || `[${messageType.toUpperCase()}]`,
         contenido: { messageType, textBody }
       });
+
+      // ── ESTADO: ESPERANDO_DATOS_FALLA ─ Paso 1 de Falla: recibe texto con datos ──
+      if (estadoActual === 'ESPERANDO_DATOS_FALLA') {
+        if (!textBody) {
+          await enviarMensajeTexto(fromPhone, '✏️ Por favor envía tus datos en texto (Nombre, Cédula y Teléfono de contacto).');
+          return res.status(200).json({ status: 'sin_texto_falla' });
+        }
+
+        const datosFalla = await extraerDatosFalla(textBody, fromPhone);
+        console.log('[WEBHOOK FALLA PASO1] datosFalla extraídos:', JSON.stringify(datosFalla));
+
+        // Guardar datos del cliente y desplegar la lista de fallas (Paso 2)
+        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_TIPO_FALLA', datosFalla);
+        await enviarMenuFallas(fromPhone);
+        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Datos de cliente para falla recibidos, desplegando lista de fallas' });
+        return res.status(200).json({ status: 'datos_falla_recibidos_esperando_tipo' });
+      }
 
       // ── ESTADO: CONFIRMANDO_PAGO ─ usuario responde por texto (Sí / No) ─────
       if (estadoActual === 'CONFIRMANDO_PAGO') {
@@ -183,7 +212,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // ── ESTADO: ESPERANDO_COMPROBANTE ─ Paso 2: recibe la foto ──────────────
+      // ── ESTADO: ESPERANDO_COMPROBANTE ─ Paso 2 de Pago: recibe la foto ──────
       if (estadoActual === 'ESPERANDO_COMPROBANTE') {
         const datosTemp = sesion.datos_temporales || {};
 

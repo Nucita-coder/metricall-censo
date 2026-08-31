@@ -97,6 +97,31 @@ _⚠️ Escribe y envía el texto primero. Luego te pediré la foto del comproba
     });
   } catch (err) {
     console.error('[WHATSAPP PAGO ERROR]:', err);
+// ─── 3.5. Instrucciones de Reporte de Falla ──────────────────────────────────
+export async function enviarFormularioFalla(toPhone) {
+  const { accessToken, phoneNumberId } = getCredentials();
+  if (!accessToken) return;
+  const mensaje =
+`⚠️ *REPORTE DE FALLA TÉCNICA — Paso 1 de 2*
+
+¡Hola! Por favor envíame tus datos en *un solo mensaje de texto* con este formato:
+
+👤 *Nombre y Apellido:* [tu nombre]
+🆔 *Cédula / Nº Abonado:* [tu cédula o abonado]
+📱 *Número de contacto:* [número de contacto]
+
+_💡 Nota: Si deseas que te contactemos al mismo número desde el que nos escribes, no hace falta responder el 3er dato (número de contacto)._`;
+
+  try {
+    return await apiPost(phoneNumberId, accessToken, {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'text',
+      text: { body: mensaje }
+    });
+  } catch (err) {
+    console.error('[WHATSAPP FALLA ERROR]:', err);
   }
 }
 
@@ -527,6 +552,45 @@ export async function procesarImagenWhatsApp(mediaId, fromPhone) {
   }
 }
 
+export async function crearTarjetaFallaRest(datos) {
+  if (!SUPABASE_URL) return false;
+  const keyToUse = SUPABASE_KEY;
+  if (!keyToUse) return false;
+
+  try {
+    console.log('[CREAR TARJETA FALLA RPC] Invocando bot_crear_tarjeta_falla:', JSON.stringify(datos));
+    const rpcBody = JSON.stringify({
+      p_nombre:     datos.nombre || 'Cliente WhatsApp',
+      p_cedula:     datos.cedula || '',
+      p_telefono:   datos.telefono || '',
+      p_tipo_falla: datos.tipoFalla || 'Falla Técnica'
+    });
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/bot_crear_tarjeta_falla`, {
+      method: 'POST',
+      headers: {
+        'apikey': keyToUse,
+        'Authorization': `Bearer ${keyToUse}`,
+        'Content-Type': 'application/json'
+      },
+      body: rpcBody
+    });
+
+    const resText = await res.text();
+    console.log('[CREAR TARJETA FALLA RPC] Resultado:', res.status, resText.slice(0, 300));
+
+    if (!res.ok) {
+      console.error('[CREAR TARJETA FALLA RPC ERROR]:', res.status, resText);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[CREAR TARJETA FALLA RPC EXCEPTION]:', err);
+    return false;
+  }
+}
+
 // ─── 7. Confirmación de pago recibido ────────────────────────────────────────
 export async function enviarConfirmacionPago(toPhone, datos) {
   const { accessToken, phoneNumberId } = getCredentials();
@@ -555,15 +619,18 @@ Un asesor de cobranza verificará la transacción a la brevedad. ¡Gracias por p
 }
 
 // ─── 8. Confirmación de falla recibida ───────────────────────────────────────
-export async function enviarConfirmacionFalla(toPhone, tipoFalla) {
+export async function enviarConfirmacionFalla(toPhone, tipoFalla, datos = {}) {
   const { accessToken, phoneNumberId } = getCredentials();
   if (!accessToken) return;
   const mensaje =
-`✅ *Reporte recibido*
+`✅ *Reporte de falla recibido*
 
-Hemos registrado tu falla: *${tipoFalla}*
+👤 *Cliente:* ${datos.nombre || 'Cliente WhatsApp'}
+🆔 *Cédula/Abonado:* ${datos.cedula || 'No especificada'}
+📱 *Teléfono:* ${datos.telefono || toPhone}
+⚠️ *Tipo de Falla:* ${tipoFalla}
 
-Un técnico revisará el caso y te notificaremos cuando esté resuelto.
+Un técnico de Fibex Telecom Anaco revisará tu caso a la brevedad para comunicarse contigo.
 
 _Fibex Telecom Anaco (technological project) • Soporte Técnico_`;
 

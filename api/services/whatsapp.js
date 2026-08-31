@@ -48,13 +48,13 @@ export async function enviarMenuPrincipal(toPhone) {
         type: 'button',
         header: {
           type: 'text',
-          text: '👋 ¡Bienvenido a Fibex Telecom!'
+          text: '👋 ¡Bienvenido a Fibex Telecom Anaco!'
         },
         body: {
           text: 'Selecciona una opción para continuar:'
         },
         footer: {
-          text: 'Fibex Telecom (technological project)'
+          text: 'Fibex Telecom Anaco (technological project)'
         },
         action: {
           buttons: [
@@ -120,7 +120,7 @@ export async function enviarMenuFallas(toPhone) {
           text: 'Selecciona el tipo de falla que estás presentando:'
         },
         footer: {
-          text: 'Fibex Telecom (technological project)'
+          text: 'Fibex Telecom Anaco (technological project)'
         },
         action: {
           button: 'Ver fallas',
@@ -539,7 +539,7 @@ export async function enviarConfirmacionPago(toPhone, datos) {
 💵 *Monto:* ${datos.monto || 'Por verificar'}
 🏦 *Banco:* ${datos.banco || 'No especificado'}
 
-Un asesor de cobranza verificará la transacción a la brevedad. ¡Gracias por preferir Fibex Telecom!`;
+Un asesor de cobranza verificará la transacción a la brevedad. ¡Gracias por preferir Fibex Telecom Anaco!`;
 
   try {
     return await apiPost(phoneNumberId, accessToken, {
@@ -565,7 +565,7 @@ Hemos registrado tu falla: *${tipoFalla}*
 
 Un técnico revisará el caso y te notificaremos cuando esté resuelto.
 
-_Fibex Telecom (technological project) • Soporte Técnico_`;
+_Fibex Telecom Anaco (technological project) • Soporte Técnico_`;
 
   try {
     return await apiPost(phoneNumberId, accessToken, {

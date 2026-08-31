@@ -36,6 +36,27 @@ const getInteractiveMapHtml = (lat: number, lng: number) => `
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body, #map { width: 100%; height: 100%; background: #1D2125; cursor: pointer; }
     .leaflet-control-attribution { display: none !important; }
+    .leaflet-control-layers {
+      background: #2C333A !important;
+      color: #FFF !important;
+      border: 1px solid #384148 !important;
+      border-radius: 8px !important;
+      padding: 8px 12px !important;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+    }
+    .leaflet-control-layers label {
+      margin-bottom: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .leaflet-control-layers-expanded {
+      padding: 10px 14px !important;
+    }
   </style>
 </head>
 <body>
@@ -43,11 +64,47 @@ const getInteractiveMapHtml = (lat: number, lng: number) => `
   <script>
     var currentLat = ${lat};
     var currentLng = ${lng};
-    var map = L.map('map', { zoomControl: true }).setView([currentLat, currentLng], 16);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // 1. Satélite HD (Esri World Imagery)
+    var esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Esri World Imagery'
+    });
+
+    // 2. Nombres de calles / Límites
+    var esriLabels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19
-    }).addTo(map);
+    });
+
+    // 3. Grupo Híbrido (Satélite + Etiquetas)
+    var hybridGroup = L.layerGroup([esriSatellite, esriLabels]);
+
+    // 4. Callejero HD (CartoDB Voyager)
+    var cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      subdomains: 'abcd'
+    });
+
+    // 5. OpenStreetMap Estándar
+    var osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    });
+
+    // Inicializar mapa con la capa Híbrida HD por defecto a Zoom 17
+    var map = L.map('map', {
+      zoomControl: true,
+      layers: [hybridGroup]
+    }).setView([currentLat, currentLng], 17);
+
+    // Control Selector de Capas
+    var baseMaps = {
+      "🛰️ Satélite + Calles (Híbrido HD)": hybridGroup,
+      "📷 Satélite HD Solo": esriSatellite,
+      "🏙️ Mapa Callejero HD": cartoVoyager,
+      "🗺️ OpenStreetMap": osmStandard
+    };
+
+    L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
 
     var marker = L.marker([currentLat, currentLng], { draggable: true }).addTo(map);
 
@@ -61,13 +118,11 @@ const getInteractiveMapHtml = (lat: number, lng: number) => `
       }
     }
 
-    // Al hacer clic o toque en cualquier parte del mapa, fija el pin ahí
     map.on('click', function(e) {
       marker.setLatLng(e.latlng);
       notifyCoords(e.latlng.lat, e.latlng.lng);
     });
 
-    // Al arrastrar el pin
     marker.on('dragend', function(e) {
       var pos = marker.getLatLng();
       notifyCoords(pos.lat, pos.lng);

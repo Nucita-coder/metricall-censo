@@ -134,6 +134,10 @@ export const ModalDetalleTarjeta = ({
 
   const renderFaseDinamica = () => {
     const clean = listaActualNombre.toLowerCase().trim().replace(/_/g, ' ');
+    const datosVal = tarjetaSeleccionada?.datos_valores || {};
+    const esWhatsAppBot = datosVal.origen === 'WhatsApp Bot';
+    const esPagoWhatsApp = Boolean(datosVal.referencia || datosVal.comprobantePagoUrl || datosVal.montoPago);
+
     if (clean.includes('factibilidad')) return <FaseFactibilidad {...faseProps} />;
     if (clean.includes('liberad')) return <FaseLiberada {...faseProps} />;
     if (clean.includes('por instalar') || clean.includes('instalar')) return <FasePorInstalar {...faseProps} />;
@@ -141,17 +145,19 @@ export const ModalDetalleTarjeta = ({
     if (clean.includes('proceso')) return <FaseEnProceso {...faseProps} />;
     if (clean.includes('activar')) return <FasePorActivar {...faseProps} />;
     if (clean.includes('activo')) return <FaseClienteActivo {...faseProps} />;
-    if (clean.includes('cobranza') || clean.includes('efectiva') || clean.includes('negativa')) {
+    if (clean.includes('cobranza') || clean.includes('efectiva') || clean.includes('negativa') || datosVal.origenImportacion === 'COBRANZA-RECUPERO-CHURN') {
       return <FaseCobranza {...faseProps} />;
     }
-    // Tarjetas de Gestión Online (WhatsApp Bot) solo mientras estén en la lista de gestión online (nunca en Censo)
-    if ((clean.includes('ventas online') || clean.includes('gestion online') || clean.includes('gestión online')) && !isCensoFormat) {
+    if (clean.includes('ventas online') || clean.includes('gestion online') || clean.includes('gestión online')) {
       return <FaseGestionOnline {...faseProps} />;
     }
     if (clean.includes('venta')) return <FaseVenta {...faseProps} />;
-    if (tarjetaSeleccionada?.datos_valores?.origenImportacion === 'COBRANZA-RECUPERO-CHURN') {
-      return <FaseCobranza {...faseProps} />;
+
+    // Fallback asegurado para tarjetas de WhatsApp Bot / Pagos recibidos
+    if (esWhatsAppBot || esPagoWhatsApp) {
+      return <FaseGestionOnline {...faseProps} />;
     }
+
     return null;
   };
 

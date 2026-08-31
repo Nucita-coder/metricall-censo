@@ -65,43 +65,35 @@ const getInteractiveMapHtml = (lat: number, lng: number) => `
     var currentLat = ${lat};
     var currentLng = ${lng};
 
-    // 1. Satélite HD (Esri World Imagery)
-    var esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
-      attribution: 'Esri World Imagery'
+    // 1. Google Híbrido (Satélite + Nombres de Calles y Sectores)
+    var googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: 'Google Maps'
     });
 
-    // 2. Nombres de calles / Límites
-    var esriLabels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19
+    // 2. Google Satélite Solo
+    var googleSatellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: 'Google Maps'
     });
 
-    // 3. Grupo Híbrido (Satélite + Etiquetas)
-    var hybridGroup = L.layerGroup([esriSatellite, esriLabels]);
-
-    // 4. Callejero HD (CartoDB Voyager)
-    var cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      subdomains: 'abcd'
-    });
-
-    // 5. OpenStreetMap Estándar
+    // 3. OpenStreetMap Callejero
     var osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
+      maxZoom: 19,
+      attribution: 'OpenStreetMap'
     });
 
-    // Inicializar mapa con la capa Híbrida HD por defecto a Zoom 17
+    // Inicializar mapa con Satélite Híbrido (Satélite + Calles) por defecto a Zoom 17
     var map = L.map('map', {
       zoomControl: true,
-      layers: [hybridGroup]
+      layers: [googleHybrid]
     }).setView([currentLat, currentLng], 17);
 
     // Control Selector de Capas
     var baseMaps = {
-      "🛰️ Satélite + Calles (Híbrido HD)": hybridGroup,
-      "📷 Satélite HD Solo": esriSatellite,
-      "🏙️ Mapa Callejero HD": cartoVoyager,
-      "🗺️ OpenStreetMap": osmStandard
+      "🛰️ Satélite con Calles": googleHybrid,
+      "📷 Satélite Solo": googleSatellite,
+      "🗺️ Mapa Callejero": osmStandard
     };
 
     L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);

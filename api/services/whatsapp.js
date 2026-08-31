@@ -97,6 +97,9 @@ _⚠️ Escribe y envía el texto primero. Luego te pediré la foto del comproba
     });
   } catch (err) {
     console.error('[WHATSAPP PAGO ERROR]:', err);
+  }
+}
+
 // ─── 3.5. Instrucciones de Reporte de Falla ──────────────────────────────────
 export async function enviarFormularioFalla(toPhone) {
   const { accessToken, phoneNumberId } = getCredentials();

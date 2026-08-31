@@ -48,13 +48,13 @@ export async function enviarMenuPrincipal(toPhone) {
         type: 'button',
         header: {
           type: 'text',
-          text: '👋 ¡Bienvenido a MetricallBot!'
+          text: '👋 ¡Bienvenido a Fibex Telecom!'
         },
         body: {
           text: 'Selecciona una opción para continuar:'
         },
         footer: {
-          text: 'MetricallBot • Soporte y Pagos'
+          text: 'Fibex Telecom (technological project)'
         },
         action: {
           buttons: [
@@ -122,7 +122,7 @@ export async function enviarMenuFallas(toPhone) {
           text: 'Selecciona el tipo de falla que estás presentando:'
         },
         footer: {
-          text: 'MetricallBot • Soporte'
+          text: 'Fibex Telecom (technological project)'
         },
         action: {
           button: 'Ver fallas',
@@ -505,7 +505,7 @@ export async function enviarConfirmacionPago(toPhone, datos) {
 💵 *Monto:* ${datos.monto || 'Por verificar'}
 🏦 *Banco:* ${datos.banco || 'No especificado'}
 
-Un asesor de cobranza verificará la transacción a la brevedad. ¡Gracias por preferir Metricall!`;
+Un asesor de cobranza verificará la transacción a la brevedad. ¡Gracias por preferir Fibex Telecom!`;
 
   try {
     return await apiPost(phoneNumberId, accessToken, {
@@ -531,7 +531,7 @@ Hemos registrado tu falla: *${tipoFalla}*
 
 Un técnico revisará el caso y te notificaremos cuando esté resuelto.
 
-_MetricallBot • Soporte Técnico_`;
+_Fibex Telecom (technological project) • Soporte Técnico_`;
 
   try {
     return await apiPost(phoneNumberId, accessToken, {

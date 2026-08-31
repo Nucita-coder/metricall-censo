@@ -64,11 +64,11 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
     const docId = String(data.documentoIdentidad || data.nroIdentidad || '').trim();
     const abonadoVal = String(data.nroAbonado || data.abonado || '').trim();
 
-    const lowerLista = (tarjeta.lista_id ? String(tarjeta.lista_id) : '').toLowerCase();
     const isReporteFalla = Boolean(
       data.tipoFalla || data.estadoSoporte ||
-      nombreAp.toLowerCase().includes('falla') ||
-      lowerLista.includes('falla') || lowerLista.includes('soporte')
+      (data.origen && String(data.origen).toLowerCase().includes('soporte')) ||
+      (data.origen && String(data.origen).toLowerCase().includes('falla')) ||
+      nombreAp.toLowerCase().includes('falla')
     );
 
     const isReportePago = !isReporteFalla && Boolean(
@@ -96,7 +96,6 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
       if (k === 'telefonoResidencial') return 'TELÉFONO RESIDENCIAL';
       if (k === 'correo' || k === 'email') return 'CORREO ELECTRÓNICO';
       if (k === 'tipoFalla') return 'TIPO DE FALLA';
-      if (isReporteFalla && k === 'nombreApellido') return 'ASUNTO / DETALLE DE FALLA';
       if (isReportePago) {
         if (k === 'nombreApellido') return 'NRO DE ABONADO';
         if (k === 'montoPago' || k === 'monto') return 'MONTO PAGADO';
@@ -116,11 +115,12 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
       GROUPS[4],
       GROUPS[5]
     ] : isReporteFalla ? [
-      GROUPS[0],
-      GROUPS[1],
+      {
+        title: '1. Información del Cliente y Reporte',
+        keys: ['nombreCliente', 'nombre', 'cliente', 'documentoIdentidad', 'tipoDocumento', 'telefonoMovil', 'telefono', 'nroTelefonoMovil', 'celular', 'tipoFalla', 'fechaNacimiento']
+      },
       GROUPS[2],
-      GROUPS[4],
-      GROUPS[5]
+      GROUPS[4]
     ] : GROUPS;
 
     const groupsUI = activeGroups.map((group, idx) => {
@@ -130,6 +130,8 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
         if (!data.hasOwnProperty(k)) return false;
         if (isDocRedundante && (k === 'documentoIdentidad' || k === 'tipoDocumento')) return false;
         if (isAbonadoRedundante && (k === 'nroAbonado' || k === 'abonado')) return false;
+
+        if (isReporteFalla && k === 'nombreApellido') return false;
 
         if (['nombreCliente', 'nombre', 'cliente'].includes(k)) {
           if (clientNameAdded) return false;

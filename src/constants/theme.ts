@@ -32,6 +32,9 @@ export const KANBAN_COLORS = {
     pymes: { bg: '#FEEBC8', text: '#C05621' },
     dedicado: { bg: '#E6FFFA', text: '#2C7A7B' },
     isp: { bg: '#E9D8FD', text: '#6B46C1' },
+    pagoProcesado: { bg: '#E6F4EA', text: '#137333' },
+    pagoPendiente: { bg: '#FEF7E0', text: '#B06000' },
+    pagoRechazado: { bg: '#FCE8E6', text: '#C5221F' },
     default: { bg: '#E2E8F0', text: '#4A5568' }
   },
   text: {

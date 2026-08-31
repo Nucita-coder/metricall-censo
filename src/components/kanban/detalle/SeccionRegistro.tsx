@@ -60,18 +60,59 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
   const renderGroups = () => {
     const processedKeys = new Set<string>();
 
+    const nombreAp = String(data.nombreApellido || '');
+    const docId = String(data.documentoIdentidad || data.nroIdentidad || '').trim();
+    const abonadoVal = String(data.nroAbonado || data.abonado || '').trim();
+
+    const isReportePago = Boolean(
+      data.comprobantePagoUrl || data.bancoOrigen || data.montoPago ||
+      (data.estadoCobranza && ['Pago Procesado', 'Pago Rechazado', 'Pago Pendiente Revisión', 'Pago En Revisión', 'Pendiente Verificación'].includes(data.estadoCobranza)) ||
+      nombreAp.toLowerCase().startsWith('pago (')
+    );
+
+    const isDocRedundante = isReportePago || (docId !== '' && nombreAp.includes(docId));
+    const isAbonadoRedundante = isReportePago && (abonadoVal === '' || abonadoVal === docId || nombreAp.includes(abonadoVal));
+
     const getValue = (k: string) => {
       const v = data[k];
-      return (v !== null && v !== undefined && v !== '') ? String(v) : 'Sin registrar';
+      if (v === null || v === undefined || v === '') return 'Sin registrar';
+      if ((k === 'montoPago' || k === 'monto') && !isNaN(Number(v))) {
+        return `$ ${Number(v).toFixed(2)}`;
+      }
+      return String(v);
     };
 
-    const groupsUI = GROUPS.map((group, idx) => {
-      let fieldsToRender = group.keys.filter(k => data.hasOwnProperty(k)).map(k => {
+    const getDisplayLabel = (k: string, defaultKey: string) => {
+      if (isReportePago) {
+        if (k === 'montoPago' || k === 'monto') return 'MONTO PAGADO';
+        if (k === 'bancoOrigen' || k === 'banco') return 'BANCO ORIGEN';
+        if (k === 'referencia') return 'REFERENCIA BANCARIA';
+      }
+      return defaultKey.toUpperCase();
+    };
+
+    const activeGroups = isReportePago ? [
+      GROUPS[0],
+      GROUPS[1],
+      {
+        title: '3. Datos del Pago y Referencia Bancaria',
+        keys: ['montoPago', 'monto', 'bancoOrigen', 'banco', 'referencia', 'estado', 'ciudad', 'zona', 'sector', 'calle', 'edificio', 'piso', 'direccionFiscal']
+      },
+      GROUPS[4],
+      GROUPS[5]
+    ] : GROUPS;
+
+    const groupsUI = activeGroups.map((group, idx) => {
+      let fieldsToRender = group.keys.filter(k => {
+        if (!data.hasOwnProperty(k)) return false;
+        if (isDocRedundante && (k === 'documentoIdentidad' || k === 'tipoDocumento')) return false;
+        if (isAbonadoRedundante && (k === 'nroAbonado' || k === 'abonado')) return false;
+        return true;
+      }).map(k => {
         processedKeys.add(k);
         return { key: formatKeyName(k), value: getValue(k), origKey: k };
       });
 
-      // Lógica especial para Paquetes y Equipos: Solo mostrar los que tienen valor
       if (group.title.includes('Paquetes y Equipos')) {
         fieldsToRender = fieldsToRender.filter(field => field.value !== 'Sin registrar');
       }
@@ -85,9 +126,10 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
           </Text>
           {fieldsToRender.map((field, fIdx) => {
             const isEmp = field.value === 'Sin registrar';
+            const displayLabel = getDisplayLabel(field.origKey, field.key);
             return (
-              <View key={fIdx} style={{ flexDirection: 'column', borderBottomWidth: fIdx === fieldsToRender.length - 1 && !group.title.includes('Dirección') ? 0 : 1, borderBottomColor: '#384148', paddingBottom: 8, marginBottom: 8 }}>
-                <Text style={{ fontSize: 11, color: '#8C9BAB', fontWeight: '500', marginBottom: 2 }}>{field.key.toUpperCase()}</Text>
+              <View key={fIdx} style={{ flexDirection: 'column', borderBottomWidth: fIdx === fieldsToRender.length - 1 && !group.title.includes('Dirección') && !group.title.includes('Pago') ? 0 : 1, borderBottomColor: '#384148', paddingBottom: 8, marginBottom: 8 }}>
+                <Text style={{ fontSize: 11, color: '#8C9BAB', fontWeight: '500', marginBottom: 2 }}>{displayLabel}</Text>
                 <Text style={{ fontSize: isEmp ? 13 : 15, color: isEmp ? '#8C9BAB' : '#FFF', fontWeight: isEmp ? 'normal' : 'bold', fontStyle: isEmp ? 'italic' : 'normal' }}>
                   {field.value}
                 </Text>

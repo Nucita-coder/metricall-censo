@@ -10,10 +10,15 @@ Todos los selectores de opciones (`SelectDropdown`) deben utilizar modales centr
 
 # Estilo Global de Etiquetas y Badges
 
-Queda ESTRICTAMENTE PROHIBIDO incluir emojis en las etiquetas, badges o estatus (ej. PROHIBIDO usar `✅`, `🟡`, `❌` en badges como `PAGO PROCESADO` o `PAGO PENDIENTE REVISIÓN`). Los emojis restan seriedad profesional a la interfaz.
+Queda ESTRICTAMENTE PROHIBIDO incluir emojis en las etiquetas, badges o estatus (ej. PROHIBIDO usar `✅`, `🟡`, `❌` en badges como `PAGO PROCESADO` o `PAGO EN REVISIÓN`). Los emojis restan seriedad profesional a la interfaz.
 Todas las etiquetas deben mantener un estilo uniforme, sobrio y minimalista siguiendo exactamente el estándar del badge de `GESTIÓN ONLINE`:
 - Formato píldora compacto (`paddingHorizontal: 6`, `paddingVertical: 2`, `borderRadius: 4`).
 - Fondo traslúcido suave (`rgba(...)`) correspondiente al tipo/estatus.
 - Texto limpio en mayúsculas (`fontSize: 10`, `fontWeight: 'bold'`).
 - Sin bordes gruesos ni saturados ni emojis decorativos.
+- **Ubicación del Badge de Pago y Redundancia**: Queda prohibido mostrar la etiqueta `GESTIÓN ONLINE` en el encabezado de las tarjetas dentro del tablero de Gestión Online por ser redundante. En su lugar, si la tarjeta es un reporte de pago, el badge de estatus del pago (`PAGO PROCESADO`, `PAGO EN REVISIÓN`, `PAGO RECHAZADO`) DEBE posicionarse directamente en la cabecera superior de la tarjeta.
+- **Limpieza de Badges Redundantes**: Se prohíbe colocar badges redundantes como `WS`, `REPORTE FALLA` o `GESTIÓN ONLINE` en la cabecera de las tarjetas dentro de los módulos de Gestión Online. Las tarjetas solo llevarán badge si tienen un servicio contratado (`HOGAR`, `PYMES`, `DEDICADO`, `ISP`), un estatus de pago (`PAGO PROCESADO`, `PAGO RECHAZADO`, `PAGO EN REVISIÓN`) o en tableros de cobranza (`COBRANZA`). Las cabeceras de tarjetas en Ventas Online y Reporte Falla permanecen completamente limpias.
+
+
+
 

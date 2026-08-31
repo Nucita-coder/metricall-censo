@@ -9,6 +9,10 @@ export interface FiltrosTableroEstado {
   flujo: 'todos' | 'cobranza' | 'recupero';
   resultadoEspecifico: string;
   tipoContacto: string;
+  orden: 'recientes' | 'antiguas';
+  listaId: string;
+  etiqueta: string;
+  rangoFecha: 'todos' | 'hoy' | '7dias' | 'este_mes';
 }
 
 export const FILTROS_DEFAULT: FiltrosTableroEstado = {
@@ -16,6 +20,10 @@ export const FILTROS_DEFAULT: FiltrosTableroEstado = {
   flujo: 'todos',
   resultadoEspecifico: 'todos',
   tipoContacto: 'todos',
+  orden: 'recientes',
+  listaId: 'todas',
+  etiqueta: 'todas',
+  rangoFecha: 'todos',
 };
 
 interface ModalFiltrosTableroProps {
@@ -25,6 +33,7 @@ interface ModalFiltrosTableroProps {
   setFiltros: (f: FiltrosTableroEstado) => void;
   onLimpiar: () => void;
   isCobranzaBoard?: boolean;
+  listas?: { id: string; nombre: string }[];
 }
 
 export function ModalFiltrosTablero({
@@ -33,7 +42,8 @@ export function ModalFiltrosTablero({
   filtros,
   setFiltros,
   onLimpiar,
-  isCobranzaBoard = true,
+  isCobranzaBoard = false,
+  listas = [],
 }: ModalFiltrosTableroProps) {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width > 768;
@@ -46,12 +56,16 @@ export function ModalFiltrosTablero({
     filtros.estadoCobro !== 'todos' ||
     filtros.flujo !== 'todos' ||
     filtros.resultadoEspecifico !== 'todos' ||
-    filtros.tipoContacto !== 'todos';
+    filtros.tipoContacto !== 'todos' ||
+    (filtros.orden && filtros.orden !== 'recientes') ||
+    (filtros.listaId && filtros.listaId !== 'todas') ||
+    (filtros.etiqueta && filtros.etiqueta !== 'todas') ||
+    (filtros.rangoFecha && filtros.rangoFecha !== 'todos');
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={[styles.modalContent, WEB_MODAL_CONTAINER, isDesktop && { maxWidth: 440 }]}>
+        <View style={[styles.modalContent, WEB_MODAL_CONTAINER, isDesktop && { maxWidth: 460 }]}>
           {/* HEADER */}
           <View style={styles.header}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -72,11 +86,106 @@ export function ModalFiltrosTablero({
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {/* 1. ORDEN DE TARJETAS (MÁS RECIENTES / MÁS ANTIGUAS) */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>ORDEN DE TARJETAS</Text>
+              <View style={styles.pillsRow}>
+                {[
+                  { key: 'recientes', label: 'Más recientes primero' },
+                  { key: 'antiguas', label: 'Más antiguas primero' },
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.key}
+                    onPress={() => update('orden', item.key as any)}
+                    style={[styles.pill, (filtros.orden || 'recientes') === item.key && styles.pillActive]}
+                  >
+                    <Text style={[styles.pillTxt, (filtros.orden || 'recientes') === item.key && styles.pillTxtActive]}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* 2. FILTRAR POR LISTA ESPECÍFICA */}
+            {listas && listas.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>FILTRAR POR LISTA</Text>
+                <View style={styles.pillsRow}>
+                  <TouchableOpacity
+                    onPress={() => update('listaId', 'todas')}
+                    style={[styles.pill, (filtros.listaId || 'todas') === 'todas' && styles.pillActive]}
+                  >
+                    <Text style={[styles.pillTxt, (filtros.listaId || 'todas') === 'todas' && styles.pillTxtActive]}>
+                      Todas las listas
+                    </Text>
+                  </TouchableOpacity>
+                  {listas.map((l) => (
+                    <TouchableOpacity
+                      key={l.id}
+                      onPress={() => update('listaId', l.id)}
+                      style={[styles.pill, (filtros.listaId || 'todas') === l.id && styles.pillActive]}
+                    >
+                      <Text style={[styles.pillTxt, (filtros.listaId || 'todas') === l.id && styles.pillTxtActive]}>
+                        {l.nombre}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* 3. ESTATUS DE PAGO / ETIQUETA VÁLIDA */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>ESTATUS DE PAGO / ETIQUETA</Text>
+              <View style={styles.pillsRow}>
+                {[
+                  { key: 'todas', label: 'Todas las etiquetas' },
+                  { key: 'PAGO PROCESADO', label: 'PAGO PROCESADO' },
+                  { key: 'PAGO EN REVISIÓN', label: 'PAGO EN REVISIÓN' },
+                  { key: 'PAGO RECHAZADO', label: 'PAGO RECHAZADO' },
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.key}
+                    onPress={() => update('etiqueta', item.key)}
+                    style={[styles.pill, (filtros.etiqueta || 'todas') === item.key && styles.pillActive]}
+                  >
+                    <Text style={[styles.pillTxt, (filtros.etiqueta || 'todas') === item.key && styles.pillTxtActive]}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* 4. RANGO DE FECHA */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>RANGO DE FECHA</Text>
+              <View style={styles.pillsRow}>
+                {[
+                  { key: 'todos', label: 'Todas las fechas' },
+                  { key: 'hoy', label: 'Hoy' },
+                  { key: '7dias', label: 'Últimos 7 días' },
+                  { key: 'este_mes', label: 'Este mes' },
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.key}
+                    onPress={() => update('rangoFecha', item.key as any)}
+                    style={[styles.pill, (filtros.rangoFecha || 'todos') === item.key && styles.pillActive]}
+                  >
+                    <Text style={[styles.pillTxt, (filtros.rangoFecha || 'todos') === item.key && styles.pillTxtActive]}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* SECCIONES ESPECÍFICAS DE COBRANZA */}
             {isCobranzaBoard && (
               <>
-                {/* 1. ESTADO DE COBRO / PAGO */}
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>1. ESTADO DE COBRO / PAGO</Text>
+                  <Text style={styles.sectionTitle}>ESTADO DE COBRO / PAGO</Text>
                   <View style={styles.optionsGrid}>
                     {[
                       { key: 'todos', label: 'Todos los clientes', desc: 'Sin filtro de cobranza' },
@@ -103,9 +212,8 @@ export function ModalFiltrosTablero({
                   </View>
                 </View>
 
-                {/* 2. FLUJO / PROCESO */}
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>2. FLUJO DE TRABAJO</Text>
+                  <Text style={styles.sectionTitle}>FLUJO DE TRABAJO</Text>
                   <View style={styles.pillsRow}>
                     {[
                       { key: 'todos', label: 'Todos los flujos' },
@@ -125,9 +233,8 @@ export function ModalFiltrosTablero({
                   </View>
                 </View>
 
-                {/* 3. TIPO DE CONTACTO */}
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>3. TIPO DE CONTACTO</Text>
+                  <Text style={styles.sectionTitle}>TIPO DE CONTACTO</Text>
                   <View style={styles.pillsRow}>
                     <TouchableOpacity
                       onPress={() => update('tipoContacto', 'todos')}
@@ -151,9 +258,8 @@ export function ModalFiltrosTablero({
                   </View>
                 </View>
 
-                {/* 4. RESULTADO / CAUSA ESPECÍFICA */}
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>4. RESULTADO / CAUSA ESPECÍFICA</Text>
+                  <Text style={styles.sectionTitle}>RESULTADO / CAUSA ESPECÍFICA</Text>
                   <View style={styles.pillsRow}>
                     <TouchableOpacity
                       onPress={() => update('resultadoEspecifico', 'todos')}

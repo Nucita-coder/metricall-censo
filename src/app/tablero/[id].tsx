@@ -436,24 +436,40 @@ export default function KanbanTableroScreen() {
       filtrosTablero.estadoCobro !== 'todos' ||
       filtrosTablero.flujo !== 'todos' ||
       filtrosTablero.resultadoEspecifico !== 'todos' ||
-      filtrosTablero.tipoContacto !== 'todos'
+      filtrosTablero.tipoContacto !== 'todos' ||
+      (filtrosTablero.orden && filtrosTablero.orden !== 'recientes') ||
+      (filtrosTablero.listaId && filtrosTablero.listaId !== 'todas') ||
+      (filtrosTablero.etiqueta && filtrosTablero.etiqueta !== 'todas') ||
+      (filtrosTablero.rangoFecha && filtrosTablero.rangoFecha !== 'todos')
     );
   }, [filtrosTablero]);
 
   const resumenFiltro = useMemo(() => {
+    if (filtrosTablero.listaId && filtrosTablero.listaId !== 'todas') {
+      const l = listas.find(item => item.id === filtrosTablero.listaId);
+      if (l) return l.nombre;
+    }
+    if (filtrosTablero.etiqueta && filtrosTablero.etiqueta !== 'todas') return filtrosTablero.etiqueta;
+    if (filtrosTablero.rangoFecha && filtrosTablero.rangoFecha !== 'todos') return filtrosTablero.rangoFecha.toUpperCase();
+    if (filtrosTablero.orden === 'antiguas') return 'Más Antiguas';
     if (filtrosTablero.estadoCobro === 'pendientes') return 'Pagos Pendientes';
     if (filtrosTablero.estadoCobro === 'cobrados') return 'Pagos Liquidados';
     if (filtrosTablero.flujo !== 'todos') return `Flujo ${filtrosTablero.flujo.toUpperCase()}`;
     if (filtrosTablero.resultadoEspecifico !== 'todos') return filtrosTablero.resultadoEspecifico;
     if (filtrosTablero.tipoContacto !== 'todos') return filtrosTablero.tipoContacto;
     return 'Activos';
-  }, [filtrosTablero]);
+  }, [filtrosTablero, listas]);
 
   const filteredListas = useMemo(() => {
     let baseListas = listas;
     if (userRol === 'empleado') baseListas = listas.filter(lista => lista.permisos_relacionales?.puede_ver === true);
 
-    // 1. Filtro por Flujo (Cobranza vs Recupero)
+    // 1. Filtro por Lista Específica
+    if (filtrosTablero.listaId && filtrosTablero.listaId !== 'todas') {
+      baseListas = baseListas.filter(lista => lista.id === filtrosTablero.listaId);
+    }
+
+    // 2. Filtro por Flujo (Cobranza vs Recupero)
     if (filtrosTablero.flujo === 'cobranza') {
       baseListas = baseListas.filter(lista => {
         const n = (lista.nombre || '').toLowerCase();
@@ -517,10 +533,50 @@ export default function KanbanTableroScreen() {
           }
         }
 
+        // E. Filtro por Etiqueta / Estatus de Pago
+        if (filtrosTablero.etiqueta && filtrosTablero.etiqueta !== 'todas') {
+          const targetBadge = filtrosTablero.etiqueta.trim().toUpperCase();
+          const estadoCob = String(vals.estadoCobranza || vals.estado_cobranza || '').trim().toUpperCase();
+          if (targetBadge === 'PAGO PROCESADO' && estadoCob !== 'PAGO PROCESADO') {
+            return false;
+          }
+          if (targetBadge === 'PAGO EN REVISIÓN' && estadoCob !== 'PAGO PENDIENTE REVISIÓN' && estadoCob !== 'PAGO EN REVISIÓN' && estadoCob !== 'PENDIENTE VERIFICACIÓN') {
+            return false;
+          }
+          if (targetBadge === 'PAGO RECHAZADO' && estadoCob !== 'PAGO RECHAZADO') {
+            return false;
+          }
+        }
+
+        // F. Filtro por Rango de Fecha
+        if (filtrosTablero.rangoFecha && filtrosTablero.rangoFecha !== 'todos') {
+          const dateStr = vals.fechaVenta || vals.fechaCenso || t.created_at || t.updated_at;
+          if (dateStr) {
+            const cardDate = new Date(dateStr);
+            const now = new Date();
+            if (!isNaN(cardDate.getTime())) {
+              if (filtrosTablero.rangoFecha === 'hoy') {
+                const isSameDay = cardDate.getDate() === now.getDate() &&
+                                  cardDate.getMonth() === now.getMonth() &&
+                                  cardDate.getFullYear() === now.getFullYear();
+                if (!isSameDay) return false;
+              } else if (filtrosTablero.rangoFecha === '7dias') {
+                const diffDays = (now.getTime() - cardDate.getTime()) / (1000 * 3600 * 24);
+                if (diffDays < 0 || diffDays > 7) return false;
+              } else if (filtrosTablero.rangoFecha === 'este_mes') {
+                const isSameMonth = cardDate.getMonth() === now.getMonth() &&
+                                    cardDate.getFullYear() === now.getFullYear();
+                if (!isSameMonth) return false;
+              }
+            }
+          }
+        }
+
         return true;
       });
 
-      // Ordenar las tarjetas: más reciente primero (arriba) y las más antiguas hacia abajo
+      // Ordenar las tarjetas según filtrosTablero.orden ('recientes' vs 'antiguas')
+      const esAntiguas = filtrosTablero.orden === 'antiguas';
       const tarjetasOrdenadas = [...tarjetasFiltradas].sort((a, b) => {
         const getTs = (t: Tarjeta) => {
           const vals = t.datos_valores || {};
@@ -539,7 +595,7 @@ export default function KanbanTableroScreen() {
           }
           return 0;
         };
-        return getTs(b) - getTs(a);
+        return esAntiguas ? getTs(a) - getTs(b) : getTs(b) - getTs(a);
       });
 
       return {
@@ -677,7 +733,7 @@ export default function KanbanTableroScreen() {
         width={width}
         id={id}
         onOpenInventario={tableroInfo?.tipo === 'almacen' || listas.some(l => l.nombre === 'Carga de Materiales') ? () => setModalInventarioVisible(true) : undefined}
-        onOpenFiltros={isCobranzaBoard ? () => setModalFiltrosVisible(true) : undefined}
+        onOpenFiltros={() => setModalFiltrosVisible(true)}
         isFiltroActivo={isFiltroActivo}
         resumenFiltro={resumenFiltro}
       />
@@ -831,6 +887,7 @@ export default function KanbanTableroScreen() {
         setFiltros={setFiltrosTablero}
         onLimpiar={() => setFiltrosTablero(FILTROS_DEFAULT)}
         isCobranzaBoard={isCobranzaBoard}
+        listas={listas}
       />
       <ModalCambiarTablero
         visible={showBoardMenu}

@@ -6,6 +6,7 @@ import { renderSection } from './SeccionRegistro';
 import { useErrorDiagnostics } from '../../../context/ErrorDiagnosticsContext';
 import { supabase } from '../../../lib/supabase';
 import { FormularioConversionVenta } from './FormularioConversionVenta';
+import { KANBAN_COLORS } from '../../../constants/theme';
 
 /**
  * FaseGestionOnline
@@ -212,7 +213,12 @@ export const FaseGestionOnline = ({
   };
 
   const datosValores = tarjeta.datos_valores || {};
-  const esReportePago = Boolean(datosValores.referencia || datosValores.montoPago || datosValores.comprobantePagoUrl || datosValores.bancoOrigen);
+  const esReportePago = Boolean(
+    datosValores.comprobantePagoUrl ||
+    datosValores.bancoOrigen ||
+    datosValores.montoPago ||
+    (datosValores.estadoCobranza && ['Pago Procesado', 'Pago Rechazado', 'Pago Pendiente Revisión', 'Pendiente Verificación'].includes(datosValores.estadoCobranza))
+  );
   const estadoPagoActual = datosValores.estadoCobranza || 'Pago Pendiente Revisión';
 
   const handleCambiarEstadoPago = async (nuevoEstado: string) => {
@@ -260,22 +266,22 @@ export const FaseGestionOnline = ({
             borderRadius: 6,
             marginBottom: 12,
             backgroundColor:
-              estadoPagoActual === 'Pago Procesado' ? '#14532D' :
-              estadoPagoActual === 'Pago Rechazado' ? '#7F1D1D' : '#713F12',
+              estadoPagoActual === 'Pago Procesado' ? KANBAN_COLORS.badge.pagoProcesado.bg :
+              estadoPagoActual === 'Pago Rechazado' ? KANBAN_COLORS.badge.pagoRechazado.bg : KANBAN_COLORS.badge.pagoPendiente.bg,
             borderWidth: 1,
             borderColor:
-              estadoPagoActual === 'Pago Procesado' ? '#22C55E' :
-              estadoPagoActual === 'Pago Rechazado' ? '#EF4444' : '#EAB308',
+              estadoPagoActual === 'Pago Procesado' ? 'rgba(34, 197, 94, 0.3)' :
+              estadoPagoActual === 'Pago Rechazado' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)',
           }}>
-            {estadoPagoActual === 'Pago Procesado' && <CheckCircle2 size={16} color="#4ADE80" />}
-            {estadoPagoActual === 'Pago Rechazado' && <XCircle size={16} color="#F87171" />}
-            {estadoPagoActual !== 'Pago Procesado' && estadoPagoActual !== 'Pago Rechazado' && <Hourglass size={16} color="#FACC15" />}
+            {estadoPagoActual === 'Pago Procesado' && <CheckCircle2 size={16} color={KANBAN_COLORS.badge.pagoProcesado.text} />}
+            {estadoPagoActual === 'Pago Rechazado' && <XCircle size={16} color={KANBAN_COLORS.badge.pagoRechazado.text} />}
+            {estadoPagoActual !== 'Pago Procesado' && estadoPagoActual !== 'Pago Rechazado' && <Hourglass size={16} color={KANBAN_COLORS.badge.pagoPendiente.text} />}
             <Text style={{
               fontWeight: '900',
               fontSize: 13,
               color:
-                estadoPagoActual === 'Pago Procesado' ? '#4ADE80' :
-                estadoPagoActual === 'Pago Rechazado' ? '#F87171' : '#FACC15',
+                estadoPagoActual === 'Pago Procesado' ? KANBAN_COLORS.badge.pagoProcesado.text :
+                estadoPagoActual === 'Pago Rechazado' ? KANBAN_COLORS.badge.pagoRechazado.text : KANBAN_COLORS.badge.pagoPendiente.text,
             }}>
               {estadoPagoActual}
             </Text>

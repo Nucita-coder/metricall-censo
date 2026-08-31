@@ -72,7 +72,7 @@ export function normalizarFilaExcel(row: Record<string, any>): Record<string, an
       normalizado['BARRIO'] = valueStr;
     } else if (cleanKey === 'direccion' || cleanKey === 'calle') {
       normalizado.direccion = valueStr;
-      normalizado.referencia = valueStr;
+      normalizado.puntoReferencia = valueStr;
       normalizado['DIRECCION'] = valueStr;
     } else if (cleanKey === 'vendedor' || cleanKey === 'asesor') {
       normalizado.vendedor = valueStr;

@@ -24,7 +24,9 @@ Para optimizar el RLS y evitar JOINs costosos (anti-patrón), el `empresa_id` (T
 ## Reglas de Componentes UI y Formularios Globales
 - **Reutilización Global**: Todos los componentes de formulario (`InputTexto`, `DatePickerInput`, `SelectDropdown`) deben importarse de `src/components/venta/CamposVenta.tsx`. Prohibido duplicar componentes de entrada localmente.
 - **Selectores emergentes compactos**: Los modales de opciones (`SelectDropdown`) deben ser ventanas flotantes emergentes centradas (`maxWidth: 340`, `animationType="fade"`). Prohibido el uso de desplegables tipo bottom-sheet (`justifyContent: 'flex-end'`).
-- **Estilo Uniforme de Badges / Etiquetas (Sin Emojis)**: Queda prohibido el uso de emojis en las etiquetas o estatus (`PAGO PROCESADO`, `PAGO PENDIENTE REVISIÓN`, etc.). Todas las etiquetas de tarjeta en el Kanban deben ser sobrias, minimalistas y seguir el estilo del badge de `GESTIÓN ONLINE`: formato píldora compacto (`paddingHorizontal: 6`, `paddingVertical: 2`, `borderRadius: 4`), traslúcido, sin bordes recargados y en mayúsculas.
+- **Estilo Uniforme de Badges / Etiquetas (Sin Emojis y Sin Redundancias)**: Queda prohibido el uso de emojis en etiquetas o estatus (`PAGO PROCESADO`, `PAGO EN REVISIÓN`, etc.). Se prohíbe colocar etiquetas redundantes como `WS`, `REPORTE FALLA` o `GESTIÓN ONLINE` en las cabeceras de las tarjetas en Gestión Online / WhatsApp Bot. Las tarjetas solo llevarán badge superior cuando tengan un servicio contratado (`HOGAR`, `PYMES`, `DEDICADO`, `ISP`), un estatus de pago (`PAGO PROCESADO`, `PAGO RECHAZADO`, `PAGO EN REVISIÓN`) o en tableros de cobranza (`COBRANZA`). Las cabeceras en Ventas Online y Reporte Falla permanecen completamente limpias.
+
+
 
 ## Optimización y Escalabilidad (Obligatorio)
 - **Índices GIN**: Obligatorios en TODAS las columnas JSONB (`esquema_campos`, `datos_valores`, `permisos_especiales`).

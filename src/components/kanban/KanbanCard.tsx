@@ -324,19 +324,17 @@ const KanbanCardComponent = ({
                         const isRech = est === 'Pago Rechazado';
                         return (
                           <View style={{
-                            backgroundColor: isProc ? 'rgba(34, 197, 94, 0.2)' : isRech ? 'rgba(239, 68, 68, 0.2)' : 'rgba(234, 179, 8, 0.2)',
-                            borderWidth: 1,
-                            borderColor: isProc ? '#22C55E' : isRech ? '#EF4444' : '#EAB308',
-                            paddingHorizontal: 7,
+                            backgroundColor: isProc ? 'rgba(34, 197, 94, 0.15)' : isRech ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                            paddingHorizontal: 6,
                             paddingVertical: 2,
                             borderRadius: 4
                           }}>
                             <Text style={{
-                              fontSize: 9,
+                              fontSize: 10,
                               color: isProc ? '#4ADE80' : isRech ? '#F87171' : '#FACC15',
                               fontWeight: 'bold'
                             }}>
-                              {isProc ? '✅ PAGO PROCESADO' : isRech ? '❌ PAGO RECHAZADO' : '🟡 PAGO PENDIENTE REVISIÓN'}
+                              {isProc ? 'PAGO PROCESADO' : isRech ? 'PAGO RECHAZADO' : 'PAGO PENDIENTE REVISIÓN'}
                             </Text>
                           </View>
                         );

@@ -75,19 +75,17 @@ export async function enviarFormularioPago(toPhone) {
   const { accessToken, phoneNumberId } = getCredentials();
   if (!accessToken) return;
   const mensaje =
-`💰 *REPORTE DE PAGO*
+`💰 *REPORTE DE PAGO — Paso 1 de 2*
 
-Por favor envíame la siguiente información en *un solo mensaje* con este formato exacto:
+Envíame los datos del pago en *un solo mensaje de texto* con este formato:
 
-📋 *Cédula:* [tu número de cédula]
-🔢 *Referencia (completo):* [número de referencia completo]
+💿 *Cédula / Nº Abonado:* [tu cédula]
+🔢 *Referencia (completo):* [número de referencia]
 💵 *Monto:* [monto pagado]
 📱 *Teléfono pago móvil:* [número asociado]
 🏦 *Banco:* [nombre del banco emisor]
 
-📸 Y al final, adjunta la *captura del comprobante*.
-
-_Envía todo en un solo mensaje para que podamos procesarlo correctamente. ¡Gracias!_`;
+_⚠️ Escribe y envía el texto primero. Luego te pediré la foto del comprobante por separado._`;
 
   try {
     return await apiPost(phoneNumberId, accessToken, {
@@ -226,6 +224,29 @@ Responde *Sí* para confirmar y registrar el pago, o *No* para reintentar.`;
     });
   } catch (err) {
     console.error('[WHATSAPP RESUMEN CONFIRMACION ERROR]:', err);
+  }
+}
+
+export async function enviarSolicitudComprobante(toPhone) {
+  const { accessToken, phoneNumberId } = getCredentials();
+  if (!accessToken) return;
+  const mensaje =
+`📸 *REPORTE DE PAGO — Paso 2 de 2*
+
+¡Datos recibidos! Ahora envíame la *foto del comprobante* de pago.
+
+_Presiona el ícono de adjunto 📎 y selecciona la imagen del comprobante._`;
+
+  try {
+    return await apiPost(phoneNumberId, accessToken, {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'text',
+      text: { body: mensaje }
+    });
+  } catch (err) {
+    console.error('[WHATSAPP SOLICITUD COMPROBANTE ERROR]:', err);
   }
 }
 

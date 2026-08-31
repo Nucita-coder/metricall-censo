@@ -199,6 +199,36 @@ Un asesor se estará contactando con usted próximamente.`;
   }
 }
 
+export async function enviarResumenParaConfirmacion(toPhone, datos) {
+  const { accessToken, phoneNumberId } = getCredentials();
+  if (!accessToken) return;
+
+  const comprobante = datos.comprobante_url ? '📎 Comprobante adjunto ✅' : '📎 Sin comprobante';
+  const mensaje =
+`🔍 *Verifica los datos antes de enviar:*
+
+👤 *Cédula/Abonado:* ${datos.cedula || 'No especificada'}
+🔖 *Referencia:* ${datos.referencia || 'S/N'}
+💰 *Monto:* ${datos.monto || 'Por verificar'}
+🏦 *Banco:* ${datos.banco || 'No especificado'}
+${comprobante}
+
+¿Es correcta esta información?
+Responde *Sí* para confirmar y registrar el pago, o *No* para reintentar.`;
+
+  try {
+    return await apiPost(phoneNumberId, accessToken, {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'text',
+      text: { body: mensaje }
+    });
+  } catch (err) {
+    console.error('[WHATSAPP RESUMEN CONFIRMACION ERROR]:', err);
+  }
+}
+
 // ─── Helpers REST de Supabase con fallback en memoria para Vercel Functions ─
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 // Usar Service Role Key para bypasear RLS y tener acceso total desde el servidor
@@ -209,13 +239,35 @@ if (!global.whatsappSessions) {
   global.whatsappSessions = {};
 }
 
+// Tiempo máximo de inactividad antes de resetear la sesión (en minutos)
+const SESSION_TIMEOUT_MINUTOS = 5;
+
+function sesionExpirada(sesion) {
+  if (!sesion || sesion.estado === 'INICIO') return false;
+  if (!sesion.updated_at) return false;
+  const ultimaActualizacion = new Date(sesion.updated_at).getTime();
+  const ahora = Date.now();
+  const minutosTranscurridos = (ahora - ultimaActualizacion) / 1000 / 60;
+  return minutosTranscurridos >= SESSION_TIMEOUT_MINUTOS;
+}
+
 export async function obtenerEstadoSesionRest(numeroTelefono) {
   const cleanNumber = (numeroTelefono || '').replace(/\D/g, '');
   if (!cleanNumber) return { numero_telefono: cleanNumber, estado: 'INICIO' };
 
   // 1. Verificar cache en memoria primero
   if (global.whatsappSessions[cleanNumber]) {
-    return global.whatsappSessions[cleanNumber];
+    const cached = global.whatsappSessions[cleanNumber];
+    // Si la sesión expiró por inactividad → resetear
+    if (sesionExpirada(cached)) {
+      console.log(`[SESION TIMEOUT] ${cleanNumber} inactivo >=${SESSION_TIMEOUT_MINUTOS}min, reseteando a INICIO`);
+      const resetSesion = { numero_telefono: cleanNumber, estado: 'INICIO', datos_temporales: {}, updated_at: new Date().toISOString() };
+      global.whatsappSessions[cleanNumber] = resetSesion;
+      // Persistir reset en Supabase en background (sin await para no bloquear)
+      actualizarEstadoSesionRest(cleanNumber, 'INICIO').catch(() => {});
+      return resetSesion;
+    }
+    return cached;
   }
 
   // 2. Verificar Supabase REST
@@ -230,8 +282,17 @@ export async function obtenerEstadoSesionRest(numeroTelefono) {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
-          global.whatsappSessions[cleanNumber] = data[0];
-          return data[0];
+          const sesion = data[0];
+          // Si expiró → resetear
+          if (sesionExpirada(sesion)) {
+            console.log(`[SESION TIMEOUT] ${cleanNumber} inactivo >=${SESSION_TIMEOUT_MINUTOS}min (Supabase), reseteando`);
+            const resetSesion = { numero_telefono: cleanNumber, estado: 'INICIO', datos_temporales: {}, updated_at: new Date().toISOString() };
+            global.whatsappSessions[cleanNumber] = resetSesion;
+            actualizarEstadoSesionRest(cleanNumber, 'INICIO').catch(() => {});
+            return resetSesion;
+          }
+          global.whatsappSessions[cleanNumber] = sesion;
+          return sesion;
         }
       }
     } catch (err) {

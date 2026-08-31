@@ -7,6 +7,7 @@ import {
   enviarConfirmacionPago,
   enviarConfirmacionFalla,
   enviarMensajeTexto,
+  enviarResumenParaConfirmacion,
   obtenerEstadoSesionRest,
   actualizarEstadoSesionRest,
   crearTarjetaVentaOnlineRest,
@@ -24,6 +25,11 @@ const FALLA_LABELS = {
   falla_paginas:       '🚫 No abren algunas páginas',
   falla_sin_datos:     '📵 No recibe datos'
 };
+
+// Palabras que el usuario puede escribir para confirmar
+const PALABRAS_SI = ['si', 'sí', 'si!', 'sí!', 'yes', 'correcto', 'ok', 'dale', 'confirmar', 'confirmo', '1'];
+// Palabras que el usuario puede escribir para rechazar
+const PALABRAS_NO = ['no', 'no!', 'nope', 'cancelar', 'reintentar', 'mal', 'incorrecto', 'cambiar', '2'];
 
 export default async function handler(req, res) {
 
@@ -104,34 +110,60 @@ export default async function handler(req, res) {
         contenido: { messageType, textBody }
       });
 
-      // Obtener estado de la conversación desde Supabase
+      // Obtener estado de la conversación desde Supabase (con timeout automático de 5 min)
       const sesion = await obtenerEstadoSesionRest(fromPhone);
 
-      // Si el cliente está en estado ESPERANDO_DATOS_PAGO
+      // ── ESTADO: CONFIRMANDO_PAGO ─ usuario responde Sí o No al resumen ───────
+      if (sesion.estado === 'CONFIRMANDO_PAGO') {
+        const respuesta = textBody.toLowerCase().trim();
+        const datosGuardados = sesion.datos_temporales || {};
+
+        if (PALABRAS_SI.includes(respuesta)) {
+          // ✅ Usuario confirmó → crear tarjeta
+          await crearTarjetaCobranzaRest(datosGuardados);
+          await actualizarEstadoSesionRest(fromPhone, 'INICIO');
+          await enviarConfirmacionPago(fromPhone, datosGuardados);
+          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Pago confirmado y registrado: Ref ${datosGuardados.referencia}` });
+          return res.status(200).json({ status: 'pago_confirmado_y_registrado' });
+
+        } else if (PALABRAS_NO.includes(respuesta)) {
+          // ❌ Usuario rechazó → pedir que reenvíe los datos
+          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
+          await enviarMensajeTexto(fromPhone,
+            '↩️ Entendido. Por favor, envía nuevamente los datos del pago (cédula, referencia, monto, banco) junto con el comprobante.');
+          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Usuario rechazó datos, se solicita reenvío' });
+          return res.status(200).json({ status: 'pago_rechazado_reintento' });
+
+        } else {
+          // Respuesta no reconocida → recordar qué debe hacer
+          await enviarMensajeTexto(fromPhone,
+            '❓ No entendí tu respuesta. Por favor responde *Sí* para confirmar el pago o *No* para corregir los datos.');
+          return res.status(200).json({ status: 'confirmacion_pendiente' });
+        }
+      }
+
+      // ── ESTADO: ESPERANDO_DATOS_PAGO ─ recibe texto y/o imagen ──────────────
       if (sesion.estado === 'ESPERANDO_DATOS_PAGO') {
         let textContent = textBody;
         let comprobanteUrl = null;
 
-        // ── Procesar imagen si viene en este mensaje ───────────────────────────
+        // Procesar imagen si viene en este mensaje
         if (messageType === 'image' && message.image?.id) {
           console.log('[WEBHOOK PAGO] Imagen recibida, mediaId:', message.image.id);
           comprobanteUrl = await procesarImagenWhatsApp(message.image.id, fromPhone);
           console.log('[WEBHOOK PAGO] comprobanteUrl resultado:', comprobanteUrl);
-          // Si el cliente escribió un caption, usarlo como texto de datos
           if (message.image?.caption) {
             textContent = message.image.caption;
           }
         }
 
-        // ── Datos temporales de mensajes anteriores ────────────────────────────
         const datosTemp = sesion.datos_temporales || {};
 
-        // ── Extraer datos del texto (caption o mensaje de texto puro) ──────────
+        // Extraer datos del texto
         let datosPago;
         if (textContent && textContent.trim()) {
           datosPago = await extraerDatosPago(textContent, fromPhone);
         } else {
-          // Solo imagen sin caption → usar datos temporales o valores vacíos
           datosPago = {
             cedula:     datosTemp.cedula     || 'No especificada',
             referencia: datosTemp.referencia || 'S/N',
@@ -141,34 +173,34 @@ export default async function handler(req, res) {
           };
         }
 
-        // ── Asignar comprobante_url: prioridad → mensaje actual → temporales ───
+        // Asignar comprobante_url: prioridad → mensaje actual → temporales
         if (comprobanteUrl) {
           datosPago.comprobante_url = comprobanteUrl;
         } else if (datosTemp.comprobante_url) {
           datosPago.comprobante_url = datosTemp.comprobante_url;
         }
 
-        // ── Rellenar campos vacíos con datos temporales si el usuario envió texto primero y luego foto
+        // Rellenar campos vacíos con datos temporales previos
         if (datosTemp.cedula     && datosPago.cedula     === 'No especificada')  datosPago.cedula     = datosTemp.cedula;
         if (datosTemp.referencia && datosPago.referencia === 'S/N')              datosPago.referencia = datosTemp.referencia;
         if (datosTemp.monto      && datosPago.monto      === 'Por verificar')    datosPago.monto      = datosTemp.monto;
         if (datosTemp.banco      && datosPago.banco      === 'No especificado')  datosPago.banco      = datosTemp.banco;
 
-        console.log('[WEBHOOK PAGO] datosPago finales a enviar al RPC:', JSON.stringify(datosPago));
+        console.log('[WEBHOOK PAGO] datosPago extraídos:', JSON.stringify(datosPago));
 
         if (comprobanteUrl || textContent || datosTemp.comprobante_url) {
-          await crearTarjetaCobranzaRest(datosPago);
-          await actualizarEstadoSesionRest(fromPhone, 'INICIO');
-          await enviarConfirmacionPago(fromPhone, datosPago);
-          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Reporte de pago registrado: Ref ${datosPago.referencia}` });
-          return res.status(200).json({ status: 'pago_registrado' });
+          // Guardar datos y pasar a CONFIRMANDO_PAGO (mostrar resumen antes de crear tarjeta)
+          await actualizarEstadoSesionRest(fromPhone, 'CONFIRMANDO_PAGO', datosPago);
+          await enviarResumenParaConfirmacion(fromPhone, datosPago);
+          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Resumen de pago enviado, esperando confirmación del cliente' });
+          return res.status(200).json({ status: 'esperando_confirmacion' });
         } else {
-          // Guardar datos temporales hasta recibir la foto
+          // Sin datos suficientes → guardar lo que haya y esperar más info
           await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO', datosPago);
         }
       }
 
-      // Si el cliente está en estado ESPERANDO_DATOS_SUSCRIPCION
+      // ── ESTADO: ESPERANDO_DATOS_SUSCRIPCION ──────────────────────────────────
       if (sesion.estado === 'ESPERANDO_DATOS_SUSCRIPCION' && textBody) {
         const datosExtrada = await extraerDatosSuscripcion(textBody, fromPhone);
         const tarjetaCreada = await crearTarjetaVentaOnlineRest(datosExtrada);
@@ -176,7 +208,7 @@ export default async function handler(req, res) {
 
         if (tarjetaCreada) {
           await enviarConfirmacionSuscripcion(fromPhone, datosExtrada);
-          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Suscripción procesada y tarjeta creada: ${datosExtrada.nombre}` });
+          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Suscripción procesada: ${datosExtrada.nombre}` });
           return res.status(200).json({ status: 'suscripcion_registrada' });
         } else {
           await enviarMensajeTexto(fromPhone, `Gracias *${datosExtrada.nombre}*, recibimos tus datos. Un asesor te contactará a la brevedad.`);
@@ -184,7 +216,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // Si el usuario escribe texto como "suscribirme" / "suscribirse"
+      // Si el usuario escribe "suscribirme" / "suscribirse" desde cualquier estado
       const textLower = textBody.toLowerCase();
       if (textLower.includes('suscrib') || textLower.includes('comprar') || textLower === '1') {
         await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_SUSCRIPCION');
@@ -193,10 +225,9 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: 'instrucciones_enviadas' });
       }
 
-      // Mostrar menú principal
+      // ── Menú principal (estado INICIO o no reconocido) ────────────────────────
       await enviarMenuPrincipal(fromPhone);
       await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Menú principal enviado' });
-
       return res.status(200).json({ status: 'menu_enviado' });
 
     } catch (err) {

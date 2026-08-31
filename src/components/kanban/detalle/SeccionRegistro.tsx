@@ -84,6 +84,7 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
 
     const getDisplayLabel = (k: string, defaultKey: string) => {
       if (isReportePago) {
+        if (k === 'nombreApellido') return 'NRO DE ABONADO';
         if (k === 'montoPago' || k === 'monto') return 'MONTO PAGADO';
         if (k === 'bancoOrigen' || k === 'banco') return 'BANCO ORIGEN';
         if (k === 'referencia') return 'REFERENCIA BANCARIA';

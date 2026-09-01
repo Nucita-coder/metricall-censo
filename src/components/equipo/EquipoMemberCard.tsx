@@ -10,24 +10,40 @@ interface EquipoMemberCardProps {
   onRechazar?: (id: string) => void;
   onBloquear?: (id: string) => void;
   onEliminar?: (id: string, nombre?: string) => void;
+  onViewAvatar?: (data: { avatarUrl?: string | null; nombre?: string | null; rol?: string | null; mensaje?: string | null }) => void;
 }
 
-export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear, onEliminar }: EquipoMemberCardProps) {
+export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear, onEliminar, onViewAvatar }: EquipoMemberCardProps) {
   const avatarUrl = type === 'solicitud' ? item.perfil?.avatar_url : item.avatar_url;
   const mensaje = type === 'solicitud' ? item.perfil?.mensaje : item.mensaje;
   const nombre = type === 'solicitud' ? item.perfil?.nombre_completo : item.nombre_completo;
+  const rolText = type === 'solicitud' 
+    ? (item.perfil?.rol || 'Solicitante')
+    : (item.etiquetas && item.etiquetas.length > 0 ? item.etiquetas.join(', ') : item.rol);
+
+  const handleAvatarPress = () => {
+    if (onViewAvatar) {
+      onViewAvatar({ avatarUrl, nombre, rol: rolText, mensaje });
+    }
+  };
+
+  const renderAvatar = () => (
+    <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.85} disabled={!onViewAvatar}>
+      {avatarUrl ? (
+        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+      ) : (
+        <View style={styles.avatarPlaceholder}>
+          <Text style={styles.avatarText}>{nombre?.charAt(0).toUpperCase() || 'U'}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
 
   if (type === 'solicitud') {
     return (
       <View style={styles.card}>
         <View style={styles.cardInfo}>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>{nombre?.charAt(0).toUpperCase() || 'U'}</Text>
-            </View>
-          )}
+          {renderAvatar()}
           <View style={styles.cardTextContent}>
             <Text style={styles.cardName}>{nombre}</Text>
             <Text style={styles.cardDate}>Solicitado el: {new Date(item.created_at).toLocaleDateString()}</Text>
@@ -63,17 +79,11 @@ export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear
   return (
     <View style={styles.card}>
       <View style={styles.cardInfo}>
-        {avatarUrl ? (
-          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarText}>{nombre?.charAt(0).toUpperCase() || 'U'}</Text>
-          </View>
-        )}
+        {renderAvatar()}
         <View style={styles.cardTextContent}>
           <Text style={styles.cardName}>{nombre}</Text>
           <Text style={styles.cardRole}>
-            Rol: {item.etiquetas && item.etiquetas.length > 0 ? item.etiquetas.join(', ') : item.rol}
+            Rol: {rolText}
           </Text>
           {mensaje ? (
             <Text style={styles.cardMensaje} numberOfLines={2}>

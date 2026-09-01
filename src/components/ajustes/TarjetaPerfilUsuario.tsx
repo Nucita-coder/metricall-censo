@@ -15,6 +15,7 @@ import { User, Camera, Save, Check } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { uploadImageToSupabase } from '../../services/uploadImage';
+import { ModalVerFotoPerfil } from '../common/ModalVerFotoPerfil';
 
 export function TarjetaPerfilUsuario() {
   const { session, nombreCompleto, userRol, avatarUrl, mensaje: mensajeContext, refreshProfile } = useAuth();
@@ -24,6 +25,7 @@ export function TarjetaPerfilUsuario() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [verFotoModal, setVerFotoModal] = useState(false);
 
   useEffect(() => {
     setProfileMsg(mensajeContext || '');
@@ -118,13 +120,15 @@ export function TarjetaPerfilUsuario() {
 
       <View style={styles.profileHeaderRow}>
         <View style={styles.avatarWrapper}>
-          {currentAvatar ? (
-            <Image source={{ uri: currentAvatar }} style={styles.avatarImage} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <User size={32} color="#FFF" />
-            </View>
-          )}
+          <TouchableOpacity onPress={() => setVerFotoModal(true)} activeOpacity={0.85}>
+            {currentAvatar ? (
+              <Image source={{ uri: currentAvatar }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <User size={32} color="#FFF" />
+              </View>
+            )}
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.avatarChangeBtn}
@@ -191,6 +195,15 @@ export function TarjetaPerfilUsuario() {
           </>
         )}
       </TouchableOpacity>
+
+      <ModalVerFotoPerfil
+        visible={verFotoModal}
+        onClose={() => setVerFotoModal(false)}
+        avatarUrl={currentAvatar}
+        nombre={nombreCompleto}
+        rol={userRol}
+        mensaje={profileMsg}
+      />
     </View>
   );
 }

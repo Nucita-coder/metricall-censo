@@ -5,6 +5,7 @@ import { Redirect } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import { EquipoMemberCard } from '../../../components/equipo/EquipoMemberCard';
 import { ModalAsignacionGranular } from '../../../components/equipo/ModalAsignacionGranular';
+import { ModalVerFotoPerfil } from '../../../components/common/ModalVerFotoPerfil';
 
 export default function EquipoScreen() {
   const { userRol } = useAuth();
@@ -29,7 +30,20 @@ export default function EquipoScreen() {
   const [selectedEtiquetas, setSelectedEtiquetas] = useState<string[]>([]);
   const [guardando, setGuardando] = useState(false);
 
+  const [fotoPerfilModalVisible, setFotoPerfilModalVisible] = useState(false);
+  const [fotoPerfilData, setFotoPerfilData] = useState<{
+    avatarUrl?: string | null;
+    nombre?: string | null;
+    rol?: string | null;
+    mensaje?: string | null;
+  } | null>(null);
+
   const OPCIONES_ETIQUETAS = ["Supervisor", "Técnico", "Asesor"];
+
+  const handleVerFotoPerfil = (data: { avatarUrl?: string | null; nombre?: string | null; rol?: string | null; mensaje?: string | null }) => {
+    setFotoPerfilData(data);
+    setFotoPerfilModalVisible(true);
+  };
 
   useEffect(() => {
     fetchCodigo();
@@ -269,6 +283,7 @@ export default function EquipoScreen() {
               onAceptar={handleAceptarClick}
               onRechazar={handleRechazar}
               onBloquear={handleBloquear}
+              onViewAvatar={handleVerFotoPerfil}
             />
           )}
           contentContainerStyle={styles.listContainer}
@@ -283,6 +298,7 @@ export default function EquipoScreen() {
               type="activo"
               item={item}
               onEliminar={handleEliminarMiembro}
+              onViewAvatar={handleVerFotoPerfil}
             />
           )}
           contentContainerStyle={styles.listContainer}
@@ -306,6 +322,15 @@ export default function EquipoScreen() {
         onConfirmar={confirmarAsignacion}
         onClose={() => setAsignarModalVisible(false)}
         guardando={guardando}
+      />
+
+      <ModalVerFotoPerfil
+        visible={fotoPerfilModalVisible}
+        onClose={() => setFotoPerfilModalVisible(false)}
+        avatarUrl={fotoPerfilData?.avatarUrl}
+        nombre={fotoPerfilData?.nombre}
+        rol={fotoPerfilData?.rol}
+        mensaje={fotoPerfilData?.mensaje}
       />
     </View>
   );

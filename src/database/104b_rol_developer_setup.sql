@@ -32,22 +32,11 @@ GRANT EXECUTE ON FUNCTION public.is_developer() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_developer() TO service_role;
 
 -- ──────────────────────────────────────────────────────────
--- PASO 4: get_user_role() ahora retorna TEXT
--- DROP primero porque no se puede cambiar el tipo de retorno con OR REPLACE
+-- NOTA: get_user_role() NO SE MODIFICA.
+-- Ahora que 'developer' es un valor válido del ENUM rol_usuario,
+-- la función existente lo retorna correctamente sin cambios.
 -- ──────────────────────────────────────────────────────────
-DROP FUNCTION IF EXISTS public.get_user_role();
 
-CREATE FUNCTION public.get_user_role()
-RETURNS TEXT
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-AS $$
-  SELECT rol::TEXT FROM public.perfiles WHERE id = auth.uid();
-$$;
-
-GRANT EXECUTE ON FUNCTION public.get_user_role() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_user_role() TO service_role;
 
 -- ──────────────────────────────────────────────────────────
 -- PASO 5: Políticas RLS — Bypass total para el developer

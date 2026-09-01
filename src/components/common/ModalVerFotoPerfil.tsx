@@ -32,7 +32,10 @@ export function ModalVerFotoPerfil({
   rol,
   mensaje,
 }: ModalVerFotoPerfilProps) {
+  if (!visible) return null;
+
   const isDev = (rol || '').toLowerCase().includes('developer');
+  const initialLetter = nombre ? nombre.charAt(0).toUpperCase() : 'U';
 
   return (
     <Modal

@@ -55,14 +55,16 @@ export interface CobranzaStats {
 const OPCIONES_PERIODO = [
   'Todo el Historial',
   'Este Mes',
+  'Mes Específico (Selector)',
   'Últimos 7 días',
   'Hoy',
   'Rango Personalizado (Calendario)',
 ];
 
-const PERIODO_MAP_TO_KEY: Record<string, 'todo' | 'mes' | '7dias' | 'hoy' | 'personalizado'> = {
+const PERIODO_MAP_TO_KEY: Record<string, 'todo' | 'mes' | 'mes_especifico' | '7dias' | 'hoy' | 'personalizado'> = {
   'Todo el Historial': 'todo',
   'Este Mes': 'mes',
+  'Mes Específico (Selector)': 'mes_especifico',
   'Últimos 7 días': '7dias',
   'Hoy': 'hoy',
   'Rango Personalizado (Calendario)': 'personalizado',
@@ -71,10 +73,18 @@ const PERIODO_MAP_TO_KEY: Record<string, 'todo' | 'mes' | '7dias' | 'hoy' | 'per
 const PERIODO_MAP_TO_LABEL: Record<string, string> = {
   todo: 'Todo el Historial',
   mes: 'Este Mes',
+  mes_especifico: 'Mes Específico (Selector)',
   '7dias': 'Últimos 7 días',
   hoy: 'Hoy',
   personalizado: 'Rango Personalizado (Calendario)',
 };
+
+const NOMBRES_MESES_DROPDOWN = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+const OPCIONES_ANIO_DROPDOWN = ['2026', '2025', '2024', '2023'];
 
 const OPCIONES_FILTRO_CONTACTO = [
   'Todos los Contactos',
@@ -305,7 +315,9 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
-  const [periodoLocal, setPeriodoLocal] = useState<'todo' | 'hoy' | '7dias' | 'mes' | 'personalizado'>(filtroPeriodo || 'todo');
+  const [periodoLocal, setPeriodoLocal] = useState<'todo' | 'hoy' | '7dias' | 'mes' | 'mes_especifico' | 'personalizado'>(filtroPeriodo || 'todo');
+  const [mesEspecificoNum, setMesEspecificoNum] = useState<number>(new Date().getMonth());
+  const [anioEspecificoStr, setAnioEspecificoStr] = useState<string>(String(new Date().getFullYear()));
   const [periodoMatriz, setPeriodoMatriz] = useState<string>('Hoy');
   const [filtroTipoContacto, setFiltroTipoContacto] = useState<string>('Todos los Contactos');
   const [fechaMatriz, setFechaMatriz] = useState<string>(getTodayString());
@@ -414,6 +426,13 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
           return (
             fechaTarjeta.getMonth() === ahora.getMonth() &&
             fechaTarjeta.getFullYear() === ahora.getFullYear()
+          );
+        }
+        if (periodoLocal === 'mes_especifico') {
+          const targetYear = parseInt(anioEspecificoStr, 10) || ahora.getFullYear();
+          return (
+            fechaTarjeta.getMonth() === mesEspecificoNum &&
+            fechaTarjeta.getFullYear() === targetYear
           );
         }
         if (periodoLocal === 'personalizado') {
@@ -534,7 +553,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
     } finally {
       setIsLoading(false);
     }
-  }, [empresaId, periodoLocal, fechaInicio, fechaFin]);
+  }, [empresaId, periodoLocal, fechaInicio, fechaFin, mesEspecificoNum, anioEspecificoStr]);
 
   // Cálculo memorizado de la matriz horaria por línea de tiempo (Semanal, 15 días, Mensual, etc.)
   const matrixData = React.useMemo(() => {
@@ -576,7 +595,10 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         if (!gDate) return;
 
         // 1. Filtrado por Línea de Tiempo (Periodo Matriz)
-        if (periodoMatriz === 'Hoy') {
+        if (periodoLocal === 'mes_especifico') {
+          const targetYear = parseInt(anioEspecificoStr, 10) || ahora.getFullYear();
+          if (gDate.getMonth() !== mesEspecificoNum || gDate.getFullYear() !== targetYear) return;
+        } else if (periodoMatriz === 'Hoy') {
           if (gDate.toDateString() !== ahora.toDateString()) return;
         } else if (periodoMatriz === 'Semanal (7 días)') {
           if (gDate < hace7) return;
@@ -667,7 +689,10 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         if (!gDate) return;
 
         // 1. Filtrado por Línea de Tiempo (sincronizado)
-        if (periodoMatriz === 'Hoy') {
+        if (periodoLocal === 'mes_especifico') {
+          const targetYear = parseInt(anioEspecificoStr, 10) || ahora.getFullYear();
+          if (gDate.getMonth() !== mesEspecificoNum || gDate.getFullYear() !== targetYear) return;
+        } else if (periodoMatriz === 'Hoy') {
           if (gDate.toDateString() !== ahora.toDateString()) return;
         } else if (periodoMatriz === 'Semanal (7 días)') {
           if (gDate < hace7) return;
@@ -762,6 +787,32 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
           placeholder="Seleccionar..."
         />
       </View>
+      {periodoLocal === 'mes_especifico' && (
+        <View style={styles.customDateContainer}>
+          <Text style={styles.customDateTitle}>Seleccionar Mes y Año En Concreto</Text>
+          <View style={styles.customDateRow}>
+            <SelectDropdown
+              label="Mes"
+              value={NOMBRES_MESES_DROPDOWN[mesEspecificoNum]}
+              options={NOMBRES_MESES_DROPDOWN}
+              onSelect={(selectedMesStr) => {
+                const idx = NOMBRES_MESES_DROPDOWN.indexOf(selectedMesStr);
+                if (idx !== -1) setMesEspecificoNum(idx);
+              }}
+              halfWidth
+            />
+            <SelectDropdown
+              label="Año"
+              value={anioEspecificoStr}
+              options={OPCIONES_ANIO_DROPDOWN}
+              onSelect={(selectedAnio) => {
+                setAnioEspecificoStr(selectedAnio);
+              }}
+              halfWidth
+            />
+          </View>
+        </View>
+      )}
       {periodoLocal === 'personalizado' && (
         <View style={styles.customDateContainer}>
           <Text style={styles.customDateTitle}>Rango de Fechas (Calendario)</Text>

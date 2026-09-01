@@ -4,6 +4,8 @@ import { Save, LifeBuoy, CheckCircle } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { SelectDropdown } from '../venta/CamposVenta';
 
+import { useAuth } from '../../context/AuthContext';
+
 interface TarjetaSoporteTecnicoProps {
   empresaId: string | null;
   userRol: string;
@@ -16,6 +18,9 @@ interface MiembroPerfil {
 }
 
 export function TarjetaSoporteTecnico({ empresaId, userRol }: TarjetaSoporteTecnicoProps) {
+  const { isDeveloper } = useAuth();
+  const rolLower = (userRol || '').toLowerCase();
+  const canEdit = isDeveloper || ['lider', 'admin', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [miembros, setMiembros] = useState<MiembroPerfil[]>([]);
@@ -115,11 +120,11 @@ export function TarjetaSoporteTecnico({ empresaId, userRol }: TarjetaSoporteTecn
           options={opcionesDropdown}
           onSelect={(val) => setSelectedNombre(val)}
           placeholder="Seleccionar encargado..."
-          disabled={userRol !== 'lider' && userRol !== 'admin'}
+          disabled={!canEdit}
         />
       </View>
 
-      {(userRol === 'lider' || userRol === 'admin') && (
+      {canEdit && (
         <TouchableOpacity
           style={[styles.btnSave, saving && { opacity: 0.7 }]}
           onPress={handleSaveSoporte}

@@ -16,7 +16,7 @@ import { TarjetaPerfilUsuario } from '../../../components/ajustes/TarjetaPerfilU
 import { TarjetaSoporteTecnico } from '../../../components/ajustes/TarjetaSoporteTecnico';
 
 export default function AjustesScreen() {
-  const { empresaId, userRol } = useAuth();
+  const { empresaId, userRol, isDeveloper } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
@@ -64,7 +64,8 @@ export default function AjustesScreen() {
     );
   }
 
-  const isLiderOrAdmin = userRol === 'lider' || userRol === 'admin';
+  const rolLower = (userRol || '').toLowerCase();
+  const isLiderOrAdmin = isDeveloper || ['lider', 'admin', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>

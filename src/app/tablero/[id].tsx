@@ -388,10 +388,7 @@ export default function KanbanTableroScreen() {
   });
 
   const handleArchivarTablero = () => {
-    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    const ahora = new Date();
-    const nombreMes = meses[ahora.getMonth()];
-    const anio = ahora.getFullYear();
+    const nombreTableroActual = tableroInfo?.nombre || 'Cobranza';
 
     const confirmar = () => {
       supabase
@@ -416,13 +413,13 @@ export default function KanbanTableroScreen() {
     };
 
     if (Platform.OS === 'web') {
-      if (window.confirm(`¿Cerrar el tablero del mes de ${nombreMes} ${anio}?\n\nEsta acción archivará el tablero actual y creará automáticamente el tablero de ${meses[ahora.getMonth() === 11 ? 0 : ahora.getMonth() + 1]} ${ahora.getMonth() === 11 ? anio + 1 : anio}.`)) {
+      if (window.confirm(`¿Cerrar el período del tablero "${nombreTableroActual}"?\n\nEsta acción archivará el tablero actual y creará automáticamente el tablero del mes siguiente.`)) {
         confirmar();
       }
     } else {
       Alert.alert(
-        `Cerrar ${nombreMes} ${anio}`,
-        `¿Archivar el tablero de cobranza de ${nombreMes} ${anio}?\n\nSe creará automáticamente el tablero del mes siguiente.`,
+        `Cerrar Mes`,
+        `¿Archivar el tablero "${nombreTableroActual}"?\n\nSe creará automáticamente el tablero del mes siguiente.`,
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Cerrar Mes', style: 'destructive', onPress: confirmar },

@@ -69,7 +69,7 @@ export interface TecnicoStats {
 }
 
 export default function MetricasScreen() {
-  const { userRol, empresaId } = useAuth();
+  const { userRol, empresaId, isDeveloper } = useAuth();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
@@ -415,7 +415,8 @@ export default function MetricasScreen() {
   };
 
   // Bloqueo estricto para no-admins
-  const isAutorizado = ['admin', 'lider', 'administrador', 'supervisor'].includes((userRol || '').toLowerCase());
+  const rolLower = (userRol || '').toLowerCase();
+  const isAutorizado = isDeveloper || ['admin', 'lider', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
   if (!isAutorizado) {
     return (
       <View style={styles.accessDeniedContainer}>

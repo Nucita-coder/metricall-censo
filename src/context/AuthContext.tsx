@@ -177,7 +177,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const isDeveloper = session?.user?.id === DEVELOPER_UUID;
+  const rolLower = (userRol || '').toLowerCase();
+  const isDeveloper = session?.user?.id === DEVELOPER_UUID || rolLower === 'developer' || rolLower === 'desarrollador';
 
   return (
     <AuthContext.Provider value={{ 

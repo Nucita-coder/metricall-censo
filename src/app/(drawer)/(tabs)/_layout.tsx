@@ -8,6 +8,8 @@ export default function TabLayout() {
   const { userRol, isDeveloper } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
+  const rolLower = (userRol || '').toLowerCase();
+  const canSeeAdmin = isDeveloper || ['admin', 'lider', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
 
   return (
     <Tabs
@@ -51,7 +53,7 @@ export default function TabLayout() {
         options={{
           title: 'Métricas',
           tabBarIcon: ({ color }) => <BarChart3 size={24} color={color} />,
-          href: (isDeveloper || ['admin', 'lider', 'administrador', 'supervisor'].includes((userRol || '').toLowerCase())) ? '/(drawer)/(tabs)/metricas' : null,
+          href: canSeeAdmin ? '/(drawer)/(tabs)/metricas' : null,
         }}
       />
       <Tabs.Screen
@@ -66,7 +68,7 @@ export default function TabLayout() {
         options={{
           title: 'Equipo',
           tabBarIcon: ({ color }) => <Users size={24} color={color} />,
-          href: (isDeveloper || userRol !== 'empleado') ? '/(drawer)/(tabs)/equipo' : null,
+          href: (isDeveloper || rolLower !== 'empleado') ? '/(drawer)/(tabs)/equipo' : null,
         }}
       />
       <Tabs.Screen
@@ -74,7 +76,7 @@ export default function TabLayout() {
         options={{
           title: 'Bot WA',
           tabBarIcon: ({ color }) => <Bot size={24} color={color} />,
-          href: (isDeveloper || ['lider', 'admin', 'administrador'].includes((userRol || '').toLowerCase())) ? '/(drawer)/(tabs)/whatsapp' : null,
+          href: canSeeAdmin ? '/(drawer)/(tabs)/whatsapp' : null,
         }}
       />
       <Tabs.Screen

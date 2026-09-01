@@ -1,16 +1,19 @@
--- =================================================================
--- MIGRACIÓN 100: Sistema de Archivado Mensual COBRANZA-RECUPERO-CHURN
--- =================================================================
+-- MIGRACIÓN 105: Corregir nombres de tableros de cobranza y lógica RPC archivar_tablero_cobranza
 
--- 1. Añadir columna mes_periodo (ej. "2026-08")
-ALTER TABLE public.tableros
-  ADD COLUMN IF NOT EXISTS mes_periodo VARCHAR(7) DEFAULT NULL;
+-- 1. Actualizar tableros existentes con nombres y períodos corregidos
+UPDATE public.tableros
+SET nombre = 'COBRANZA - Agosto 2026',
+    mes_periodo = '2026-08'
+WHERE (nombre ILIKE '%COBRANZA - Septiembre 2026%' OR mes_periodo = '2026-09')
+  AND archivado = TRUE;
 
--- 2. Añadir columna archivado (indica si el tablero fue cerrado para ese mes)
-ALTER TABLE public.tableros
-  ADD COLUMN IF NOT EXISTS archivado BOOLEAN NOT NULL DEFAULT FALSE;
+UPDATE public.tableros
+SET nombre = 'COBRANZA - Septiembre 2026',
+    mes_periodo = '2026-09'
+WHERE (nombre ILIKE '%COBRANZA - Octubre 2026%' OR mes_periodo = '2026-10')
+  AND archivado = FALSE;
 
--- 3. RPC para cerrar el mes del tablero de cobranza y crear el siguiente automáticamente
+-- 2. Corregir RPC archivar_tablero_cobranza para que tome la fecha del mes que se está cerrando correctamente
 CREATE OR REPLACE FUNCTION public.archivar_tablero_cobranza(p_tablero_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -59,12 +62,11 @@ BEGIN
     END IF;
   END IF;
 
-  -- Construir mes_periodo y nombre del mes actual
   v_mes_str    := v_anio || '-' || LPAD(v_mes_index::TEXT, 2, '0');
   v_nombre_mes := v_mes_nombres[v_mes_index];
   v_nuevo_nombre := 'COBRANZA - ' || v_nombre_mes || ' ' || v_anio;
 
-  -- Archivar el tablero actual
+  -- Archivar el tablero actual actualizando su nombre y mes_periodo
   UPDATE public.tableros
   SET
     archivado   = TRUE,
@@ -72,7 +74,7 @@ BEGIN
     nombre      = v_nuevo_nombre
   WHERE id = p_tablero_id;
 
-  -- Calcular siguiente mes
+  -- Calcular el siguiente mes para el nuevo tablero activo
   IF v_mes_index = 12 THEN
     v_sig_mes_index := 1;
     v_sig_anio      := v_anio + 1;
@@ -84,7 +86,7 @@ BEGIN
   v_sig_nombre  := v_mes_nombres[v_sig_mes_index];
   v_sig_mes_str := v_sig_anio || '-' || LPAD(v_sig_mes_index::TEXT, 2, '0');
 
-  -- Crear el tablero del siguiente mes
+  -- Crear el tablero del siguiente mes (activo)
   INSERT INTO public.tableros (
     sucursal_id, empresa_id, nombre, descripcion, tipo, mes_periodo, archivado
   )
@@ -119,5 +121,4 @@ BEGIN
 END;
 $$;
 
--- 4. Grants para que usuarios autenticados puedan llamar la RPC
 GRANT EXECUTE ON FUNCTION public.archivar_tablero_cobranza(UUID) TO authenticated;

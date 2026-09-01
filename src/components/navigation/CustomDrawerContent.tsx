@@ -12,8 +12,8 @@ export function CustomDrawerContent(props: any) {
   const { isDesktop, userRol } = props;
   const { userRol: authRol, isDeveloper } = useAuth();
   const currentRol = (userRol || authRol || '').toLowerCase();
-  const isAdmin = isDeveloper || ['admin', 'lider', 'administrador', 'supervisor'].includes(currentRol);
-  const canSeeTeam = isDeveloper || currentRol !== 'empleado';
+  const isAdmin = isDeveloper || ['admin', 'lider', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(currentRol);
+  const canSeeTeam = isDeveloper || (currentRol !== 'empleado');
 
   const insets = useSafeAreaInsets();
   const { triggerSoporteModal, triggerArchivadosModal } = useGlobalUi();

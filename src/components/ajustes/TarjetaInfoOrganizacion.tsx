@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator,
 import { Copy, Check, Save } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 
+import { useAuth } from '../../context/AuthContext';
+
 interface TarjetaInfoOrganizacionProps {
   empresaId: string | null;
   companyName: string;
@@ -18,6 +20,9 @@ export function TarjetaInfoOrganizacion({
   inviteCode,
   userRol,
 }: TarjetaInfoOrganizacionProps) {
+  const { isDeveloper } = useAuth();
+  const rolLower = (userRol || '').toLowerCase();
+  const canEdit = isDeveloper || ['lider', 'admin', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
   const [savingName, setSavingName] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
@@ -61,9 +66,9 @@ export function TarjetaInfoOrganizacion({
             onChangeText={setCompanyName}
             placeholder="Nombre de la empresa"
             placeholderTextColor="#8C9BAB"
-            editable={userRol === 'lider' || userRol === 'admin'}
+            editable={canEdit}
           />
-          {(userRol === 'lider' || userRol === 'admin') && (
+          {canEdit && (
             <TouchableOpacity
               style={[styles.btnSave, savingName && { opacity: 0.7 }]}
               onPress={handleSaveCompanyName}

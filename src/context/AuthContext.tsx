@@ -3,9 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
 
+// UUID exclusivo del desarrollador / propietario de la plataforma
+export const DEVELOPER_UUID = 'ab95cfb2-dc2e-41f0-b8f6-52f2a2ccbb47';
+
 interface AuthContextData {
   session: Session | null | undefined;
   userRol: string;
+  isDeveloper: boolean;
   empresaId: string | null;
   nombreCompleto: string;
   empresaNombre: string;
@@ -20,6 +24,7 @@ interface AuthContextData {
 const AuthContext = createContext<AuthContextData>({
   session: undefined,
   userRol: '',
+  isDeveloper: false,
   empresaId: null,
   nombreCompleto: '',
   empresaNombre: '',
@@ -172,10 +177,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
+  const isDeveloper = session?.user?.id === DEVELOPER_UUID;
+
   return (
     <AuthContext.Provider value={{ 
       session, 
-      userRol, 
+      userRol,
+      isDeveloper,
       empresaId, 
       nombreCompleto,
       empresaNombre,

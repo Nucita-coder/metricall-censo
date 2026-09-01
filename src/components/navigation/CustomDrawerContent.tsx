@@ -1,19 +1,19 @@
 import React from 'react';
 import { usePathname, useRouter } from 'expo-router';
-import { Archive, BarChart3, Bot, FolderKanban, LifeBuoy, MessageSquare, Package, Settings, Users } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Archive, BarChart3, Bot, FolderKanban, LifeBuoy, MessageSquare, Package, Settings, Users, Code2 } from 'lucide-react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGlobalUi } from '../../context/GlobalUiContext';
-
 import { useAuth } from '../../context/AuthContext';
 
 export function CustomDrawerContent(props: any) {
   const router = useRouter();
   const pathname = usePathname();
   const { isDesktop, userRol } = props;
-  const { userRol: authRol } = useAuth();
+  const { userRol: authRol, isDeveloper } = useAuth();
   const currentRol = (userRol || authRol || '').toLowerCase();
-  const isAdmin = ['admin', 'lider', 'administrador', 'supervisor'].includes(currentRol);
+  const isAdmin = isDeveloper || ['admin', 'lider', 'administrador', 'supervisor'].includes(currentRol);
+  const canSeeTeam = isDeveloper || currentRol !== 'empleado';
 
   const insets = useSafeAreaInsets();
   const { triggerSoporteModal, triggerArchivadosModal } = useGlobalUi();
@@ -37,6 +37,12 @@ export function CustomDrawerContent(props: any) {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#22272B' }} contentContainerStyle={{ paddingTop: insets.top + 20, paddingHorizontal: 16 }}>
+      {isDeveloper && (
+        <View style={styles.devBadgeContainer}>
+          <Code2 size={14} color='#F59E0B' />
+          <Text style={styles.devBadgeText}>MODO DEVELOPER</Text>
+        </View>
+      )}
       <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#8C9BAB', marginBottom: 12, marginLeft: 8 }}>MENU PRINCIPAL</Text>
 
       {!isDesktop && (
@@ -47,7 +53,7 @@ export function CustomDrawerContent(props: any) {
           <MenuItem label="Messenger" icon={MessageSquare} route="/(drawer)/(tabs)/mensajes" />
           {isAdmin && <MenuItem label="WhatsApp Bot" icon={Bot} route="/(drawer)/(tabs)/whatsapp" />}
           <MenuItem label="Soporte Técnico" icon={LifeBuoy} onPress={() => triggerSoporteModal()} />
-          {currentRol !== 'empleado' && <MenuItem label="Organización" icon={Users} route="/(drawer)/gestion" />}
+          {canSeeTeam && <MenuItem label="Organización" icon={Users} route="/(drawer)/gestion" />}
           <MenuItem label="Archivados" icon={Archive} onPress={() => triggerArchivadosModal()} />
         </>
       )}
@@ -59,10 +65,10 @@ export function CustomDrawerContent(props: any) {
           {isAdmin && <MenuItem label="Métricas" icon={BarChart3} route="/(drawer)/(tabs)/metricas" />}
           <MenuItem label="Messenger" icon={MessageSquare} route="/(drawer)/(tabs)/mensajes" />
           {isAdmin && <MenuItem label="WhatsApp Bot" icon={Bot} route="/(drawer)/(tabs)/whatsapp" />}
-          {currentRol !== 'empleado' && <MenuItem label="Equipo" icon={Users} route="/(drawer)/(tabs)/equipo" />}
+          {canSeeTeam && <MenuItem label="Equipo" icon={Users} route="/(drawer)/(tabs)/equipo" />}
           <MenuItem label="Ajustes" icon={Settings} route="/(drawer)/(tabs)/ajustes" />
           <MenuItem label="Soporte Técnico" icon={LifeBuoy} onPress={() => triggerSoporteModal()} />
-          {currentRol !== 'empleado' && <MenuItem label="Organización" icon={Users} route="/(drawer)/gestion" />}
+          {canSeeTeam && <MenuItem label="Organización" icon={Users} route="/(drawer)/gestion" />}
           <MenuItem label="Archivados" icon={Archive} onPress={() => triggerArchivadosModal()} />
         </>
       )}
@@ -84,5 +90,24 @@ const styles = StyleSheet.create({
     marginLeft: 16,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  devBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginBottom: 16,
+    gap: 6,
+  },
+  devBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#F59E0B',
+    letterSpacing: 0.8,
   },
 });

@@ -11,14 +11,14 @@ import {
   Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { User, Camera, Save, Check } from 'lucide-react-native';
+import { User, Camera, Save, Check, Code2 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { uploadImageToSupabase } from '../../services/uploadImage';
 import { ModalVerFotoPerfil } from '../common/ModalVerFotoPerfil';
 
 export function TarjetaPerfilUsuario() {
-  const { session, nombreCompleto, userRol, avatarUrl, mensaje: mensajeContext, refreshProfile } = useAuth();
+  const { session, nombreCompleto, userRol, isDeveloper, avatarUrl, mensaje: mensajeContext, refreshProfile } = useAuth();
   
   const [profileMsg, setProfileMsg] = useState(mensajeContext || '');
   const [currentAvatar, setCurrentAvatar] = useState<string | null>(avatarUrl || null);
@@ -145,9 +145,16 @@ export function TarjetaPerfilUsuario() {
 
         <View style={styles.userInfoCol}>
           <Text style={styles.userName}>{nombreCompleto || 'Usuario Metricall'}</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.userRole}>ROL: {userRol ? userRol.toUpperCase() : 'MIEMBRO'}</Text>
-          </View>
+          {isDeveloper ? (
+            <View style={[styles.roleBadge, styles.roleBadgeDev]}>
+              <Code2 size={11} color="#F59E0B" style={{ marginRight: 4 }} />
+              <Text style={[styles.userRole, styles.userRoleDev]}>DEVELOPER</Text>
+            </View>
+          ) : (
+            <View style={styles.roleBadge}>
+              <Text style={styles.userRole}>ROL: {userRol ? userRol.toUpperCase() : 'MIEMBRO'}</Text>
+            </View>
+          )}
           <Text style={styles.userEmail}>{session?.user?.email}</Text>
         </View>
       </View>
@@ -277,17 +284,32 @@ const styles = StyleSheet.create({
   },
   roleBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(140, 155, 171, 0.12)',
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     marginTop: 4,
     marginBottom: 4,
   },
+  roleBadgeDev: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
   userRole: {
-    fontSize: 12,
+    fontSize: 10,
+    color: '#8C9BAB',
+    fontWeight: 'bold',
+  },
+  userRoleDev: {
+    fontSize: 10,
     color: '#F59E0B',
     fontWeight: 'bold',
+    letterSpacing: 0.8,
   },
   userEmail: {
     fontSize: 14,

@@ -22,7 +22,10 @@ export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear
     : (item.etiquetas && item.etiquetas.length > 0 ? item.etiquetas.join(', ') : item.rol);
 
   const isDeveloperUser = item.id === 'ab95cfb2-dc2e-41f0-b8f6-52f2a2ccbb47' || item.rol === 'developer';
-  const effectiveRolText = isDeveloperUser ? 'DEVELOPER' : rolText;
+  const etiquetasStr = item.etiquetas && item.etiquetas.length > 0 ? item.etiquetas.join(', ') : null;
+  const effectiveRolText = isDeveloperUser 
+    ? (etiquetasStr ? `DEVELOPER • ${etiquetasStr}` : 'DEVELOPER')
+    : rolText;
 
   const handleAvatarPress = () => {
     if (onViewAvatar) {
@@ -33,9 +36,9 @@ export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear
   const renderAvatar = () => (
     <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.85} disabled={!onViewAvatar}>
       {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={[styles.avatarImage, isDeveloperUser && styles.avatarImageDev]} />
+        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
       ) : (
-        <View style={[styles.avatarPlaceholder, isDeveloperUser && { backgroundColor: '#F59E0B' }]}>
+        <View style={styles.avatarPlaceholder}>
           <Text style={styles.avatarText}>{nombre?.charAt(0).toUpperCase() || 'U'}</Text>
         </View>
       )}
@@ -86,8 +89,13 @@ export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear
         <View style={styles.cardTextContent}>
           <Text style={styles.cardName}>{nombre}</Text>
           {isDeveloperUser ? (
-            <View style={styles.devBadgeCard}>
-              <Text style={styles.devBadgeCardText}>DEVELOPER</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+              <View style={styles.devBadgeCard}>
+                <Text style={styles.devBadgeCardText}>DEVELOPER</Text>
+              </View>
+              {etiquetasStr && (
+                <Text style={styles.cardRole}>{etiquetasStr}</Text>
+              )}
             </View>
           ) : (
             <Text style={styles.cardRole}>
@@ -146,10 +154,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 1,
     borderColor: '#0C66E4',
-  },
-  avatarImageDev: {
-    borderWidth: 2,
-    borderColor: '#F59E0B',
   },
   avatarText: {
     color: '#FFF',

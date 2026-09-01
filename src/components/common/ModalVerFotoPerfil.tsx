@@ -53,8 +53,8 @@ export function ModalVerFotoPerfil({
                 <X size={24} color="#FFF" />
               </TouchableOpacity>
 
-              {/* Anillo de foto estilo Instagram (gradiente/borde estilizado) */}
-              <View style={[styles.avatarRingOuter, isDev && styles.avatarRingOuterDev]}>
+              {/* Anillo de foto estilo Instagram (borde estándar) */}
+              <View style={styles.avatarRingOuter}>
                 <View style={styles.avatarRingInner}>
                   {avatarUrl ? (
                     <Image
@@ -63,7 +63,7 @@ export function ModalVerFotoPerfil({
                       resizeMode="cover"
                     />
                   ) : (
-                    <View style={[styles.avatarPlaceholder, isDev && { backgroundColor: '#F59E0B' }]}>
+                    <View style={styles.avatarPlaceholder}>
                       <Text style={styles.avatarInitial}>{initialLetter}</Text>
                     </View>
                   )}
@@ -136,20 +136,11 @@ const styles = StyleSheet.create({
     height: AVATAR_SIZE + 12,
     borderRadius: (AVATAR_SIZE + 12) / 2,
     padding: 4,
-    // Borde brillante de estilo historia de instagram (magenta/violeta a azul metricall)
     borderWidth: 3,
     borderColor: '#0C66E4',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-  },
-  avatarRingOuterDev: {
-    borderColor: '#F59E0B',
-    shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 15,
-    elevation: 8,
   },
   avatarRingInner: {
     width: AVATAR_SIZE,

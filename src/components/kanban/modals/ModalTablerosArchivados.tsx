@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -10,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Reanimated, { SlideInRight, SlideOutRight } from 'react-native-reanimated';
-import { Archive, Calendar, CheckCircle2, ChevronRight, X, XCircle } from 'lucide-react-native';
+import { Archive, Calendar, CheckCircle2, ChevronRight, Pin, Star, X } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 
@@ -20,6 +21,10 @@ interface TableroArchivado {
   mes_periodo: string;
   created_at: string;
   tipo: string;
+  fondo_url?: string | null;
+  descripcion?: string | null;
+  es_favorito?: boolean;
+  es_anclado?: boolean;
 }
 
 interface ModalTablerosArchivadosProps {
@@ -51,9 +56,8 @@ export function ModalTablerosArchivados({ visible, onClose, empresaId }: ModalTa
       setIsLoading(true);
       const { data, error } = await supabase
         .from('tableros')
-        .select('id, nombre, mes_periodo, created_at, tipo')
+        .select('id, nombre, mes_periodo, created_at, tipo, fondo_url, descripcion, es_favorito, es_anclado')
         .eq('empresa_id', empresaId)
-        .eq('tipo', 'cobranza')
         .eq('archivado', true)
         .order('mes_periodo', { ascending: false });
 
@@ -93,7 +97,7 @@ export function ModalTablerosArchivados({ visible, onClose, empresaId }: ModalTa
 
         <Text style={styles.subtitle}>Tableros cerrados por mes</Text>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, gap: 12 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, gap: 14 }}>
           {isLoading ? (
             <View style={styles.loadingBox}>
               <ActivityIndicator size="large" color="#F6AD55" />
@@ -111,30 +115,48 @@ export function ModalTablerosArchivados({ visible, onClose, empresaId }: ModalTa
             tableros.map((t) => (
               <TouchableOpacity
                 key={t.id}
-                style={styles.card}
-                activeOpacity={0.75}
+                style={styles.boardCard}
+                activeOpacity={0.85}
                 onPress={() => {
                   onClose();
                   router.push(`/tablero/${t.id}`);
                 }}
               >
-                {/* Badge mes */}
-                <View style={styles.cardBadge}>
-                  <Calendar size={14} color="#F6AD55" />
-                  <Text style={styles.cardBadgeText}>
-                    {getNombreMes(t.mes_periodo)}
+                {t.fondo_url ? (
+                  <Image source={{ uri: t.fondo_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                ) : null}
+                {t.fondo_url ? (
+                  <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.35)' }]} />
+                ) : null}
+
+                <View style={{ padding: 14, flex: 1, justifyContent: 'flex-start' }}>
+                  <Text
+                    style={[
+                      styles.cardTitleText,
+                      { color: t.fondo_url ? '#FFF' : '#B6C2CF' },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {t.nombre}
                   </Text>
                 </View>
 
-                <View style={styles.cardBody}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cardName}>{t.nombre}</Text>
-                    <View style={styles.cardStatusRow}>
-                      <CheckCircle2 size={13} color="#A78BFA" />
-                      <Text style={styles.cardStatusText}>Tablero archivado</Text>
-                    </View>
+                <View style={styles.cardFooter}>
+                  <View style={styles.badgePill}>
+                    <Calendar size={12} color="#F6AD55" />
+                    <Text style={styles.badgePillText}>
+                      {getNombreMes(t.mes_periodo)}
+                    </Text>
                   </View>
-                  <ChevronRight size={20} color="#384148" />
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {t.es_favorito && (
+                      <Star size={16} color={t.fondo_url ? '#FDE047' : '#EAB308'} fill={t.fondo_url ? '#FDE047' : '#EAB308'} />
+                    )}
+                    {t.es_anclado && (
+                      <Pin size={16} color={t.fondo_url ? '#FFF' : '#4B5563'} />
+                    )}
+                  </View>
                 </View>
               </TouchableOpacity>
             ))
@@ -208,46 +230,45 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  card: {
-    backgroundColor: '#2C333A',
-    borderRadius: 12,
+  boardCard: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#22272B',
     borderWidth: 1,
     borderColor: '#384148',
-    overflow: 'hidden',
+    justifyContent: 'space-between',
+    elevation: 2,
   },
-  cardBadge: {
+  cardTitleText: {
+    fontSize: 16,
+    fontWeight: '900',
+    fontStyle: 'italic',
+    letterSpacing: 0.5,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+  badgePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(246, 173, 85, 0.1)',
-    borderBottomWidth: 1,
-    borderBottomColor: '#384148',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    backgroundColor: 'rgba(246, 173, 85, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(246, 173, 85, 0.4)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
   },
-  cardBadgeText: {
+  badgePillText: {
     color: '#F6AD55',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
-  },
-  cardBody: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-  },
-  cardName: {
-    color: '#B6C2CF',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  cardStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  cardStatusText: {
-    color: '#A78BFA',
-    fontSize: 12,
+    textTransform: 'uppercase',
   },
 });

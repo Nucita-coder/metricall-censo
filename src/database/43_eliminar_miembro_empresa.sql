@@ -45,7 +45,7 @@ BEGIN
     SET empresa_id = NULL,
         sucursal_id = NULL,
         rol = 'empleado',
-        etiquetas = '[]'::jsonb,
+        etiquetas = '{}',
         permisos_especiales = '{}'::jsonb,
         updated_at = NOW()
     WHERE id = p_miembro_id;

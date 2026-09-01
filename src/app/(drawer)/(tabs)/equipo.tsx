@@ -209,18 +209,15 @@ export default function EquipoScreen() {
         try {
           const { error: rpcErr } = await supabase.rpc('eliminar_miembro_empresa', { p_miembro_id: miembroId });
           if (rpcErr) {
-            await supabase.from('perfiles').update({
-              empresa_id: null,
-              sucursal_id: null,
-              rol: 'empleado',
-              etiquetas: [],
-              permisos_especiales: {}
-            }).eq('id', miembroId);
+            console.error('[EQUIPO] Error RPC eliminar_miembro_empresa:', rpcErr);
+            throw rpcErr;
           }
+          setActivos(prev => prev.filter(m => m.id !== miembroId));
           fetchData();
           if (Platform.OS === 'web') alert('El miembro ha sido desvinculado de la empresa.');
           else Alert.alert('Éxito', 'El miembro ha sido desvinculado de la empresa.');
         } catch (e: any) {
+          console.error('[EQUIPO] Error desvinculando miembro:', e);
           Alert.alert('Error', e.message || 'No se pudo eliminar el miembro de la empresa.');
         }
       }

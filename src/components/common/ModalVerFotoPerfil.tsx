@@ -32,9 +32,7 @@ export function ModalVerFotoPerfil({
   rol,
   mensaje,
 }: ModalVerFotoPerfilProps) {
-  if (!visible) return null;
-
-  const initialLetter = nombre ? nombre.charAt(0).toUpperCase() : 'U';
+  const isDev = (rol || '').toLowerCase().includes('developer');
 
   return (
     <Modal
@@ -53,7 +51,7 @@ export function ModalVerFotoPerfil({
               </TouchableOpacity>
 
               {/* Anillo de foto estilo Instagram (gradiente/borde estilizado) */}
-              <View style={styles.avatarRingOuter}>
+              <View style={[styles.avatarRingOuter, isDev && styles.avatarRingOuterDev]}>
                 <View style={styles.avatarRingInner}>
                   {avatarUrl ? (
                     <Image
@@ -62,7 +60,7 @@ export function ModalVerFotoPerfil({
                       resizeMode="cover"
                     />
                   ) : (
-                    <View style={styles.avatarPlaceholder}>
+                    <View style={[styles.avatarPlaceholder, isDev && { backgroundColor: '#F59E0B' }]}>
                       <Text style={styles.avatarInitial}>{initialLetter}</Text>
                     </View>
                   )}
@@ -74,8 +72,10 @@ export function ModalVerFotoPerfil({
                 <Text style={styles.userName}>{nombre || 'Usuario'}</Text>
                 
                 {rol && (
-                  <View style={styles.roleBadge}>
-                    <Text style={styles.roleText}>{rol.toUpperCase()}</Text>
+                  <View style={[styles.roleBadge, isDev && styles.roleBadgeDev]}>
+                    <Text style={[styles.roleText, isDev && styles.roleTextDev]}>
+                      {isDev ? 'DEVELOPER' : rol.toUpperCase()}
+                    </Text>
                   </View>
                 )}
 
@@ -140,6 +140,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  avatarRingOuterDev: {
+    borderColor: '#F59E0B',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+    elevation: 8,
+  },
   avatarRingInner: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
@@ -181,11 +189,20 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginBottom: 10,
   },
+  roleBadgeDev: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+  },
   roleText: {
     color: '#579DFF',
     fontSize: 11,
     fontWeight: 'bold',
     letterSpacing: 0.5,
+  },
+  roleTextDev: {
+    color: '#F59E0B',
+    letterSpacing: 1,
   },
   userMessage: {
     fontSize: 13,

@@ -21,18 +21,21 @@ export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear
     ? (item.perfil?.rol || 'Solicitante')
     : (item.etiquetas && item.etiquetas.length > 0 ? item.etiquetas.join(', ') : item.rol);
 
+  const isDeveloperUser = item.id === 'ab95cfb2-dc2e-41f0-b8f6-52f2a2ccbb47' || item.rol === 'developer';
+  const effectiveRolText = isDeveloperUser ? 'DEVELOPER' : rolText;
+
   const handleAvatarPress = () => {
     if (onViewAvatar) {
-      onViewAvatar({ avatarUrl, nombre, rol: rolText, mensaje });
+      onViewAvatar({ avatarUrl, nombre, rol: effectiveRolText, mensaje });
     }
   };
 
   const renderAvatar = () => (
     <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.85} disabled={!onViewAvatar}>
       {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+        <Image source={{ uri: avatarUrl }} style={[styles.avatarImage, isDeveloperUser && styles.avatarImageDev]} />
       ) : (
-        <View style={styles.avatarPlaceholder}>
+        <View style={[styles.avatarPlaceholder, isDeveloperUser && { backgroundColor: '#F59E0B' }]}>
           <Text style={styles.avatarText}>{nombre?.charAt(0).toUpperCase() || 'U'}</Text>
         </View>
       )}
@@ -82,9 +85,15 @@ export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear
         {renderAvatar()}
         <View style={styles.cardTextContent}>
           <Text style={styles.cardName}>{nombre}</Text>
-          <Text style={styles.cardRole}>
-            Rol: {rolText}
-          </Text>
+          {isDeveloperUser ? (
+            <View style={styles.devBadgeCard}>
+              <Text style={styles.devBadgeCardText}>DEVELOPER</Text>
+            </View>
+          ) : (
+            <Text style={styles.cardRole}>
+              Rol: {rolText}
+            </Text>
+          )}
           {mensaje ? (
             <Text style={styles.cardMensaje} numberOfLines={2}>
               "{mensaje}"
@@ -138,6 +147,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#0C66E4',
   },
+  avatarImageDev: {
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+  },
   avatarText: {
     color: '#FFF',
     fontWeight: 'bold',
@@ -160,6 +173,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8C9BAB',
     marginTop: 2,
+  },
+  devBadgeCard: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  devBadgeCardText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#F59E0B',
+    letterSpacing: 0.8,
   },
   cardMensaje: {
     fontSize: 12,

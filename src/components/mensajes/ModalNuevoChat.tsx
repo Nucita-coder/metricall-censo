@@ -7,6 +7,7 @@ import {
   FlatList,
   ActivityIndicator,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { X, UserPlus, User } from 'lucide-react-native';
 import { InputTexto } from '../venta/CamposVenta';
@@ -98,9 +99,13 @@ export function ModalNuevoChat({
                     onClose();
                   }}
                 >
-                  <View style={styles.avatarCircle}>
-                    <User size={16} color="#FFF" />
-                  </View>
+                  {item.avatar_url ? (
+                    <Image source={{ uri: item.avatar_url }} style={styles.avatarImage} />
+                  ) : (
+                    <View style={styles.avatarCircle}>
+                      <User size={16} color="#FFF" />
+                    </View>
+                  )}
                   <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text style={styles.itemNombre}>{item.nombre_completo}</Text>
                     <Text style={styles.itemRol}>
@@ -187,6 +192,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#0C66E4',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   itemNombre: {
     color: '#B6C2CF',

@@ -104,6 +104,7 @@ export default function MensajesScreen() {
       id: conv.usuario_id,
       nombre_completo: conv.nombre_completo,
       rol: conv.rol,
+      avatar_url: conv.avatar_url,
     };
     setChatActivoUser(usuario);
     setAdjuntoSeleccionado(null);
@@ -141,6 +142,7 @@ export default function MensajesScreen() {
                 empresaId={empresaId}
                 chatUsuarioId={chatActivoUser.id}
                 chatUsuarioNombre={chatActivoUser.nombre_completo}
+                chatUsuarioAvatar={chatActivoUser.avatar_url}
                 mensajes={mensajes}
                 loading={loadingChat}
                 onVolver={!isDesktop ? () => setChatActivoUser(null) : undefined}

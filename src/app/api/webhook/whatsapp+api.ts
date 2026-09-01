@@ -116,7 +116,7 @@ export async function POST(request: Request) {
         `Gracias *${datosExtrada.nombre}*, hemos recibido tus datos correctamente.\n\n` +
         `📍 *Sector:* ${datosExtrada.sector}\n` +
         `📱 *Contacto:* ${datosExtrada.telefono}\n\n` +
-        `Un asesor se estará contactando con usted próximamente.`;
+        `Un asesor se estará contactando con usted en un plazo de 24 a 48 horas.`;
 
       await enviarMensajeTextoWhatsApp(from, mensajeConfirmacion);
 

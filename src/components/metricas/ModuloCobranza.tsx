@@ -56,15 +56,17 @@ const OPCIONES_PERIODO = [
   'Todo el Historial',
   'Este Mes',
   'Mes Específico (Selector)',
+  'Comparación entre Meses (Comparativa)',
   'Últimos 7 días',
   'Hoy',
   'Rango Personalizado (Calendario)',
 ];
 
-const PERIODO_MAP_TO_KEY: Record<string, 'todo' | 'mes' | 'mes_especifico' | '7dias' | 'hoy' | 'personalizado'> = {
+const PERIODO_MAP_TO_KEY: Record<string, 'todo' | 'mes' | 'mes_especifico' | 'comparativa' | '7dias' | 'hoy' | 'personalizado'> = {
   'Todo el Historial': 'todo',
   'Este Mes': 'mes',
   'Mes Específico (Selector)': 'mes_especifico',
+  'Comparación entre Meses (Comparativa)': 'comparativa',
   'Últimos 7 días': '7dias',
   'Hoy': 'hoy',
   'Rango Personalizado (Calendario)': 'personalizado',
@@ -74,6 +76,7 @@ const PERIODO_MAP_TO_LABEL: Record<string, string> = {
   todo: 'Todo el Historial',
   mes: 'Este Mes',
   mes_especifico: 'Mes Específico (Selector)',
+  comparativa: 'Comparación entre Meses (Comparativa)',
   '7dias': 'Últimos 7 días',
   hoy: 'Hoy',
   personalizado: 'Rango Personalizado (Calendario)',
@@ -105,6 +108,7 @@ const OPCIONES_PERIODO_MATRIZ = [
   'Semanal (7 días)',
   'Quincenal (15 días)',
   'Mensual (Este Mes)',
+  'Mes Específico (Selector)',
 ];
 
 const HORAS_JORNADA = [
@@ -315,15 +319,73 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
-  const [periodoLocal, setPeriodoLocal] = useState<'todo' | 'hoy' | '7dias' | 'mes' | 'mes_especifico' | 'personalizado'>(filtroPeriodo || 'todo');
+  const [periodoLocal, setPeriodoLocal] = useState<'todo' | 'hoy' | '7dias' | 'mes' | 'mes_especifico' | 'comparativa' | 'personalizado'>(filtroPeriodo || 'todo');
   const [mesEspecificoNum, setMesEspecificoNum] = useState<number>(new Date().getMonth());
   const [anioEspecificoStr, setAnioEspecificoStr] = useState<string>(String(new Date().getFullYear()));
   const [periodoMatriz, setPeriodoMatriz] = useState<string>('Hoy');
+  const [mesMatrizNum, setMesMatrizNum] = useState<number>(new Date().getMonth());
+  const [anioMatrizStr, setAnioMatrizStr] = useState<string>(String(new Date().getFullYear()));
   const [filtroTipoContacto, setFiltroTipoContacto] = useState<string>('Todos los Contactos');
   const [fechaMatriz, setFechaMatriz] = useState<string>(getTodayString());
   const [mostrarPieContactos, setMostrarPieContactos] = useState<boolean>(false);
   const [mostrarPieResultados, setMostrarPieResultados] = useState<boolean>(false);
   const [rawTarjetasCobranza, setRawTarjetasCobranza] = useState<Tarjeta[]>([]);
+  const [habilitarComparativa, setHabilitarComparativa] = useState<boolean>(false);
+  const [mesCompararNum, setMesCompararNum] = useState<number>(new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1);
+  const [anioCompararStr, setAnioCompararStr] = useState<string>(
+    new Date().getMonth() === 0 ? String(new Date().getFullYear() - 1) : String(new Date().getFullYear())
+  );
+
+  const statsComparativa = React.useMemo(() => {
+    if (periodoLocal !== 'comparativa' || !rawTarjetasCobranza.length) {
+      return null;
+    }
+
+    const targetYear = parseInt(anioCompararStr, 10) || new Date().getFullYear();
+    let efectivos = 0;
+    let negativos = 0;
+    let sinAtender = 0;
+
+    const tarjetasMesB = rawTarjetasCobranza.filter(t => {
+      const data = t.datos_valores || {};
+      const fechaStr = data.fechaCobroReconciliacion || t.created_at || t.updated_at;
+      if (!fechaStr) return false;
+      const fechaTarjeta = parseFechaAObjeto(fechaStr);
+      if (!fechaTarjeta) return false;
+
+      return (
+        fechaTarjeta.getMonth() === mesCompararNum &&
+        fechaTarjeta.getFullYear() === targetYear
+      );
+    });
+
+    tarjetasMesB.forEach(t => {
+      const data = t.datos_valores || {};
+      const resStr = (data.resultadoContacto || data.RESULTADO || data.resultado || '').toString().trim().toUpperCase();
+      const esCobroExitoso = (resStr === 'COBRO EFECTIVO' || resStr === 'RECUPERADO') && resStr !== 'FUERA DE ZONA';
+
+      if (esCobroExitoso) {
+        efectivos++;
+      } else if (resStr === 'FUERA DE ZONA' || Boolean(data.resultadoContacto)) {
+        negativos++;
+      } else {
+        sinAtender++;
+      }
+    });
+
+    const totalTotal = tarjetasMesB.length;
+    const tasaRecuperacion = totalTotal > 0 ? Math.round((efectivos / totalTotal) * 100) : 0;
+    const tasaSinAtender = totalTotal > 0 ? Math.round((sinAtender / totalTotal) * 100) : 0;
+
+    return {
+      totalCortados: totalTotal,
+      totalEfectivos: efectivos,
+      totalNegativos: negativos,
+      totalSinAtender: sinAtender,
+      tasaRecuperacion,
+      tasaSinAtender,
+    };
+  }, [rawTarjetasCobranza, periodoLocal, mesCompararNum, anioCompararStr]);
   const [fechaInicio, setFechaInicio] = useState<string>('');
   const [fechaFin, setFechaFin] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -428,7 +490,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
             fechaTarjeta.getFullYear() === ahora.getFullYear()
           );
         }
-        if (periodoLocal === 'mes_especifico') {
+        if (periodoLocal === 'mes_especifico' || periodoLocal === 'comparativa') {
           const targetYear = parseInt(anioEspecificoStr, 10) || ahora.getFullYear();
           return (
             fechaTarjeta.getMonth() === mesEspecificoNum &&
@@ -595,7 +657,10 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         if (!gDate) return;
 
         // 1. Filtrado por Línea de Tiempo (Periodo Matriz)
-        if (periodoLocal === 'mes_especifico') {
+        if (periodoMatriz === 'Mes Específico (Selector)' || periodoMatriz.includes('Mes Específico')) {
+          const targetYear = parseInt(anioMatrizStr, 10) || ahora.getFullYear();
+          if (gDate.getMonth() !== mesMatrizNum || gDate.getFullYear() !== targetYear) return;
+        } else if (periodoLocal === 'mes_especifico' || periodoLocal === 'comparativa') {
           const targetYear = parseInt(anioEspecificoStr, 10) || ahora.getFullYear();
           if (gDate.getMonth() !== mesEspecificoNum || gDate.getFullYear() !== targetYear) return;
         } else if (periodoMatriz === 'Hoy') {
@@ -649,7 +714,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
     });
 
     return { grid, columnTotals, totalActividadesPeriodo };
-  }, [rawTarjetasCobranza, periodoMatriz, fechaMatriz, filtroTipoContacto]);
+  }, [rawTarjetasCobranza, periodoMatriz, fechaMatriz, filtroTipoContacto, mesMatrizNum, anioMatrizStr, periodoLocal, mesEspecificoNum, anioEspecificoStr]);
 
   // Cálculo memorizado del desglose por Resultado de Gestión (Sin Horarios)
   const matrixResultadosData = React.useMemo(() => {
@@ -689,7 +754,10 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         if (!gDate) return;
 
         // 1. Filtrado por Línea de Tiempo (sincronizado)
-        if (periodoLocal === 'mes_especifico') {
+        if (periodoMatriz === 'Mes Específico (Selector)' || periodoMatriz.includes('Mes Específico')) {
+          const targetYear = parseInt(anioMatrizStr, 10) || ahora.getFullYear();
+          if (gDate.getMonth() !== mesMatrizNum || gDate.getFullYear() !== targetYear) return;
+        } else if (periodoLocal === 'mes_especifico' || periodoLocal === 'comparativa') {
           const targetYear = parseInt(anioEspecificoStr, 10) || ahora.getFullYear();
           if (gDate.getMonth() !== mesEspecificoNum || gDate.getFullYear() !== targetYear) return;
         } else if (periodoMatriz === 'Hoy') {
@@ -717,7 +785,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
     });
 
     return { countsMap, totalResultadosPeriodo };
-  }, [rawTarjetasCobranza, periodoMatriz, fechaMatriz]);
+  }, [rawTarjetasCobranza, periodoMatriz, fechaMatriz, mesMatrizNum, anioMatrizStr, periodoLocal, mesEspecificoNum, anioEspecificoStr]);
 
   // Datos para los diagramas de pastel (100% distribución)
   const pieDataContactos = React.useMemo(() => {
@@ -787,12 +855,15 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
           placeholder="Seleccionar..."
         />
       </View>
-      {periodoLocal === 'mes_especifico' && (
+
+      {(periodoLocal === 'mes_especifico' || periodoLocal === 'comparativa') && (
         <View style={styles.customDateContainer}>
-          <Text style={styles.customDateTitle}>Seleccionar Mes y Año En Concreto</Text>
+          <Text style={styles.customDateTitle}>
+            {periodoLocal === 'comparativa' ? 'Seleccionar Meses para Comparativa Lado a Lado' : 'Seleccionar Mes y Año En Concreto'}
+          </Text>
           <View style={styles.customDateRow}>
             <SelectDropdown
-              label="Mes"
+              label="Mes Principal"
               value={NOMBRES_MESES_DROPDOWN[mesEspecificoNum]}
               options={NOMBRES_MESES_DROPDOWN}
               onSelect={(selectedMesStr) => {
@@ -802,7 +873,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
               halfWidth
             />
             <SelectDropdown
-              label="Año"
+              label="Año Principal"
               value={anioEspecificoStr}
               options={OPCIONES_ANIO_DROPDOWN}
               onSelect={(selectedAnio) => {
@@ -810,6 +881,30 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
               }}
               halfWidth
             />
+
+            {periodoLocal === 'comparativa' && (
+              <>
+                <SelectDropdown
+                  label="Mes a Comparar"
+                  value={NOMBRES_MESES_DROPDOWN[mesCompararNum]}
+                  options={NOMBRES_MESES_DROPDOWN}
+                  onSelect={(selectedMesStr) => {
+                    const idx = NOMBRES_MESES_DROPDOWN.indexOf(selectedMesStr);
+                    if (idx !== -1) setMesCompararNum(idx);
+                  }}
+                  halfWidth
+                />
+                <SelectDropdown
+                  label="Año a Comparar"
+                  value={anioCompararStr}
+                  options={OPCIONES_ANIO_DROPDOWN}
+                  onSelect={(selectedAnio) => {
+                    setAnioCompararStr(selectedAnio);
+                  }}
+                  halfWidth
+                />
+              </>
+            )}
           </View>
         </View>
       )}
@@ -846,49 +941,151 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
           )}
         </View>
       )}
-      {/* CONTENEDOR SOBRIO DE MÉTRICAS EJECUTIVAS */}
-      <View style={styles.soberSummaryCard}>
-        <Text style={styles.soberCardHeaderTitle}>Resumen Ejecutivo de Cobranza</Text>
+      {/* CONTENEDOR SOBRIO DE MÉTRICAS EJECUTIVAS Y COMPARATIVA LADO A LADO */}
+      <View style={{ flexDirection: isDesktop && periodoLocal === 'comparativa' ? 'row' : 'column', gap: 16, marginBottom: 20 }}>
+        {/* TARJETA 1: MES PRINCIPAL */}
+        <View style={[styles.soberSummaryCard, periodoLocal === 'comparativa' && { flex: 1, marginBottom: 0 }]}>
+          <Text style={styles.soberCardHeaderTitle}>
+            Resumen Ejecutivo ({`${NOMBRES_MESES_DROPDOWN[mesEspecificoNum]} ${anioEspecificoStr}`})
+          </Text>
 
-        <View style={styles.soberMetricRow}>
-          <View style={styles.soberMetricInfo}>
-            <Text style={styles.soberMetricLabel}>Cobro Efectivo (Clientes)</Text>
-            <Text style={styles.soberMetricSubtext}>Total de clientes cobrados efectivamente</Text>
+          <View style={styles.soberMetricRow}>
+            <View style={styles.soberMetricInfo}>
+              <Text style={styles.soberMetricLabel}>Cobro Efectivo (Clientes)</Text>
+              <Text style={styles.soberMetricSubtext}>Total de clientes cobrados efectivamente</Text>
+            </View>
+            <Text style={styles.soberMetricValue}>{stats.totalEfectivos}</Text>
           </View>
-          <Text style={styles.soberMetricValue}>{stats.totalEfectivos}</Text>
+
+          <View style={styles.soberMetricRow}>
+            <View style={styles.soberMetricInfo}>
+              <Text style={styles.soberMetricLabel}>Acción Negativa (Sin Cobro)</Text>
+              <Text style={styles.soberMetricSubtext}>Total de clientes no recuperados</Text>
+            </View>
+            <Text style={styles.soberMetricValue}>{stats.totalNegativos}</Text>
+          </View>
+
+          <View style={styles.soberMetricRow}>
+            <View style={styles.soberMetricInfo}>
+              <Text style={styles.soberMetricLabel}>Casos Sin Atender</Text>
+              <Text style={styles.soberMetricSubtext}>Permanecieron en carga sin pasar a acción</Text>
+            </View>
+            <Text style={styles.soberMetricValue}>{stats.totalSinAtender}</Text>
+          </View>
+
+          <View style={styles.soberMetricRow}>
+            <View style={styles.soberMetricInfo}>
+              <Text style={styles.soberMetricLabel}>% Casos Sin Atender</Text>
+              <Text style={styles.soberMetricSubtext}>Porcentaje de casos que no se atendieron</Text>
+            </View>
+            <Text style={styles.soberMetricValue}>{stats.tasaSinAtender}%</Text>
+          </View>
+
+          <View style={[styles.soberMetricRow, { borderBottomWidth: 0 }]}>
+            <View style={styles.soberMetricInfo}>
+              <Text style={styles.soberMetricLabel}>Efectividad General</Text>
+              <Text style={styles.soberMetricSubtext}>Porcentaje de efectividad del total</Text>
+            </View>
+            <Text style={styles.soberMetricValue}>{stats.tasaRecuperacion}%</Text>
+          </View>
         </View>
 
-        <View style={styles.soberMetricRow}>
-          <View style={styles.soberMetricInfo}>
-            <Text style={styles.soberMetricLabel}>Acción Negativa (Sin Cobro)</Text>
-            <Text style={styles.soberMetricSubtext}>Total de clientes no recuperados</Text>
-          </View>
-          <Text style={styles.soberMetricValue}>{stats.totalNegativos}</Text>
-        </View>
+        {/* TARJETA 2: MES A COMPARAR (EN EL ÁREA MARCADA POR EL USUARIO) */}
+        {periodoLocal === 'comparativa' && statsComparativa && (
+          <View style={[styles.soberSummaryCard, { flex: 1, marginBottom: 0, borderColor: '#0C66E4' }]}>
+            <Text style={[styles.soberCardHeaderTitle, { color: '#579DFF' }]}>
+              Resumen Comparativo ({NOMBRES_MESES_DROPDOWN[mesCompararNum]} {anioCompararStr})
+            </Text>
 
-        <View style={styles.soberMetricRow}>
-          <View style={styles.soberMetricInfo}>
-            <Text style={styles.soberMetricLabel}>Casos Sin Atender</Text>
-            <Text style={styles.soberMetricSubtext}>Permanecieron en carga sin pasar a acción</Text>
-          </View>
-          <Text style={styles.soberMetricValue}>{stats.totalSinAtender}</Text>
-        </View>
+            <View style={styles.soberMetricRow}>
+              <View style={styles.soberMetricInfo}>
+                <Text style={styles.soberMetricLabel}>Cobro Efectivo (Clientes)</Text>
+                <Text style={styles.soberMetricSubtext}>Total de clientes cobrados efectivamente</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.soberMetricValue}>{statsComparativa.totalEfectivos}</Text>
+                {(() => {
+                  const diff = stats.totalEfectivos - statsComparativa.totalEfectivos;
+                  const isPositive = diff > 0;
+                  const isNegative = diff < 0;
+                  return (
+                    <View style={[
+                      styles.diffBadge,
+                      isPositive && styles.diffBadgeSuccess,
+                      isNegative && styles.diffBadgeDanger,
+                    ]}>
+                      <Text style={[styles.diffBadgeTxt, isPositive && { color: '#34D399' }, isNegative && { color: '#F87171' }]}>
+                        {isPositive ? `+${diff} VS MES BASE` : `${diff} VS MES BASE`}
+                      </Text>
+                    </View>
+                  );
+                })()}
+              </View>
+            </View>
 
-        <View style={styles.soberMetricRow}>
-          <View style={styles.soberMetricInfo}>
-            <Text style={styles.soberMetricLabel}>% Casos Sin Atender</Text>
-            <Text style={styles.soberMetricSubtext}>Porcentaje de casos que no se atendieron</Text>
-          </View>
-          <Text style={styles.soberMetricValue}>{stats.tasaSinAtender}%</Text>
-        </View>
+            <View style={styles.soberMetricRow}>
+              <View style={styles.soberMetricInfo}>
+                <Text style={styles.soberMetricLabel}>Acción Negativa (Sin Cobro)</Text>
+                <Text style={styles.soberMetricSubtext}>Total de clientes no recuperados</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.soberMetricValue}>{statsComparativa.totalNegativos}</Text>
+                {(() => {
+                  const diff = stats.totalNegativos - statsComparativa.totalNegativos;
+                  return (
+                    <View style={styles.diffBadge}>
+                      <Text style={styles.diffBadgeTxt}>
+                        {diff > 0 ? `+${diff} VS MES BASE` : `${diff} VS MES BASE`}
+                      </Text>
+                    </View>
+                  );
+                })()}
+              </View>
+            </View>
 
-        <View style={[styles.soberMetricRow, { borderBottomWidth: 0 }]}>
-          <View style={styles.soberMetricInfo}>
-            <Text style={styles.soberMetricLabel}>Efectividad General</Text>
-            <Text style={styles.soberMetricSubtext}>Porcentaje de efectividad del total</Text>
+            <View style={styles.soberMetricRow}>
+              <View style={styles.soberMetricInfo}>
+                <Text style={styles.soberMetricLabel}>Casos Sin Atender</Text>
+                <Text style={styles.soberMetricSubtext}>Permanecieron en carga sin pasar a acción</Text>
+              </View>
+              <Text style={styles.soberMetricValue}>{statsComparativa.totalSinAtender}</Text>
+            </View>
+
+            <View style={styles.soberMetricRow}>
+              <View style={styles.soberMetricInfo}>
+                <Text style={styles.soberMetricLabel}>% Casos Sin Atender</Text>
+                <Text style={styles.soberMetricSubtext}>Porcentaje de casos que no se atendieron</Text>
+              </View>
+              <Text style={styles.soberMetricValue}>{statsComparativa.tasaSinAtender}%</Text>
+            </View>
+
+            <View style={[styles.soberMetricRow, { borderBottomWidth: 0 }]}>
+              <View style={styles.soberMetricInfo}>
+                <Text style={styles.soberMetricLabel}>Efectividad General</Text>
+                <Text style={styles.soberMetricSubtext}>Porcentaje de efectividad del total</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.soberMetricValue}>{statsComparativa.tasaRecuperacion}%</Text>
+                {(() => {
+                  const diff = stats.tasaRecuperacion - statsComparativa.tasaRecuperacion;
+                  const isPositive = diff > 0;
+                  const isNegative = diff < 0;
+                  return (
+                    <View style={[
+                      styles.diffBadge,
+                      isPositive && styles.diffBadgeSuccess,
+                      isNegative && styles.diffBadgeDanger,
+                    ]}>
+                      <Text style={[styles.diffBadgeTxt, isPositive && { color: '#34D399' }, isNegative && { color: '#F87171' }]}>
+                        {isPositive ? `+${diff}% EFECTIVIDAD` : `${diff}% EFECTIVIDAD`}
+                      </Text>
+                    </View>
+                  );
+                })()}
+              </View>
+            </View>
           </View>
-          <Text style={styles.soberMetricValue}>{stats.tasaRecuperacion}%</Text>
-        </View>
+        )}
       </View>
 
       {/* GRÁFICA DE BARRAS VERTICALES POR MES (FORMATO SOLICITADO) */}
@@ -963,26 +1160,56 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
       <View style={styles.tableCard}>
         <View style={styles.tableTopHeaderRow}>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', flex: 1, alignItems: 'center' }}>
-            <View style={{ width: 175 }}>
+            <View style={{ width: periodoMatriz.includes('Mes Específico') ? 190 : 175 }}>
               <SelectDropdown
                 label="Línea de Tiempo"
-                value={periodoMatriz === 'Almanaque' ? `Almanaque (${fechaMatriz})` : periodoMatriz}
+                value={
+                  periodoMatriz === 'Almanaque'
+                    ? `Almanaque (${fechaMatriz})`
+                    : periodoMatriz.includes('Mes Específico')
+                    ? `Mes Específico (${NOMBRES_MESES_DROPDOWN[mesMatrizNum]} ${anioMatrizStr})`
+                    : periodoMatriz
+                }
                 options={OPCIONES_PERIODO_MATRIZ}
                 onSelect={(selected) => setPeriodoMatriz(selected)}
                 placeholder="Período..."
               />
             </View>
-            <View style={{ width: 160 }}>
-              <DatePickerInput
-                label="Fecha (Almanaque)"
-                value={fechaMatriz}
-                onDateChange={(val) => {
-                  setFechaMatriz(val || getTodayString());
-                  setPeriodoMatriz('Almanaque');
-                }}
-                placeholder="dd/mm/aaaa"
-              />
-            </View>
+            {periodoMatriz.includes('Mes Específico') ? (
+              <>
+                <View style={{ width: 140 }}>
+                  <SelectDropdown
+                    label="Mes (Matriz)"
+                    value={NOMBRES_MESES_DROPDOWN[mesMatrizNum]}
+                    options={NOMBRES_MESES_DROPDOWN}
+                    onSelect={(val) => {
+                      const idx = NOMBRES_MESES_DROPDOWN.indexOf(val);
+                      if (idx !== -1) setMesMatrizNum(idx);
+                    }}
+                  />
+                </View>
+                <View style={{ width: 110 }}>
+                  <SelectDropdown
+                    label="Año"
+                    value={anioMatrizStr}
+                    options={OPCIONES_ANIO_DROPDOWN}
+                    onSelect={(val) => setAnioMatrizStr(val)}
+                  />
+                </View>
+              </>
+            ) : (
+              <View style={{ width: 160 }}>
+                <DatePickerInput
+                  label="Fecha (Almanaque)"
+                  value={fechaMatriz}
+                  onDateChange={(val) => {
+                    setFechaMatriz(val || getTodayString());
+                    setPeriodoMatriz('Almanaque');
+                  }}
+                  placeholder="dd/mm/aaaa"
+                />
+              </View>
+            )}
             <View style={{ width: 165 }}>
               <SelectDropdown
                 label="Filtro Resultado"
@@ -1162,8 +1389,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  filterBarRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+    marginBottom: 8,
+    flexWrap: 'wrap',
+  },
+  btnCompararTop: {
+    backgroundColor: '#1D2125',
+    borderWidth: 1,
+    borderColor: '#384148',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  btnCompararTopActive: {
+    backgroundColor: 'rgba(12, 102, 228, 0.15)',
+    borderColor: '#0C66E4',
+  },
+  btnCompararTopTxt: {
+    color: '#A78BFA',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  btnCompararTopTxtActive: {
+    color: '#579DFF',
+  },
   filterDropdownWrapper: {
-    maxWidth: 240,
+    width: 240,
     marginBottom: 8,
   },
   customDateContainer: {
@@ -1656,6 +1914,25 @@ const styles = StyleSheet.create({
   pieLegendPctTxt: {
     color: '#64748B',
     fontSize: 11,
+    fontWeight: 'bold',
+  },
+  diffBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: '#2C333A',
+    marginTop: 2,
+    alignSelf: 'flex-end',
+  },
+  diffBadgeSuccess: {
+    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+  },
+  diffBadgeDanger: {
+    backgroundColor: 'rgba(248, 113, 113, 0.15)',
+  },
+  diffBadgeTxt: {
+    color: '#8C9BAB',
+    fontSize: 10,
     fontWeight: 'bold',
   },
 });

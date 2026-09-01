@@ -210,7 +210,7 @@ Gracias *${datos.nombre}*, hemos recibido tus datos correctamente.
 📍 *Sector:* ${datos.sector}
 📱 *Contacto:* ${datos.telefono}
 
-Un asesor se estará contactando con usted próximamente.`;
+Un asesor se estará contactando con usted en un plazo de 24 a 48 horas.`;
 
   try {
     return await apiPost(phoneNumberId, accessToken, {
@@ -606,7 +606,7 @@ export async function enviarConfirmacionPago(toPhone, datos) {
 💵 *Monto:* ${datos.monto || 'Por verificar'}
 🏦 *Banco:* ${datos.banco || 'No especificado'}
 
-Un asesor de cobranza verificará la transacción a la brevedad. ¡Gracias por preferir Fibex Telecom Anaco!`;
+Un asesor de cobranza verificará la transacción en un plazo de 24 a 48 horas. ¡Gracias por preferir Fibex Telecom Anaco!`;
 
   try {
     return await apiPost(phoneNumberId, accessToken, {
@@ -633,7 +633,7 @@ export async function enviarConfirmacionFalla(toPhone, tipoFalla, datos = {}) {
 📱 *Teléfono:* ${datos.telefono || toPhone}
 ⚠️ *Tipo de Falla:* ${tipoFalla}
 
-Un técnico de Fibex Telecom Anaco revisará tu caso a la brevedad para comunicarse contigo.
+Un técnico de Fibex Telecom Anaco revisará tu caso en un plazo de 24 a 48 horas para comunicarse contigo.
 
 _Fibex Telecom Anaco (technological project) • Soporte Técnico_`;
 

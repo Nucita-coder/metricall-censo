@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { User, MessageSquare, Plus } from 'lucide-react-native';
 import { UsuarioConversacion } from '../../services/mensajesService';
@@ -78,9 +79,13 @@ export function ConversacionesList({
                 style={[styles.convCard, isSelected && styles.convCardSelected]}
                 onPress={() => onSelectConversacion(conv)}
               >
-                <View style={styles.avatarCircle}>
-                  <User size={18} color="#FFF" />
-                </View>
+                {conv.avatar_url ? (
+                  <Image source={{ uri: conv.avatar_url }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatarCircle}>
+                    <User size={18} color="#FFF" />
+                  </View>
+                )}
 
                 <View style={styles.convContent}>
                   <View style={styles.convNameRow}>
@@ -202,6 +207,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#0C66E4',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   convContent: {
     flex: 1,

@@ -274,7 +274,7 @@ export default async function handler(req, res) {
           await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Suscripción procesada: ${datosExtrada.nombre}` });
           return res.status(200).json({ status: 'suscripcion_registrada' });
         } else {
-          await enviarMensajeTexto(fromPhone, `Gracias *${datosExtrada.nombre}*, recibimos tus datos. Un asesor te contactará a la brevedad.`);
+          await enviarMensajeTexto(fromPhone, `Gracias *${datosExtrada.nombre}*, recibimos tus datos. Un asesor te contactará en un plazo de 24 a 48 horas.`);
           return res.status(200).json({ status: 'suscripcion_fallback' });
         }
       }

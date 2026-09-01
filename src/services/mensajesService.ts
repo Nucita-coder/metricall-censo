@@ -27,6 +27,7 @@ export interface UsuarioConversacion {
   usuario_id: string;
   nombre_completo: string;
   rol?: string;
+  avatar_url?: string | null;
   ultimo_mensaje: string;
   created_at: string;
   sin_leer: number;
@@ -37,6 +38,7 @@ export interface PerfilUsuario {
   id: string;
   nombre_completo: string;
   rol?: string;
+  avatar_url?: string | null;
 }
 
 export async function obtenerConversaciones(
@@ -46,7 +48,7 @@ export async function obtenerConversaciones(
   try {
     const { data: msgs, error } = await supabase
       .from('soporte_mensajes')
-      .select('id, emisor_id, receptor_id, mensaje, created_at, leido, adjunto, perfiles_emisor:emisor_id(nombre_completo, rol), perfiles_receptor:receptor_id(nombre_completo, rol)')
+      .select('id, emisor_id, receptor_id, mensaje, created_at, leido, adjunto, perfiles_emisor:emisor_id(nombre_completo, rol, avatar_url), perfiles_receptor:receptor_id(nombre_completo, rol, avatar_url)')
       .or(`receptor_id.eq.${currentUserId},emisor_id.eq.${currentUserId}`)
       .eq('empresa_id', empresaId)
       .order('created_at', { ascending: false });
@@ -61,12 +63,14 @@ export async function obtenerConversaciones(
       const perfilOtro = esEmisor ? m.perfiles_receptor : m.perfiles_emisor;
       const nombreOtro = perfilOtro?.nombre_completo || 'Usuario';
       const rolOtro = perfilOtro?.rol || '';
+      const avatarOtro = perfilOtro?.avatar_url || null;
 
       if (!map.has(otroId)) {
         map.set(otroId, {
           usuario_id: otroId,
           nombre_completo: nombreOtro,
           rol: rolOtro,
+          avatar_url: avatarOtro,
           ultimo_mensaje: m.mensaje,
           created_at: m.created_at,
           sin_leer: !m.leido && m.receptor_id === currentUserId ? 1 : 0,
@@ -91,7 +95,7 @@ export async function obtenerMiembrosEmpresa(
   try {
     const { data, error } = await supabase
       .from('perfiles')
-      .select('id, nombre_completo, rol')
+      .select('id, nombre_completo, rol, avatar_url')
       .eq('empresa_id', empresaId)
       .neq('id', currentUserId)
       .order('nombre_completo', { ascending: true });
@@ -101,6 +105,7 @@ export async function obtenerMiembrosEmpresa(
       id: p.id,
       nombre_completo: p.nombre_completo || 'Usuario sin nombre',
       rol: p.rol,
+      avatar_url: p.avatar_url || null,
     }));
   } catch (e: any) {
     console.error('Error obteniendo miembros de empresa:', e.message);

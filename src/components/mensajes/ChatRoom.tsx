@@ -29,6 +29,7 @@ interface ChatRoomProps {
   empresaId: string;
   chatUsuarioId: string;
   chatUsuarioNombre: string;
+  chatUsuarioAvatar?: string | null;
   mensajes: MensajeGlobal[];
   loading: boolean;
   onVolver?: () => void;
@@ -43,6 +44,7 @@ export function ChatRoom({
   empresaId,
   chatUsuarioId,
   chatUsuarioNombre,
+  chatUsuarioAvatar,
   mensajes,
   loading,
   onVolver,
@@ -125,9 +127,13 @@ export function ChatRoom({
             <ArrowLeft size={20} color="#B6C2CF" />
           </TouchableOpacity>
         )}
-        <View style={styles.avatarCircle}>
-          <User size={18} color="#FFF" />
-        </View>
+        {chatUsuarioAvatar ? (
+          <Image source={{ uri: chatUsuarioAvatar }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatarCircle}>
+            <User size={18} color="#FFF" />
+          </View>
+        )}
         <View style={{ flex: 1, marginLeft: 10 }}>
           <Text style={styles.chatNombre}>{chatUsuarioNombre}</Text>
           <Text style={styles.chatEstado}>Mensajería en tiempo real</Text>
@@ -255,6 +261,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#0C66E4',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   chatNombre: {
     color: '#B6C2CF',

@@ -7,6 +7,8 @@ interface GlobalUiContextProps {
   triggerCreateModal: () => void;
   soporteTrigger: number;
   triggerSoporteModal: () => void;
+  archivadosTrigger: number;
+  triggerArchivadosModal: () => void;
 }
 
 const GlobalUiContext = createContext<GlobalUiContextProps | undefined>(undefined);
@@ -15,6 +17,7 @@ export function GlobalUiProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [createTrigger, setCreateTrigger] = useState(0);
   const [soporteTrigger, setSoporteTrigger] = useState(0);
+  const [archivadosTrigger, setArchivadosTrigger] = useState(0);
 
   const triggerCreateModal = () => {
     setCreateTrigger(prev => prev + 1);
@@ -24,8 +27,12 @@ export function GlobalUiProvider({ children }: { children: ReactNode }) {
     setSoporteTrigger(prev => prev + 1);
   };
 
+  const triggerArchivadosModal = () => {
+    setArchivadosTrigger(prev => prev + 1);
+  };
+
   return (
-    <GlobalUiContext.Provider value={{ searchQuery, setSearchQuery, createTrigger, triggerCreateModal, soporteTrigger, triggerSoporteModal }}>
+    <GlobalUiContext.Provider value={{ searchQuery, setSearchQuery, createTrigger, triggerCreateModal, soporteTrigger, triggerSoporteModal, archivadosTrigger, triggerArchivadosModal }}>
       {children}
     </GlobalUiContext.Provider>
   );

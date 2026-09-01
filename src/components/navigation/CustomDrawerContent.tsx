@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePathname, useRouter } from 'expo-router';
-import { BarChart3, Bot, FolderKanban, LifeBuoy, MessageSquare, Package, Settings, Users } from 'lucide-react-native';
+import { Archive, BarChart3, Bot, FolderKanban, LifeBuoy, MessageSquare, Package, Settings, Users } from 'lucide-react-native';
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGlobalUi } from '../../context/GlobalUiContext';
@@ -16,7 +16,7 @@ export function CustomDrawerContent(props: any) {
   const isAdmin = ['admin', 'lider', 'administrador', 'supervisor'].includes(currentRol);
 
   const insets = useSafeAreaInsets();
-  const { triggerSoporteModal } = useGlobalUi();
+  const { triggerSoporteModal, triggerArchivadosModal } = useGlobalUi();
 
   const MenuItem = ({ label, icon: Icon, route, onPress }: any) => {
     const targetPath = route ? route.split('/').pop() : '';
@@ -48,6 +48,7 @@ export function CustomDrawerContent(props: any) {
           {isAdmin && <MenuItem label="WhatsApp Bot" icon={Bot} route="/(drawer)/(tabs)/whatsapp" />}
           <MenuItem label="Soporte Técnico" icon={LifeBuoy} onPress={() => triggerSoporteModal()} />
           {currentRol !== 'empleado' && <MenuItem label="Organización" icon={Users} route="/(drawer)/gestion" />}
+          <MenuItem label="Archivados" icon={Archive} onPress={() => triggerArchivadosModal()} />
         </>
       )}
 
@@ -62,6 +63,7 @@ export function CustomDrawerContent(props: any) {
           <MenuItem label="Ajustes" icon={Settings} route="/(drawer)/(tabs)/ajustes" />
           <MenuItem label="Soporte Técnico" icon={LifeBuoy} onPress={() => triggerSoporteModal()} />
           {currentRol !== 'empleado' && <MenuItem label="Organización" icon={Users} route="/(drawer)/gestion" />}
+          <MenuItem label="Archivados" icon={Archive} onPress={() => triggerArchivadosModal()} />
         </>
       )}
     </ScrollView>

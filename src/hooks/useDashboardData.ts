@@ -12,6 +12,8 @@ export interface Tablero {
   es_favorito?: boolean;
   es_anclado?: boolean;
   orden?: number;
+  archivado?: boolean;
+  mes_periodo?: string;
 }
 
 export interface Sucursal {
@@ -63,7 +65,7 @@ export function useDashboardData() {
 
         const { data: sucursalesData, error: sucursalesError } = await supabase
           .from('sucursales')
-          .select('id, nombre, ubicacion, tableros(id, nombre, descripcion, fondo_url, es_favorito, es_anclado, orden)')
+          .select('id, nombre, ubicacion, tableros(id, nombre, descripcion, fondo_url, es_favorito, es_anclado, orden, archivado, mes_periodo)')
           .eq('empresa_id', empresaId)
           .order('created_at', { ascending: true })
           .limit(20);
@@ -73,6 +75,8 @@ export function useDashboardData() {
         if (sucursalesData) {
           sucursalesData.forEach((s: any) => {
             if (s.tableros) {
+              // Filtrar solo tableros activos (no archivados) para la vista de operaciones
+              s.tableros = s.tableros.filter((t: any) => !t.archivado);
               s.tableros.sort((a: any, b: any) => {
                 if (a.es_favorito && !b.es_favorito) return -1;
                 if (!a.es_favorito && b.es_favorito) return 1;

@@ -15,7 +15,7 @@ export default function DashboardScreen() {
   const { userRol, empresaId, nombreCompleto } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
-  const { searchQuery, setSearchQuery, createTrigger } = useGlobalUi();
+  const { searchQuery, setSearchQuery, createTrigger, archivadosTrigger } = useGlobalUi();
 
   const {
     isLoading,
@@ -46,6 +46,12 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (createTrigger > 0) openCreateModal('sucursal');
   }, [createTrigger]);
+
+  useEffect(() => {
+    if (archivadosTrigger > 0) {
+      setModalHistorialVisible(true);
+    }
+  }, [archivadosTrigger]);
 
   useFocusEffect(
     useCallback(() => {

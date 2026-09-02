@@ -9,7 +9,7 @@ export interface SyncJob {
   id: string;
   tarjetaId: string;
   localUri: string;
-  payloadGestion: any;
+  payloadGestion: Record<string, unknown>;
   status: 'pending' | 'syncing' | 'failed';
 }
 

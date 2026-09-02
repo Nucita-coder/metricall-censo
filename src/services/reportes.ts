@@ -1,25 +1,25 @@
 import { logoBase64 } from '../../assets/logoBase64';
+import { ComentarioItem, GestionItem, TarjetaDatosValores } from '../types/kanban';
 
-export interface DatosValores {
-  [key: string]: any;
-}
+export type DatosValores = TarjetaDatosValores;
 
 export interface TarjetaDatos {
   id?: string;
   datos_valores?: DatosValores;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
-const formatValue = (val: any) => {
+const formatValue = (val: unknown) => {
   if (val === null || val === undefined || val === '') return null;
   if (typeof val === 'object') {
     if (Array.isArray(val)) {
       if (val.length === 0) return null;
-      return val.map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(', ');
+      return val.map(v => typeof v === 'object' ? JSON.stringify(v) : String(v)).join(', ');
     } else {
-      if (Object.keys(val).length === 0) return null;
-      if (val.lat && val.lng) return `${val.lat}, ${val.lng}`;
-      return Object.entries(val).map(([k, v]) => `${k}: ${v}`).join(' | ');
+      const obj = val as Record<string, unknown>;
+      if (Object.keys(obj).length === 0) return null;
+      if (obj.lat && obj.lng) return `${obj.lat}, ${obj.lng}`;
+      return Object.entries(obj).map(([k, v]) => `${k}: ${v}`).join(' | ');
     }
   }
   return String(val);
@@ -34,19 +34,19 @@ export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
   
   const geofotosArr = Array.isArray(datos.geofotos) ? datos.geofotos : (datos.geofotos ? [datos.geofotos] : []);
   const adjuntosArr = Array.isArray(datos.adjuntos) ? datos.adjuntos : (datos.adjuntos ? [datos.adjuntos] : []);
-  const lchImagen = datos.lch_imagen;
+  const lchImagen = datos.lch_imagen as string | undefined;
 
   const allImages = [
     ...(lchImagen ? [lchImagen] : []),
-    ...geofotosArr.map((f: any) => typeof f === 'string' ? f : f?.url || f?.uri).filter(Boolean),
-    ...adjuntosArr.map((a: any) => typeof a === 'string' ? a : a?.url || a?.uri).filter(Boolean),
+    ...(geofotosArr as unknown[]).map(f => typeof f === 'string' ? f : (f as { url?: string; uri?: string })?.url || (f as { url?: string; uri?: string })?.uri).filter(Boolean) as string[],
+    ...(adjuntosArr as unknown[]).map(a => typeof a === 'string' ? a : (a as { url?: string; uri?: string })?.url || (a as { url?: string; uri?: string })?.uri).filter(Boolean) as string[],
   ];
   const imagesHtml = allImages.map(url => `<img src="${url}" style="width: 100%; max-width: 500px; display: block; margin: 0 auto 20px auto; border-radius: 8px; border: 1px solid #CCC;" />`).join('\n');
 
   let comentariosHtml = '';
   let comentariosTexto = '';
   if (Array.isArray(datos.comentarios)) {
-    comentariosTexto = datos.comentarios.map((c: any) => `[${c.fecha}] ${c.autor}: ${c.texto}`).join('<br/>');
+    comentariosTexto = (datos.comentarios as ComentarioItem[]).map(c => `[${c.fecha}] ${c.autor}: ${c.texto}`).join('<br/>');
   } else if (typeof datos.comentarios === 'string') {
     comentariosTexto = datos.comentarios;
   }
@@ -107,8 +107,9 @@ export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
     let val = formatValue(datos[key]);
     
     // Tratamiento especial para geo_censo
-    if (key === 'geo_censo' && datos[key]?.lat && datos[key]?.lng) {
-      val = `<a href="https://www.google.com/maps/search/?api=1&query=${datos[key].lat},${datos[key].lng}" style="color: #3182CE; text-decoration: none;"><strong>Ver en Google Maps (${Number(datos[key].lat).toFixed(6)}, ${Number(datos[key].lng).toFixed(6)})</strong></a>`;
+    const punto = datos[key] as { lat?: string | number; lng?: string | number } | undefined;
+    if (key === 'geo_censo' && punto?.lat && punto?.lng) {
+      val = `<a href="https://www.google.com/maps/search/?api=1&query=${punto.lat},${punto.lng}" style="color: #3182CE; text-decoration: none;"><strong>Ver en Google Maps (${Number(punto.lat).toFixed(6)}, ${Number(punto.lng).toFixed(6)})</strong></a>`;
     }
     
     if (val !== null && val !== '') {
@@ -129,8 +130,9 @@ export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
 
   let materialesHtml = '';
   if (datos.materiales && typeof datos.materiales === 'object') {
-    Object.keys(datos.materiales).forEach(key => {
-      const val = formatValue(datos.materiales[key]);
+    const matObj = datos.materiales as Record<string, unknown>;
+    Object.keys(matObj).forEach(key => {
+      const val = formatValue(matObj[key]);
       if (val !== null && val !== '0' && val !== '') {
         materialesHtml += `<tr><th>${formatKey(key)}</th><td style="color: #2B6CB0; font-weight: bold;">${val}</td></tr>`;
       } else {
@@ -150,18 +152,18 @@ export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
   let gestionesHtml = '';
   if (datos.gestiones && Array.isArray(datos.gestiones) && datos.gestiones.length > 0) {
     let gestRows = '';
-    datos.gestiones.forEach((g: any, idx: number) => {
+    (datos.gestiones as Array<GestionItem & Record<string, unknown>>).forEach((g) => {
       const etapaStr = g.etapa === 'gestion_1' ? 'Gestión 1' : 'Gestión 2 (Cierre)';
-      let rowHtml = `<tr><th colspan="2" style="background-color: #EBF8FF; color: #2B6CB0; text-align: center;">${etapaStr} - ${g.fecha}</th></tr>`;
-      rowHtml += `<tr><th>Tipo de Contacto</th><td>${g.tipoContacto}</td></tr>`;
-      rowHtml += `<tr><th>Resultado</th><td>${g.resultado}</td></tr>`;
+      let rowHtml = `<tr><th colspan="2" style="background-color: #EBF8FF; color: #2B6CB0; text-align: center;">${etapaStr} - ${String(g.fecha || '')}</th></tr>`;
+      rowHtml += `<tr><th>Tipo de Contacto</th><td>${String(g.tipoContacto || g.tipo || '')}</td></tr>`;
+      rowHtml += `<tr><th>Resultado</th><td>${String(g.resultado || '')}</td></tr>`;
       
       if (g.motivoRechazo) {
-        rowHtml += `<tr><th>Motivo de Rechazo</th><td style="color: #E53E3E;">${g.motivoRechazo}</td></tr>`;
+        rowHtml += `<tr><th>Motivo de Rechazo</th><td style="color: #E53E3E;">${String(g.motivoRechazo)}</td></tr>`;
       }
       
       if (g.evidenciaUrl) {
-        rowHtml += `<tr><th>Evidencia</th><td><a href="${g.evidenciaUrl}" style="color: #3182CE; text-decoration: none;"><strong>Ver Evidencia Adjunta</strong></a></td></tr>`;
+        rowHtml += `<tr><th>Evidencia</th><td><a href="${String(g.evidenciaUrl)}" style="color: #3182CE; text-decoration: none;"><strong>Ver Evidencia Adjunta</strong></a></td></tr>`;
       }
       gestRows += rowHtml;
     });
@@ -234,9 +236,9 @@ export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
 };
 
 export const generarReporteActivacion = (datos: DatosValores, fotosSeleccionadas: Record<string, boolean>) => {
-  const tipoInstalacionRaw = datos.tipoInstalacion || 'N/A';
+  const tipoInstalacionRaw = String(datos.tipoInstalacion || 'N/A');
   const tipoAjustado = tipoInstalacionRaw.toUpperCase();
-  const mat = datos.materiales || {};
+  const mat = (datos.materiales || {}) as Record<string, string | number | undefined>;
 
   let reporte = `TECHNOLOGICAL PROJECT INSTALACION ${tipoAjustado}
 TECNICO: ${datos.tecnico || 'N/A'}
@@ -270,12 +272,12 @@ PRECINTO: ${mat.precinto || 'N/A'}
 *Puerto Asignado: ${datos.puerto || datos.puertoAsignado || 'N/A'}*
 *Puertos Disponibles: ${datos.puertos_disponibles || datos.puertosDisponibles || 'N/A'}*
 
-*Geo NAP: ${datos.geo_nap ? datos.geo_nap.lat + ',' + datos.geo_nap.lng : 'N/A'}*
-*Geo Casa: ${datos.geo_casa ? datos.geo_casa.lat + ',' + datos.geo_casa.lng : 'N/A'}*`;
+*Geo NAP: ${datos.geo_nap && datos.geo_nap.lat && datos.geo_nap.lng ? String(datos.geo_nap.lat) + ',' + String(datos.geo_nap.lng) : 'N/A'}*
+*Geo Casa: ${datos.geo_casa && datos.geo_casa.lat && datos.geo_casa.lng ? String(datos.geo_casa.lat) + ',' + String(datos.geo_casa.lng) : 'N/A'}*`;
 
   let evidencias = '';
 
-  if (datos.lch_imagen && fotosSeleccionadas[datos.lch_imagen]) {
+  if (datos.lch_imagen && fotosSeleccionadas[String(datos.lch_imagen)]) {
     evidencias += `\n*Foto LCH:*\n${datos.lch_imagen}\n`;
   }
 

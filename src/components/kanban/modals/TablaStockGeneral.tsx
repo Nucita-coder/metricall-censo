@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-nativ
 import { Package } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
+import { TarjetaMaterialItem } from '../../../types/kanban';
 
 export interface GeneralStockItem {
   codigoMaterial: string;
@@ -38,15 +39,15 @@ export function TablaStockGeneral({ empresaId, searchQuery = '' }: TablaStockGen
       if (!data) return;
 
       const mapa: Record<string, GeneralStockItem> = {};
-      data.forEach((row: any) => {
+      data.forEach((row) => {
         const v = row.datos_valores || {};
         const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
         const subItems = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
 
-        subItems.forEach((sub: any) => {
+        (subItems as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((sub) => {
           const cod = (sub.codigoMaterial || '').trim().toUpperCase();
           if (!cod) return;
-          const cant = parseFloat(sub.cantidadRecibida || '0') || 0;
+          const cant = parseFloat((sub.cantidadRecibida || '0') as string) || 0;
 
           if (!mapa[cod]) {
             mapa[cod] = {

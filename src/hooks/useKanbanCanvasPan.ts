@@ -1,22 +1,23 @@
 import { useEffect, RefObject } from 'react';
 import { Platform } from 'react-native';
+import { TableroInfo } from '../types/kanban';
 
 export function useKanbanCanvasPan(
-  boardWrapperRef: RefObject<any>,
-  flatListRef: RefObject<any>,
+  boardWrapperRef: RefObject<unknown>,
+  flatListRef: RefObject<unknown>,
   isLoading: boolean,
-  tableroInfo: any
+  tableroInfo: TableroInfo | null | undefined
 ) {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
 
-    const node = boardWrapperRef.current as any;
+    const node = boardWrapperRef.current as (HTMLElement & { style: CSSStyleDeclaration }) | null;
     if (!node) return;
 
     let isDown = false;
     let startX = 0;
     let scrollLeft = 0;
-    let dragScroller: any = null;
+    let dragScroller: (HTMLElement & { scrollLeft: number }) | null = null;
 
     node.style.cursor = '';
 
@@ -44,17 +45,24 @@ export function useKanbanCanvasPan(
             isInteractive = true;
             break;
           }
-        } catch (err) {}
+        } catch {
+          // Ignorar errores de getComputedStyle
+        }
         target = target.parentElement;
       }
 
       if (isInteractive) return;
       e.preventDefault();
 
-      dragScroller = flatListRef.current?.getNativeScrollRef?.() || flatListRef.current?.getScrollableNode?.();
+      const currentFlatList = flatListRef.current as {
+        getNativeScrollRef?: () => HTMLElement | null;
+        getScrollableNode?: () => HTMLElement | null;
+      } | null;
+
+      dragScroller = (currentFlatList?.getNativeScrollRef?.() || currentFlatList?.getScrollableNode?.() || null) as (HTMLElement & { scrollLeft: number }) | null;
 
       if (!dragScroller) {
-        dragScroller = node.querySelector('[style*="overflow-x: auto"], [style*="overflow-x: scroll"]');
+        dragScroller = node.querySelector('[style*="overflow-x: auto"], [style*="overflow-x: scroll"]') as (HTMLElement & { scrollLeft: number }) | null;
       }
       if (!dragScroller) {
         const elements = node.getElementsByTagName('*');
@@ -62,10 +70,12 @@ export function useKanbanCanvasPan(
           try {
             const style = window.getComputedStyle(elements[i]);
             if (style.overflowX === 'auto' || style.overflowX === 'scroll') {
-              dragScroller = elements[i];
+              dragScroller = elements[i] as (HTMLElement & { scrollLeft: number });
               break;
             }
-          } catch (err) {}
+          } catch {
+            // Ignorar errores de getComputedStyle
+          }
         }
       }
 

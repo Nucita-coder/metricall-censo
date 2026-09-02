@@ -58,9 +58,9 @@ export const FaseAsignadoA = ({
       if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
       Alert.alert('¡Trabajo Aceptado!', "La tarjeta fue aceptada y pasó a 'En Proceso'.");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[FaseAsignadoA] Error al mover a En Proceso:', e);
-      Alert.alert('Error', e.message || 'No se pudo mover a En Proceso.');
+      Alert.alert('Error', (e as Error).message || 'No se pudo mover a En Proceso.');
     } finally {
       setIsSaving(false);
     }
@@ -102,9 +102,9 @@ export const FaseAsignadoA = ({
       if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
       Alert.alert('¡Tarjeta Rechazada!', "La tarjeta fue rechazada y devuelta a la lista 'Por asignar'.");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[FaseAsignadoA] Error al rechazar tarjeta:', e);
-      Alert.alert('Error', e.message || 'No se pudo rechazar la tarjeta.');
+      Alert.alert('Error', (e as Error).message || 'No se pudo rechazar la tarjeta.');
     } finally {
       setIsSaving(false);
     }

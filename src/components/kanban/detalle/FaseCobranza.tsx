@@ -4,6 +4,7 @@ import { SelectDropdown } from '../../venta/CamposVenta';
 import { KANBAN_COLORS, getResultadoColor } from '../../../constants/theme';
 import { FaseProps, findListaTarget } from './types';
 import { PhoneCall, CheckCircle2, History, XCircle, Hourglass } from 'lucide-react-native';
+import { TarjetaDatosValores } from '../../../types/kanban';
 
 export const OPCIONES_TIPO_CONTACTO_COBRANZA = [
   'LLAMADA TELEFONICA',
@@ -66,7 +67,7 @@ export function FaseCobranza({
     datos.resultadoContacto || datos.resultado || datos['RESULTADO'] || ''
   );
 
-  const gestionesPrevias: any[] = datos.gestionesCobranza || [];
+  const gestionesPrevias: Array<Record<string, unknown>> = (datos.gestionesCobranza as Array<Record<string, unknown>>) || [];
 
   const handleRegistrarGestionCobranza = async () => {
     if (!tipoContacto || !resultado) {
@@ -97,7 +98,7 @@ export function FaseCobranza({
 
       const updatedGestiones = [...gestionesPrevias, nuevaGestion];
 
-      const updates: any = {
+      const updates: Partial<TarjetaDatosValores> = {
         tipoContacto,
         resultadoContacto: resultado,
         'TIPO DE CONTACTO': tipoContacto,
@@ -130,8 +131,8 @@ export function FaseCobranza({
       }
 
       Alert.alert('¡Gestión Registrada!', `Se guardó correctamente: ${resultado}`);
-    } catch (err: any) {
-      Alert.alert('Error', 'No se pudo guardar la gestión de cobranza: ' + err?.message);
+    } catch (err: unknown) {
+      Alert.alert('Error', 'No se pudo guardar la gestión de cobranza: ' + ((err as Error)?.message || String(err)));
     } finally {
       setIsSaving(false);
     }
@@ -155,8 +156,8 @@ export function FaseCobranza({
         fechaUltimaGestionPago: new Date().toISOString(),
       });
       Alert.alert('Estatus Actualizado', `El pago ahora está marcado como: ${nuevoEstado}`);
-    } catch (e: any) {
-      Alert.alert('Error', 'No se pudo cambiar el estado de pago: ' + e?.message);
+    } catch (e: unknown) {
+      Alert.alert('Error', 'No se pudo cambiar el estado de pago: ' + ((e as Error)?.message || String(e)));
     } finally {
       setIsSaving(false);
     }
@@ -347,15 +348,15 @@ export function FaseCobranza({
           {gestionesPrevias.map((g, idx) => (
             <View key={idx} style={styles.historialItem}>
               <Text style={styles.historialFecha}>
-                {new Date(g.fecha).toLocaleString()}
+                {g.fecha ? new Date(String(g.fecha)).toLocaleString() : '—'}
               </Text>
               <Text style={styles.historialTxt}>
-                • Contacto: <Text style={{ color: '#90CDF4' }}>{g.tipoContacto}</Text>
+                • Contacto: <Text style={{ color: '#90CDF4' }}>{String(g.tipoContacto || '')}</Text>
               </Text>
               <Text style={styles.historialTxt}>
                 • Resultado:{' '}
-                <Text style={{ color: getResultadoColor(g.resultado).text, fontWeight: 'bold' }}>
-                  {g.resultado}
+                <Text style={{ color: getResultadoColor(String(g.resultado || '')).text, fontWeight: 'bold' }}>
+                  {String(g.resultado || '')}
                 </Text>
               </Text>
             </View>

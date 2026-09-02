@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../../lib/supabase';
+import { useAuth } from '../../../context/AuthContext';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 interface WebhookLog {
@@ -58,6 +59,10 @@ function formatTime(iso: string): string {
 
 // ─── Panel Principal ──────────────────────────────────────────────────────────
 export default function WhatsAppAdminPanel() {
+  const { isDeveloper, userRol, isLoading } = useAuth();
+  const rolLower = (userRol || '').toLowerCase();
+  const isDevUser = isDeveloper || rolLower === 'developer' || rolLower === 'desarrollador';
+
   const [logs, setLogs] = useState<WebhookLog[]>([]);
   const [cargando, setCargando] = useState(true);
   const [destinatario, setDestinatario] = useState('584123757313');
@@ -68,6 +73,7 @@ export default function WhatsAppAdminPanel() {
 
   // ── Cargar logs iniciales ──────────────────────────────────────────────────
   useEffect(() => {
+    if (!isDevUser) return;
     cargarLogs();
     const canal = supabase
       .channel('whatsapp_logs_realtime')
@@ -81,7 +87,7 @@ export default function WhatsAppAdminPanel() {
       .subscribe();
 
     return () => { supabase.removeChannel(canal); };
-  }, []);
+  }, [isDevUser]);
 
   async function cargarLogs() {
     setCargando(true);
@@ -135,11 +141,30 @@ export default function WhatsAppAdminPanel() {
       } else {
         setStatusEnvio('❌ Error: ' + JSON.stringify(data?.error?.message || data));
       }
-    } catch (e: any) {
-      setStatusEnvio('❌ Error de red: ' + e.message);
+    } catch (e: unknown) {
+      setStatusEnvio('❌ Error de red: ' + (e as Error).message);
     } finally {
       setEnviando(false);
     }
+  }
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1D2125' }}>
+        <ActivityIndicator size="large" color="#0C66E4" />
+      </View>
+    );
+  }
+
+  if (!isDevUser) {
+    return (
+      <SafeAreaView style={[s.safe, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <Text style={{ color: '#F87171', fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>Acceso Restringido</Text>
+        <Text style={{ color: '#8C9BAB', fontSize: 14, textAlign: 'center' }}>
+          Este módulo está reservado exclusivamente para el desarrollador del sistema.
+        </Text>
+      </SafeAreaView>
+    );
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────

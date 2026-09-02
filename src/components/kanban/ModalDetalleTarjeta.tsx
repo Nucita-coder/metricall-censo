@@ -1,7 +1,7 @@
 import { History, Pencil, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Animated, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import { Tarjeta, TarjetaDatosValores } from '../../types/kanban';
+import { Tarjeta, TarjetaDatosValores, Lista, TarjetaMaterialItem } from '../../types/kanban';
 import { WEB_MODAL_CONTAINER } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -27,13 +27,23 @@ import { SeccionAdjuntos } from './detalle/SeccionAdjuntos';
 import { SeccionComentarios } from './detalle/SeccionComentarios';
 import { SeccionGestion } from './detalle/SeccionGestion';
 import { SeccionRegistro } from './detalle/SeccionRegistro';
-import { FaseProps } from './detalle/types';
+import { FaseProps, Miembro } from './detalle/types';
 
 export interface ModalDetalleTarjetaProps {
-  tarjetaSeleccionada: Tarjeta | null; setTarjetaSeleccionada: (t: Tarjeta | null) => void; listas: any[]; miembros: any[];
-  onUpdateTarjeta: (nuevosDatos: Partial<TarjetaDatosValores>) => Promise<void>; autoMoverTarjeta: (tarjeta: Tarjeta, lista: string) => Promise<void>;
-  nuevoComentario: string; setNuevoComentario: (c: string) => void; handleEnviarComentario: () => void;
-  onRemoveTarjetaLocal?: (tarjetaId: string) => void; startInEditMode?: boolean; onOpenReasignacion?: (t: Tarjeta) => void; onOpenTrazabilidad?: (t: Tarjeta) => void; isResaltada?: boolean;
+  tarjetaSeleccionada: Tarjeta | null;
+  setTarjetaSeleccionada: (t: Tarjeta | null) => void;
+  listas: Lista[];
+  miembros: Miembro[];
+  onUpdateTarjeta: (nuevosDatos: Partial<TarjetaDatosValores>) => Promise<void>;
+  autoMoverTarjeta: (tarjeta: Tarjeta, lista: string) => Promise<void>;
+  nuevoComentario: string;
+  setNuevoComentario: (c: string) => void;
+  handleEnviarComentario: () => void;
+  onRemoveTarjetaLocal?: (tarjetaId: string) => void;
+  startInEditMode?: boolean;
+  onOpenReasignacion?: (t: Tarjeta) => void;
+  onOpenTrazabilidad?: (t: Tarjeta) => void;
+  isResaltada?: boolean;
 }
 
 export const ModalDetalleTarjeta = ({
@@ -59,9 +69,9 @@ export const ModalDetalleTarjeta = ({
 
   const [isSaving, setIsSaving] = useState(false);
   const [imagenExpandida, setImagenExpandida] = useState<string | null>(null);
-  const [conversionData, setConversionData] = useState<any | null>(null);
+  const [conversionData, setConversionData] = useState<TarjetaDatosValores | null>(null);
   const [isEditing, setIsEditing] = useState(startInEditMode);
-  const [editFormData, setEditFormData] = useState<any>(tarjetaSeleccionada?.datos_valores || {});
+  const [editFormData, setEditFormData] = useState<TarjetaDatosValores>(tarjetaSeleccionada?.datos_valores || {});
   const highlightAnim = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
@@ -135,6 +145,8 @@ export const ModalDetalleTarjeta = ({
   };
 
   const renderFaseDinamica = () => {
+    if (isCensoFormat || isMaterialesFormat) return null;
+
     const clean = listaActualNombre.toLowerCase().trim().replace(/_/g, ' ');
     const datosVal = tarjetaSeleccionada?.datos_valores || {};
     const esWhatsAppBot = Boolean(datosVal.origen && String(datosVal.origen).toLowerCase().includes('whatsapp'));
@@ -202,7 +214,7 @@ export const ModalDetalleTarjeta = ({
 
           if (matchedProfile?.id) {
             const itemsList = Array.isArray(editFormData.items) && editFormData.items.length > 0 ? editFormData.items : [editFormData];
-            const resumenItems = itemsList.map((it: any) => `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`).join(', ');
+            const resumenItems = (itemsList as TarjetaMaterialItem[]).map((it) => `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`).join(', ');
             const mensaje = isDevolucion
               ? `Se registró la devolución de ${resumenItems} al almacén correctamente.`
               : `Se te asignó ${resumenItems}. Este material está ahora en tu custodia.`;
@@ -216,8 +228,8 @@ export const ModalDetalleTarjeta = ({
         } catch (errNotif) { console.error('Error notificacion:', errNotif); }
       }
       setIsEditing(false);
-    } catch (e: any) {
-      alert('Error al guardar: ' + e.message);
+    } catch (e: unknown) {
+      alert('Error al guardar: ' + ((e as Error).message || String(e)));
     } finally {
       setIsSaving(false);
     }
@@ -267,17 +279,17 @@ export const ModalDetalleTarjeta = ({
                 initialData={tarjetaSeleccionada.datos_valores || {}}
                 isSubmitting={isSaving}
                 onCancel={() => setConversionData(null)}
-                onConfirm={async (datosComerciales: any) => {
+                onConfirm={async (datosComerciales: Record<string, unknown>) => {
                   setIsSaving(true);
                   try {
                     const gestiones = tarjetaSeleccionada.datos_valores?.gestiones || [];
                     const oldData = tarjetaSeleccionada.datos_valores || {};
-                    let gpsValues = {};
+                    let gpsValues: Record<string, unknown> = {};
                     if (oldData.geo_censo?.lat && oldData.geo_censo?.lng) {
                       gpsValues = { latitud: oldData.geo_censo.lat, longitud: oldData.geo_censo.lng, ubicacion_cliente: oldData.geo_censo };
                     }
 
-                    const nuevosDatos = {
+                    const nuevosDatos: Record<string, unknown> = {
                       ...oldData, ...gpsValues, ...datosComerciales,
                       tipoServicio: datosComerciales.tipoServicio || oldData.tipoProspecto,
                       tipoDocumento: oldData.tipoDocumentoIdentidad,
@@ -317,8 +329,8 @@ export const ModalDetalleTarjeta = ({
                     setTarjetaSeleccionada(null);
                     setConversionData(null);
                     alert('Venta concretada. Tarjeta movida a Instalaciones -> Factibilidad.');
-                  } catch (e: any) {
-                    alert('Error al convertir la venta: ' + e.message);
+                  } catch (e: unknown) {
+                    alert('Error al convertir la venta: ' + ((e as Error).message || String(e)));
                   } finally {
                     setIsSaving(false);
                   }
@@ -336,7 +348,7 @@ export const ModalDetalleTarjeta = ({
                           </Text>
                           <FormularioCenso
                             formData={isEditing ? editFormData : (tarjetaSeleccionada.datos_valores || {})}
-                            handleChange={isEditing ? ((k: string, v: any) => setEditFormData((prev: any) => ({ ...prev, [k]: v }))) : () => { }}
+                            handleChange={isEditing ? ((k: string, v: unknown) => setEditFormData((prev) => ({ ...prev, [k]: v }))) : () => { }}
                             readOnly={!isEditing}
                           />
                           {isEditing ? (
@@ -367,7 +379,7 @@ export const ModalDetalleTarjeta = ({
                             <View style={{ marginBottom: 24 }}>
                               <FormularioVenta
                                 formData={editFormData}
-                                handleChange={(k: string, v: any) => setEditFormData((prev: any) => ({ ...prev, [k]: v }))}
+                                handleChange={(k: string, v: unknown) => setEditFormData((prev) => ({ ...prev, [k]: v }))}
                               />
                               <BotonesAccionEdicion isSaving={isSaving} onCancelar={() => setIsEditing(false)} onGuardar={handleGuardarCambios} />
                             </View>
@@ -385,7 +397,7 @@ export const ModalDetalleTarjeta = ({
                       )}
 
                       {!isCensoFormat && !isMaterialesFormat && !isEditing && <SeccionAdjuntos {...faseProps} />}
-                      {!isEditing && renderFaseDinamica()}
+                      {!isCensoFormat && !isMaterialesFormat && !isEditing && renderFaseDinamica()}
                     </View>
                   </View>
 

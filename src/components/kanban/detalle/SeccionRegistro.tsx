@@ -214,28 +214,28 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
     <View style={{ gap: 8 }}>
       {renderGroups()}
 
-      {data.geo_nap && data.geo_nap.lat && (
+      {Boolean(data.geo_nap && data.geo_nap.lat) && (
         <View style={{ flexDirection: 'column', borderBottomWidth: 1, borderBottomColor: '#384148', paddingBottom: 8 }}>
           <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '500', marginBottom: 2, textTransform: 'uppercase' }}>Ubicación GEO NAP</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
-            <TouchableOpacity onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${data.geo_nap.lat},${data.geo_nap.lng}`)} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${data.geo_nap?.lat},${data.geo_nap?.lng}`)} style={{ flexDirection: 'row', alignItems: 'center' }}>
               <MapPin size={14} color="#0C66E4" style={{ marginRight: 6 }} />
               <Text style={{ fontSize: 14, color: '#0C66E4', fontWeight: 'bold', textDecorationLine: 'underline' }}>Abrir Mapa NAP</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 12, color: '#8C9BAB' }}>{Number(data.geo_nap.lat).toFixed(6)}, {Number(data.geo_nap.lng).toFixed(6)}</Text>
+            <Text style={{ fontSize: 12, color: '#8C9BAB' }}>{Number(data.geo_nap?.lat).toFixed(6)}, {Number(data.geo_nap?.lng).toFixed(6)}</Text>
           </View>
         </View>
       )}
 
-      {data.geo_casa && data.geo_casa.lat && (
+      {Boolean(data.geo_casa && data.geo_casa.lat) && (
         <View style={{ flexDirection: 'column', borderBottomWidth: 1, borderBottomColor: '#384148', paddingBottom: 8 }}>
           <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '500', marginBottom: 2, textTransform: 'uppercase' }}>Ubicación GEO CASA</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
-            <TouchableOpacity onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${data.geo_casa.lat},${data.geo_casa.lng}`)} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${data.geo_casa?.lat},${data.geo_casa?.lng}`)} style={{ flexDirection: 'row', alignItems: 'center' }}>
               <MapPin size={14} color="#0C66E4" style={{ marginRight: 6 }} />
               <Text style={{ fontSize: 14, color: '#0C66E4', fontWeight: 'bold', textDecorationLine: 'underline' }}>Abrir Mapa Casa</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 12, color: '#8C9BAB' }}>{Number(data.geo_casa.lat).toFixed(6)}, {Number(data.geo_casa.lng).toFixed(6)}</Text>
+            <Text style={{ fontSize: 12, color: '#8C9BAB' }}>{Number(data.geo_casa?.lat).toFixed(6)}, {Number(data.geo_casa?.lng).toFixed(6)}</Text>
           </View>
         </View>
       )}
@@ -260,7 +260,7 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
       {data.lch_imagen && (
         <View style={{ flexDirection: 'column', borderBottomWidth: 1, borderBottomColor: '#384148', paddingBottom: 8 }}>
           <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '500', marginBottom: 6, textTransform: 'uppercase' }}>Evidencia LCH</Text>
-          <TouchableOpacity onPress={() => setImagenExpandida && setImagenExpandida(data.lch_imagen)}>
+          <TouchableOpacity onPress={() => setImagenExpandida && setImagenExpandida(data.lch_imagen || null)}>
             <ImageBackground source={{ uri: data.lch_imagen }} style={{ width: 120, height: 120, borderRadius: 8, overflow: 'hidden', backgroundColor: '#384148' }}>
               <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: 4, position: 'absolute', bottom: 0, width: '100%' }}>
                 <Text style={{ color: '#FFF', fontSize: 10, textAlign: 'center', fontWeight: 'bold' }}>VER LCH</Text>

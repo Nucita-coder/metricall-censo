@@ -38,8 +38,8 @@ export default function OnboardingScreen() {
       Alert.alert('¡Todo listo!', 'Tu entorno de trabajo ha sido inicializado.');
       // Redirigir al dashboard principal de la app
       router.replace('/');
-    } catch (error: any) {
-      Alert.alert('Error de configuración', error.message || 'Error desconocido');
+    } catch (error: unknown) {
+      Alert.alert('Error de configuración', (error as Error).message || 'Error desconocido');
     } finally {
       setLoading(false);
     }

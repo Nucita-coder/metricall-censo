@@ -54,8 +54,8 @@ export default function LoginScreen() {
       // Redirigimos al layout principal (Tabs) que se encarga de proteger la sesión
       router.replace('/(drawer)/(tabs)');
       
-    } catch (error: any) {
-      Alert.alert('Error en Inicio de Sesión', error.message || 'Credenciales inválidas');
+    } catch (error: unknown) {
+      Alert.alert('Error en Inicio de Sesión', (error as Error).message || 'Credenciales inválidas');
     } finally {
       setLoading(false);
     }

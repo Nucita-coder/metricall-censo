@@ -90,13 +90,13 @@ export function ModalFiltrosTablero({
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>ORDEN DE TARJETAS</Text>
               <View style={styles.pillsRow}>
-                {[
-                  { key: 'recientes', label: 'Más recientes primero' },
-                  { key: 'antiguas', label: 'Más antiguas primero' },
-                ].map((item) => (
+                {([
+                  { key: 'recientes' as const, label: 'Más recientes primero' },
+                  { key: 'antiguas' as const, label: 'Más antiguas primero' },
+                ]).map((item) => (
                   <TouchableOpacity
                     key={item.key}
-                    onPress={() => update('orden', item.key as any)}
+                    onPress={() => update('orden', item.key)}
                     style={[styles.pill, (filtros.orden || 'recientes') === item.key && styles.pillActive]}
                   >
                     <Text style={[styles.pillTxt, (filtros.orden || 'recientes') === item.key && styles.pillTxtActive]}>
@@ -163,15 +163,15 @@ export function ModalFiltrosTablero({
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>RANGO DE FECHA</Text>
               <View style={styles.pillsRow}>
-                {[
-                  { key: 'todos', label: 'Todas las fechas' },
-                  { key: 'hoy', label: 'Hoy' },
-                  { key: '7dias', label: 'Últimos 7 días' },
-                  { key: 'este_mes', label: 'Este mes' },
-                ].map((item) => (
+                {([
+                  { key: 'todos' as const, label: 'Todas las fechas' },
+                  { key: 'hoy' as const, label: 'Hoy' },
+                  { key: '7dias' as const, label: 'Últimos 7 días' },
+                  { key: 'este_mes' as const, label: 'Este mes' },
+                ]).map((item) => (
                   <TouchableOpacity
                     key={item.key}
-                    onPress={() => update('rangoFecha', item.key as any)}
+                    onPress={() => update('rangoFecha', item.key)}
                     style={[styles.pill, (filtros.rangoFecha || 'todos') === item.key && styles.pillActive]}
                   >
                     <Text style={[styles.pillTxt, (filtros.rangoFecha || 'todos') === item.key && styles.pillTxtActive]}>
@@ -188,18 +188,18 @@ export function ModalFiltrosTablero({
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>ESTADO DE COBRO / PAGO</Text>
                   <View style={styles.optionsGrid}>
-                    {[
-                      { key: 'todos', label: 'Todos los clientes', desc: 'Sin filtro de cobranza' },
-                      { key: 'pendientes', label: 'Pagos Pendientes', desc: 'Acciones negativas y compromisos de pago sin abonar' },
-                      { key: 'cobrados', label: 'Pagos Liquidados', desc: 'Cobro efectivo y cliente recuperado' },
-                    ].map((opt) => (
+                    {([
+                      { key: 'todos' as const, label: 'Todos los clientes', desc: 'Sin filtro de cobranza' },
+                      { key: 'pendientes' as const, label: 'Pagos Pendientes', desc: 'Acciones negativas y compromisos de pago sin abonar' },
+                      { key: 'cobrados' as const, label: 'Pagos Liquidados', desc: 'Cobro efectivo y cliente recuperado' },
+                    ]).map((opt) => (
                       <TouchableOpacity
                         key={opt.key}
                         style={[
                           styles.optionBtn,
                           filtros.estadoCobro === opt.key && styles.optionBtnActive,
                         ]}
-                        onPress={() => update('estadoCobro', opt.key as any)}
+                        onPress={() => update('estadoCobro', opt.key)}
                       >
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.optionLabel, filtros.estadoCobro === opt.key && styles.optionLabelActive]}>
@@ -216,14 +216,14 @@ export function ModalFiltrosTablero({
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>FLUJO DE TRABAJO</Text>
                   <View style={styles.pillsRow}>
-                    {[
-                      { key: 'todos', label: 'Todos los flujos' },
-                      { key: 'cobranza', label: 'Flujo de Cobranza' },
-                      { key: 'recupero', label: 'Flujo de Recupero' },
-                    ].map((item) => (
+                    {([
+                      { key: 'todos' as const, label: 'Todos los flujos' },
+                      { key: 'cobranza' as const, label: 'Flujo de Cobranza' },
+                      { key: 'recupero' as const, label: 'Flujo de Recupero' },
+                    ]).map((item) => (
                       <TouchableOpacity
                         key={item.key}
-                        onPress={() => update('flujo', item.key as any)}
+                        onPress={() => update('flujo', item.key)}
                         style={[styles.pill, filtros.flujo === item.key && styles.pillActive]}
                       >
                         <Text style={[styles.pillTxt, filtros.flujo === item.key && styles.pillTxtActive]}>

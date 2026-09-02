@@ -1,7 +1,7 @@
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 import { Bell, HelpCircle, LogOut, MessageSquare, Search, X } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View, TextStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useGlobalUi } from '../../context/GlobalUiContext';
@@ -72,7 +72,7 @@ export function GlobalTopBar() {
         )}
 
         <View style={styles.iconGroup}>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(drawer)/(tabs)/mensajes' as any)}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(drawer)/(tabs)/mensajes' as Href)}>
             <MessageSquare size={20} color="#9FADBC" />
           </TouchableOpacity>
           <TouchableOpacity
@@ -114,7 +114,7 @@ export function GlobalTopBar() {
       </View>
 
       {/* MODAL DE NOTIFICACIONES */}
-      <Modal visible={showNotificaciones} transparent animationType="fade">
+      <Modal visible={showNotificaciones} transparent animationType="fade" onRequestClose={() => setShowNotificaciones(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowNotificaciones(false)}>
           <TouchableOpacity activeOpacity={1} style={[styles.notifContainer, { width: isDesktop ? 400 : '100%', marginTop: isDesktop ? 60 : insets.top + 50, marginRight: isDesktop ? 20 : 0 }]}>
             <View style={styles.notifHeader}>
@@ -139,10 +139,10 @@ export function GlobalTopBar() {
                       if (notif.tarjeta_id) {
                         try {
                           const { data } = await supabase.from('tarjetas').select('listas (tablero_id)').eq('id', notif.tarjeta_id).single();
-                          const listasData = data?.listas as any;
+                          const listasData = data?.listas as { tablero_id?: string } | Array<{ tablero_id?: string }> | null;
                           const tableroId = Array.isArray(listasData) ? listasData[0]?.tablero_id : listasData?.tablero_id;
                           if (tableroId) {
-                            router.push(`/tablero/${tableroId}?abrirTarjeta=${notif.tarjeta_id}`);
+                            router.push(`/tablero/${tableroId}?abrirTarjeta=${notif.tarjeta_id}` as Href);
                           }
                         } catch (e) {
                           console.error('Error nav', e);
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFF',
     outlineStyle: 'none',
-  } as any,
+  } as unknown as TextStyle,
   iconGroup: {
     flexDirection: 'row',
     alignItems: 'center',

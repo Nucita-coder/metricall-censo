@@ -73,8 +73,15 @@ export default function EditPermisosScreen() {
       
       if (elpError) throw elpError;
       
+      interface RowEmpleadoListaPermiso {
+        lista_id: string;
+        puede_ver: boolean;
+        puede_crear: boolean;
+        puede_editar: boolean;
+        puede_borrar: boolean;
+      }
       const elpMap: Record<string, PermisoListaRelacional> = {};
-      elpData.forEach((row: any) => {
+      (elpData as unknown as RowEmpleadoListaPermiso[]).forEach((row) => {
          elpMap[row.lista_id] = {
            lista_id: row.lista_id,
            puede_ver: row.puede_ver,
@@ -93,8 +100,8 @@ export default function EditPermisosScreen() {
       if (sucursalesError) throw sucursalesError;
       setJerarquia(sucursalesData as unknown as Sucursal[]);
 
-    } catch (e: any) {
-      Alert.alert('Error', e.message);
+    } catch (e: unknown) {
+      Alert.alert('Error', (e as Error).message);
       router.back();
     } finally {
       setIsLoading(false);
@@ -139,8 +146,8 @@ export default function EditPermisosScreen() {
       } else {
         router.replace('/(drawer)/(tabs)');
       }
-    } catch (e: any) {
-      Alert.alert('Error al guardar', e.message);
+    } catch (e: unknown) {
+      Alert.alert('Error al guardar', (e as Error).message);
     } finally {
       setIsSaving(false);
     }

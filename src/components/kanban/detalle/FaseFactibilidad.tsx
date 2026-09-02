@@ -58,7 +58,7 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
                       setErrorFactibilidad(null);
                     }
                   }
-                } catch (e: any) {
+                } catch (e: unknown) {
                   showDiagnosticError('ERR-LCH-SUBIDA', 'Error al seleccionar o subir la imagen de LCH.', e, 'Factibilidad');
                 } finally {
                   setSubiendoLch(false);
@@ -90,7 +90,7 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
                       setErrorFactibilidad(null);
                     }
                   }
-                } catch (e: any) {
+                } catch (e: unknown) {
                   showDiagnosticError('ERR-LCH-CAMARA', 'Error al abrir la cámara para foto de LCH.', e, 'Factibilidad');
                 } finally {
                   setSubiendoLch(false);
@@ -167,8 +167,8 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
                   const destId = findListaTarget(listasGlobales, 'por_instalar')?.id;
                   if (!destId) throw new Error("Lista destino 'Por Instalar' no encontrada");
                   await autoMoverTarjeta(tarjeta, destId);
-                } catch (e: any) {
-                  setErrorFactibilidad(e.message);
+                } catch (e: unknown) {
+                  setErrorFactibilidad((e as Error).message);
                   showDiagnosticError('ERR-FACTIBILIDAD-APROBAR', 'No se pudo aprobar ni mover la tarjeta a Por Instalar.', e, 'Factibilidad');
                 } finally {
                   setIsSaving(false);
@@ -187,8 +187,8 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
                   const destId = findListaTarget(listasGlobales, 'venta')?.id;
                   if (!destId) throw new Error("Lista destino 'Venta' no encontrada");
                   await autoMoverTarjeta(tarjeta, destId);
-                } catch (e: any) {
-                  setErrorFactibilidad(e.message);
+                } catch (e: unknown) {
+                  setErrorFactibilidad((e as Error).message);
                 } finally {
                   setIsSaving(false);
                 }

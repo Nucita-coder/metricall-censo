@@ -3,14 +3,16 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { InputTexto, SelectDropdown } from './venta/CamposVenta';
 import { ESTADOS_VENEZUELA } from './venta/constantes';
 
+import { TarjetaDatosValores } from '../types/kanban';
+
 interface FormularioCensoProps {
-  formData: any;
-  handleChange?: (campo: string, valor: any) => void;
+  formData: TarjetaDatosValores;
+  handleChange?: (campo: string, valor: unknown) => void;
   readOnly?: boolean;
 }
 
 export default function FormularioCenso({ formData, handleChange, readOnly = false }: FormularioCensoProps) {
-  const update = (key: string, val: any) => {
+  const update = (key: string, val: unknown) => {
     if (readOnly) return;
     if (handleChange) handleChange(key, val);
   };
@@ -132,7 +134,7 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
 
         <SelectDropdown
           label="Servicio Adicional de Interés"
-          value={formData.servicioAdicionalInteres}
+          value={String(formData.servicioAdicionalInteres || '')}
           onSelect={(v: string) => update('servicioAdicionalInteres', v)}
           options={['Televisión', 'Cámaras', 'IP Fija', 'Telefonía', 'Ninguno']}
           placeholder="Seleccione interés"

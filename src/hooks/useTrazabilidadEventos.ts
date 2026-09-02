@@ -1,7 +1,40 @@
 import { useMemo } from 'react';
-import { Tarjeta } from '../types/kanban';
+import { Tarjeta, GestionItem, ComentarioItem } from '../types/kanban';
 
 export type TipoEventoTrazabilidad = 'creacion' | 'edicion' | 'gestion' | 'reasignacion' | 'movimiento' | 'comentario' | 'adjunto' | 'fase';
+
+export interface AuditoriaModItem {
+  campo: string;
+  valor_anterior?: unknown;
+  valor_nuevo?: unknown;
+}
+
+export interface AuditoriaItem {
+  id?: string | number;
+  autor?: string;
+  fecha: string;
+  tipo?: string;
+  modificaciones?: AuditoriaModItem[];
+}
+
+export interface EventoDetallesGestion {
+  etapa?: string;
+  resultado?: string;
+  motivoRechazo?: string;
+  evidenciaUrl?: string;
+  [key: string]: unknown;
+}
+
+export interface EventoDetallesAdjunto {
+  url?: string;
+  [key: string]: unknown;
+}
+
+export type EventoDetallesExtra =
+  | AuditoriaModItem[]
+  | EventoDetallesGestion
+  | EventoDetallesAdjunto
+  | Record<string, unknown>;
 
 export interface EventoTrazabilidad {
   id: string;
@@ -11,7 +44,7 @@ export interface EventoTrazabilidad {
   tipoDeEvento: TipoEventoTrazabilidad;
   titulo: string;
   descripcion?: string;
-  detallesExtra?: any;
+  detallesExtra?: EventoDetallesExtra;
 }
 
 export function useTrazabilidadEventos(tarjeta: Tarjeta | null, filtroActivo: string) {
@@ -30,7 +63,7 @@ export function useTrazabilidadEventos(tarjeta: Tarjeta | null, filtroActivo: st
       titulo: 'Tarjeta Creada',
       descripcion: `Tarjeta registrada originalmente en el sistema.`,
       detallesExtra: {
-        cliente: tarjeta.datos_valores?.nombreCliente || 'Sin nombre',
+        cliente: (tarjeta.datos_valores as Record<string, unknown>)?.nombreCliente || tarjeta.datos_valores?.nombreApellido || 'Sin nombre',
         documento: tarjeta.datos_valores?.documentoIdentidad,
         servicio: tarjeta.datos_valores?.tipoServicio,
       },
@@ -40,12 +73,12 @@ export function useTrazabilidadEventos(tarjeta: Tarjeta | null, filtroActivo: st
 
     // 2. Historial de Auditoría
     if (Array.isArray(data.historial_auditoria)) {
-      data.historial_auditoria.forEach((audit: any, idx: number) => {
+      (data.historial_auditoria as unknown as AuditoriaItem[]).forEach((audit, idx) => {
         const fecha = new Date(audit.fecha);
         const mods = audit.modificaciones || [];
 
-        const isMovimiento = audit.tipo === 'movimiento' || mods.some((m: any) => m.campo === 'lista_id' || m.campo === 'lista');
-        const isReasignacion = mods.some((m: any) => m.campo === 'asignado_a' || m.campo === 'tecnico_id');
+        const isMovimiento = audit.tipo === 'movimiento' || mods.some(m => m.campo === 'lista_id' || m.campo === 'lista');
+        const isReasignacion = mods.some(m => m.campo === 'asignado_a' || m.campo === 'tecnico_id');
 
         let tipo: TipoEventoTrazabilidad = 'edicion';
         let titulo = 'Modificación de Datos';
@@ -54,9 +87,9 @@ export function useTrazabilidadEventos(tarjeta: Tarjeta | null, filtroActivo: st
         if (isMovimiento) {
           tipo = 'movimiento';
           titulo = 'Movimiento de Columna';
-          const modMov = mods.find((m: any) => m.campo === 'lista_id' || m.campo === 'lista');
+          const modMov = mods.find(m => m.campo === 'lista_id' || m.campo === 'lista');
           if (modMov) {
-            desc = `Tarjeta movida de "${modMov.valor_anterior || 'Fase Previa'}" a "${modMov.valor_nuevo || 'Fase Siguiente'}".`;
+            desc = `Tarjeta movida de "${String(modMov.valor_anterior || 'Fase Previa')}" a "${String(modMov.valor_nuevo || 'Fase Siguiente')}".`;
           } else {
             desc = 'La tarjeta cambió de fase en el Kanban.';
           }
@@ -81,7 +114,7 @@ export function useTrazabilidadEventos(tarjeta: Tarjeta | null, filtroActivo: st
 
     // 3. Gestiones Comerciales
     if (Array.isArray(data.gestiones)) {
-      data.gestiones.forEach((gestion: any, idx: number) => {
+      (data.gestiones as GestionItem[]).forEach((gestion, idx) => {
         let fecha = new Date(0);
         if (gestion.fecha) {
           const parsed = Date.parse(gestion.fecha);
@@ -92,19 +125,20 @@ export function useTrazabilidadEventos(tarjeta: Tarjeta | null, filtroActivo: st
           }
         }
 
+        const gestObj = gestion as Record<string, unknown>;
         consolidado.push({
           id: `gestion-${idx}`,
           fecha,
           fechaRaw: gestion.fecha,
-          usuario: gestion.autor || 'Asesor Comercial',
+          usuario: (gestObj.autor as string) || gestion.usuario || 'Asesor Comercial',
           tipoDeEvento: 'gestion',
-          titulo: `Gestión Comercial (${gestion.tipoContacto || 'Contacto'})`,
+          titulo: `Gestión Comercial (${(gestObj.tipoContacto as string) || gestion.tipo || 'Contacto'})`,
           descripcion: `Resultado: ${gestion.resultado || 'Registrado'}`,
           detallesExtra: {
             etapa: gestion.etapa,
             resultado: gestion.resultado,
-            motivoRechazo: gestion.motivoRechazo,
-            evidenciaUrl: gestion.evidenciaUrl,
+            motivoRechazo: gestObj.motivoRechazo,
+            evidenciaUrl: gestObj.evidenciaUrl,
           },
         });
       });
@@ -112,7 +146,7 @@ export function useTrazabilidadEventos(tarjeta: Tarjeta | null, filtroActivo: st
 
     // 4. Comentarios
     if (Array.isArray(data.comentarios)) {
-      data.comentarios.forEach((com: any, idx: number) => {
+      (data.comentarios as ComentarioItem[]).forEach((com, idx) => {
         let fecha = new Date(0);
         if (com.fecha) {
           const parsed = Date.parse(com.fecha);
@@ -129,34 +163,38 @@ export function useTrazabilidadEventos(tarjeta: Tarjeta | null, filtroActivo: st
           fechaRaw: com.fecha,
           usuario: com.autor || 'Miembro del Equipo',
           tipoDeEvento: 'comentario',
-          titulo: 'Comentario Registrado',
-          descripcion: com.texto || com.comentario || '',
+          titulo: 'Comentario Agregado',
+          descripcion: com.texto,
+          detallesExtra: {
+            texto: com.texto,
+          },
         });
       });
     }
 
-    // 5. Archivos Adjuntos
-    const adjuntosList = Array.isArray(data.adjuntos) ? data.adjuntos : [];
-    const geofotosList = Array.isArray(data.geofotos) ? data.geofotos : [];
-    const todosAdjuntos = [...adjuntosList, ...geofotosList];
-
-    if (data.lch_imagen) todosAdjuntos.push(data.lch_imagen);
+    // 5. Adjuntos y Evidencias
+    const todosAdjuntos: string[] = [];
+    if (Array.isArray(data.adjuntos)) {
+      todosAdjuntos.push(...data.adjuntos);
+    }
     if (data.geo_nap?.fotoUrl) todosAdjuntos.push(data.geo_nap.fotoUrl);
     if (data.geo_casa?.fotoUrl) todosAdjuntos.push(data.geo_casa.fotoUrl);
 
-    const uniqueAdjuntos = Array.from(new Set(todosAdjuntos));
-    uniqueAdjuntos.forEach((url: string, idx: number) => {
-      consolidado.push({
-        id: `adjunto-${idx}`,
-        fecha: new Date(new Date(tarjeta.created_at).getTime() + idx * 2000),
-        usuario: 'Equipo de Campo',
-        tipoDeEvento: 'adjunto',
-        titulo: 'Evidencia / Archivo Adjunto',
-        descripcion: `Archivo o fotografía adjuntada a la tarjeta.`,
-        detallesExtra: { url },
+    if (todosAdjuntos.length > 0) {
+      todosAdjuntos.forEach((url, idx) => {
+        consolidado.push({
+          id: `adjunto-${idx}`,
+          fecha: new Date(new Date(tarjeta.created_at).getTime() + (idx + 1) * 5000),
+          usuario: 'Operaciones / Campo',
+          tipoDeEvento: 'adjunto',
+          titulo: 'Evidencia Adjunta',
+          descripcion: `Archivo fotográfico o documento cargado.`,
+          detallesExtra: { url },
+        });
       });
-    });
+    }
 
+    // Ordenar cronológicamente descendente (más reciente primero)
     return consolidado.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
   }, [tarjeta]);
 
@@ -170,5 +208,5 @@ export function useTrazabilidadEventos(tarjeta: Tarjeta | null, filtroActivo: st
     return todosEventos;
   }, [todosEventos, filtroActivo]);
 
-  return { todosEventos, eventosFiltrados };
+  return { todosEventos, eventosFiltrados, eventos: eventosFiltrados, totalEventos: todosEventos.length };
 }

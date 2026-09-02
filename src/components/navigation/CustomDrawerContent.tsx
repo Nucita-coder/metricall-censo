@@ -1,33 +1,48 @@
 import React from 'react';
-import { usePathname, useRouter } from 'expo-router';
-import { Archive, BarChart3, Bot, FolderKanban, LifeBuoy, MessageSquare, Package, Settings, Users, Code2 } from 'lucide-react-native';
+import { usePathname, useRouter, Href } from 'expo-router';
+import { Archive, BarChart3, Bot, FolderKanban, LifeBuoy, MessageSquare, Package, Settings, Users, Code2, LucideIcon } from 'lucide-react-native';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGlobalUi } from '../../context/GlobalUiContext';
 import { useAuth } from '../../context/AuthContext';
 
-export function CustomDrawerContent(props: any) {
+interface CustomDrawerContentProps {
+  isDesktop?: boolean;
+  userRol?: string;
+  [key: string]: unknown;
+}
+
+interface MenuItemProps {
+  label: string;
+  icon: LucideIcon;
+  route?: Href;
+  onPress?: () => void;
+}
+
+export function CustomDrawerContent(props: CustomDrawerContentProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { isDesktop, userRol } = props;
   const { userRol: authRol, isDeveloper } = useAuth();
   const currentRol = (userRol || authRol || '').toLowerCase();
-  const isAdmin = isDeveloper || ['admin', 'lider', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(currentRol);
-  const canSeeTeam = isDeveloper || (currentRol !== 'empleado');
+  const isDevUser = isDeveloper || currentRol === 'developer' || currentRol === 'desarrollador';
+  const isAdmin = isDevUser || ['admin', 'lider', 'administrador', 'supervisor'].includes(currentRol);
+  const canSeeTeam = isDevUser || (currentRol !== 'empleado');
 
   const insets = useSafeAreaInsets();
   const { triggerSoporteModal, triggerArchivadosModal } = useGlobalUi();
 
-  const MenuItem = ({ label, icon: Icon, route, onPress }: any) => {
-    const targetPath = route ? route.split('/').pop() : '';
-    const isActive = route && (
-      (route === '/(drawer)/(tabs)' && (pathname === '/' || pathname.startsWith('/tablero') || pathname === '/(drawer)/(tabs)')) ||
-      (route !== '/(drawer)/(tabs)' && targetPath && pathname.includes(targetPath))
-    );
+  const MenuItem = ({ label, icon: Icon, route, onPress }: MenuItemProps) => {
+    const routeStr = typeof route === 'string' ? route : '';
+    const targetPath = routeStr ? routeStr.split('/').pop() : '';
+    const isActive = Boolean(routeStr && (
+      (routeStr === '/(drawer)/(tabs)' && (pathname === '/' || pathname.startsWith('/tablero') || pathname === '/(drawer)/(tabs)')) ||
+      (routeStr !== '/(drawer)/(tabs)' && targetPath && pathname.includes(targetPath))
+    ));
     return (
       <TouchableOpacity
         style={styles.menuItem}
-        onPress={onPress || (() => router.push(route))}
+        onPress={onPress || (() => { if (route) router.push(route); })}
       >
         <Icon size={22} color={isActive ? '#0C66E4' : '#8C9BAB'} />
         <Text style={[styles.menuItemText, { color: isActive ? '#0C66E4' : '#B6C2CF' }]}>{label}</Text>
@@ -48,10 +63,10 @@ export function CustomDrawerContent(props: any) {
       {!isDesktop && (
         <>
           <MenuItem label="Operaciones" icon={FolderKanban} route="/(drawer)/(tabs)" />
-          <MenuItem label="Mis Materiales" icon={Package} route="/(drawer)/(tabs)/materiales" />
+          {isAdmin && <MenuItem label="Mis Materiales" icon={Package} route="/(drawer)/(tabs)/materiales" />}
           {isAdmin && <MenuItem label="Métricas" icon={BarChart3} route="/(drawer)/(tabs)/metricas" />}
           <MenuItem label="Messenger" icon={MessageSquare} route="/(drawer)/(tabs)/mensajes" />
-          {isAdmin && <MenuItem label="WhatsApp Bot" icon={Bot} route="/(drawer)/(tabs)/whatsapp" />}
+          {isDevUser && <MenuItem label="WhatsApp Bot" icon={Bot} route="/(drawer)/(tabs)/whatsapp" />}
           <MenuItem label="Soporte Técnico" icon={LifeBuoy} onPress={() => triggerSoporteModal()} />
           {canSeeTeam && <MenuItem label="Organización" icon={Users} route="/(drawer)/gestion" />}
           <MenuItem label="Archivados" icon={Archive} onPress={() => triggerArchivadosModal()} />
@@ -61,10 +76,10 @@ export function CustomDrawerContent(props: any) {
       {isDesktop && (
         <>
           <MenuItem label="Operaciones" icon={FolderKanban} route="/(drawer)/(tabs)" />
-          <MenuItem label="Mis Materiales" icon={Package} route="/(drawer)/(tabs)/materiales" />
+          {isAdmin && <MenuItem label="Mis Materiales" icon={Package} route="/(drawer)/(tabs)/materiales" />}
           {isAdmin && <MenuItem label="Métricas" icon={BarChart3} route="/(drawer)/(tabs)/metricas" />}
           <MenuItem label="Messenger" icon={MessageSquare} route="/(drawer)/(tabs)/mensajes" />
-          {isAdmin && <MenuItem label="WhatsApp Bot" icon={Bot} route="/(drawer)/(tabs)/whatsapp" />}
+          {isDevUser && <MenuItem label="WhatsApp Bot" icon={Bot} route="/(drawer)/(tabs)/whatsapp" />}
           {canSeeTeam && <MenuItem label="Equipo" icon={Users} route="/(drawer)/(tabs)/equipo" />}
           <MenuItem label="Ajustes" icon={Settings} route="/(drawer)/(tabs)/ajustes" />
           <MenuItem label="Soporte Técnico" icon={LifeBuoy} onPress={() => triggerSoporteModal()} />

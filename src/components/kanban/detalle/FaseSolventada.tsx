@@ -17,7 +17,7 @@ export const FaseSolventada = (props: FaseProps) => {
               <View style={{ width: '48%' }}>
                 <Text style={{ fontSize: 10, color: '#8C9BAB' }}>TÉCNICO QUE ATENDIÓ</Text>
                 <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#B6C2CF', marginTop: 2 }}>
-                  {data.tecnicoAsignado || 'Técnico Asignado'}
+                  {String(data.tecnicoAsignado || 'Técnico Asignado')}
                 </Text>
               </View>
             )}
@@ -26,7 +26,7 @@ export const FaseSolventada = (props: FaseProps) => {
               <View style={{ width: '48%' }}>
                 <Text style={{ fontSize: 10, color: '#8C9BAB' }}>NRO DE ORDEN</Text>
                 <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#60A5FA', marginTop: 2 }}>
-                  {data.nroOrden}
+                  {String(data.nroOrden)}
                 </Text>
               </View>
             )}
@@ -35,7 +35,7 @@ export const FaseSolventada = (props: FaseProps) => {
               <View style={{ width: '48%' }}>
                 <Text style={{ fontSize: 10, color: '#8C9BAB' }}>FECHA ORDEN GENERADA</Text>
                 <Text style={{ fontSize: 12, color: '#B6C2CF', marginTop: 2 }}>
-                  {data.fechaOrdenGenerada}
+                  {String(data.fechaOrdenGenerada)}
                 </Text>
               </View>
             )}
@@ -44,7 +44,7 @@ export const FaseSolventada = (props: FaseProps) => {
               <View style={{ width: '48%' }}>
                 <Text style={{ fontSize: 10, color: '#8C9BAB' }}>FECHA SOLVENTADA</Text>
                 <Text style={{ fontSize: 12, color: '#34D399', marginTop: 2 }}>
-                  {new Date(data.fechaSolventada).toLocaleDateString()} {new Date(data.fechaSolventada).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(String(data.fechaSolventada)).toLocaleDateString()} {new Date(String(data.fechaSolventada)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
               </View>
             )}

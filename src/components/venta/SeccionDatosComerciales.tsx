@@ -11,9 +11,11 @@ import {
   OPCIONES_TIPO_SERVICIO,
 } from './constantes';
 
+import { TarjetaDatosValores } from '../../types/kanban';
+
 interface Props {
-  formData: any;
-  update: (key: string, val: any) => void;
+  formData: TarjetaDatosValores;
+  update: (key: string, val: unknown) => void;
   readOnly?: boolean;
 }
 

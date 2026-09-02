@@ -85,8 +85,8 @@ export function ChatRoom({
       if (ok) {
         onReloadChat();
       }
-    } catch (e: any) {
-      console.error('Error al enviar en ChatRoom:', e.message);
+    } catch (e: unknown) {
+      console.error('Error al enviar en ChatRoom:', (e as Error).message);
     } finally {
       setSending(false);
     }
@@ -111,8 +111,8 @@ export function ChatRoom({
           onReloadChat();
         }
       }
-    } catch (e: any) {
-      console.error('Error al subir imagen:', e.message);
+    } catch (e: unknown) {
+      console.error('Error al subir imagen:', (e as Error).message);
     } finally {
       setUploadingImg(false);
     }
@@ -302,17 +302,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#384148',
   },
-  badgeAdjunto: {
-    backgroundColor: '#0C66E4',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  badgeAdjuntoTexto: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
+  badgeAdjunto: { backgroundColor: '#0C66E4', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  badgeAdjuntoTexto: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
   inputFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -322,10 +313,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#22272B',
     gap: 8,
   },
-  btnIcon: {
-    padding: 8,
-    borderRadius: 6,
-  },
+  btnIcon: { padding: 8, borderRadius: 6 },
   textInput: {
     flex: 1,
     backgroundColor: '#1D2125',
@@ -338,28 +326,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     maxHeight: 90,
   },
-  btnSend: {
-    backgroundColor: '#0C66E4',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullImgOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeFullImg: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    zIndex: 10,
-  },
-  fullImg: {
-    width: '90%',
-    height: '80%',
-  },
+  btnSend: { backgroundColor: '#0C66E4', width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
+  fullImgOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
+  closeFullImg: { position: 'absolute', top: 40, right: 20, zIndex: 10 },
+  fullImg: { width: '90%', height: '80%' },
 });

@@ -16,11 +16,12 @@ import {
   importarYReconciliarCobranzaDesdeExcel,
   procesarArchivoExcelBuffer,
 } from '../../services/excelImportService';
+import { Tarjeta, TarjetaDatosValores } from '../../types/kanban';
 
 interface BotonImportarExcelProps {
   listaId: string;
   listaNombre?: string;
-  onImportComplete?: (tarjetasNuevas: any[]) => void;
+  onImportComplete?: (tarjetasNuevas: Tarjeta[]) => void;
 }
 
 export function BotonImportarExcel({
@@ -31,11 +32,11 @@ export function BotonImportarExcel({
   const { session, empresaId } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [filasExtraidas, setFilasExtraidas] = useState<Record<string, any>[]>([]);
+  const [filasExtraidas, setFilasExtraidas] = useState<TarjetaDatosValores[]>([]);
   const [nombreArchivo, setNombreArchivo] = useState<string>('');
-  const fileInputRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleSelectFileWeb = (event: any) => {
+  const handleSelectFileWeb = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -49,8 +50,8 @@ export function BotonImportarExcel({
         const filas = procesarArchivoExcelBuffer(buffer);
         setFilasExtraidas(filas);
         setModalVisible(true);
-      } catch (err: any) {
-        Alert.alert('Error al leer Excel', err?.message || 'Formato de archivo no válido.');
+      } catch (err: unknown) {
+        Alert.alert('Error al leer Excel', (err as Error)?.message || 'Formato de archivo no válido.');
       } finally {
         setIsProcessing(false);
       }
@@ -103,8 +104,8 @@ export function BotonImportarExcel({
       } else {
         Alert.alert('Error en Carga', res.mensajes.join('\n'));
       }
-    } catch (err: any) {
-      Alert.alert('Error', 'No se pudo completar la importación: ' + (err?.message || err));
+    } catch (err: unknown) {
+      Alert.alert('Error', 'No se pudo completar la importación: ' + ((err as Error)?.message || String(err)));
     } finally {
       setIsProcessing(false);
     }

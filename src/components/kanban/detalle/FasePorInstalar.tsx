@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { UserCheck, User } from 'lucide-react-native';
-import { FaseProps, findListaTarget, getAtencionFallasListaId } from './types';
+import { FaseProps, findListaTarget, getAtencionFallasListaId, getListaInstalacionesId, Miembro } from './types';
 import { renderSection } from './SeccionRegistro';
 import { supabase } from '../../../lib/supabase';
 
@@ -20,7 +20,7 @@ export const FasePorInstalar = ({
   const [tecnicoAsignado, setTecnicoAsignado] = useState(data.tecnicoAsignado || '');
 
   // Filtrar técnicos (o mostrar todos los miembros si no hay etiquetas registradas)
-  const tecnicosFiltrados = miembros.filter((m: any) => {
+  const tecnicosFiltrados = miembros.filter((m: Miembro) => {
     const hasRolTecnico = m.rol === 'tecnico' || m.rol === 'técnico' || m.rol === 'instalador';
     const hasEtiquetaTecnico = Array.isArray(m.etiquetas) && m.etiquetas.some((e: string) => {
       const clean = String(e).toLowerCase().trim();
@@ -42,9 +42,9 @@ export const FasePorInstalar = ({
     nombreTablero.includes('falla')
   );
 
-  const handleSeleccionarTecnico = async (m: any) => {
+  const handleSeleccionarTecnico = async (m: Miembro) => {
     setIsSaving(true);
-    const tecnicoNombre = m.nombre_completo || m.nombre || 'Técnico';
+    const tecnicoNombre = String(m.nombre_completo || m.nombre || 'Técnico');
     setTecnicoAsignado(tecnicoNombre);
 
     try {
@@ -56,17 +56,19 @@ export const FasePorInstalar = ({
         fechaAsignacionTecnica: new Date().toISOString(),
       });
 
-      let destId: string | undefined = undefined;
+      let destId: string | null | undefined = undefined;
 
       if (isFallaCard) {
-        destId = (await getAtencionFallasListaId('Asignado a', tarjeta.empresa_id)) || undefined;
+        destId = await getAtencionFallasListaId('Asignado a', tarjeta.empresa_id);
+      } else {
+        destId = await getListaInstalacionesId('Asignado a', tarjeta.empresa_id);
       }
 
       if (!destId) {
         const matchGlobal = listasGlobales.find(l => {
           const nombreL = (l.nombre || '').toLowerCase();
           const isSameTablero = l.tablero_id === tarjeta.tablero_id;
-          return isSameTablero && nombreL.includes('asignado');
+          return isSameTablero && (nombreL.includes('asignado a') || nombreL.includes('asignado'));
         });
         if (matchGlobal) destId = matchGlobal.id;
       }
@@ -85,9 +87,9 @@ export const FasePorInstalar = ({
       if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
       Alert.alert('¡Técnico Asignado!', `La tarjeta fue asignada a ${tecnicoNombre} y transferida a 'Asignado a'.`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[FasePorInstalar] Error al asignar técnico:', e);
-      Alert.alert('Error', e.message || 'No se pudo asignar el técnico.');
+      Alert.alert('Error', (e as Error).message || 'No se pudo asignar el técnico.');
     } finally {
       setIsSaving(false);
     }
@@ -111,7 +113,7 @@ export const FasePorInstalar = ({
           </View>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-            {listaTecnicos.map((m: any, idx: number) => {
+            {listaTecnicos.map((m: Miembro, idx: number) => {
               const isSelected = tecnicoAsignado === m.nombre_completo || tecnicoAsignado === m.nombre;
               return (
                 <TouchableOpacity
@@ -134,7 +136,7 @@ export const FasePorInstalar = ({
                 >
                   {isSelected ? <UserCheck size={14} color="#60A5FA" /> : <User size={14} color="#8C9BAB" />}
                   <Text style={{ fontWeight: 'bold', color: isSelected ? '#FFF' : '#B6C2CF', fontSize: 13 }}>
-                    {m.nombre_completo || m.nombre}
+                    {String(m.nombre_completo || m.nombre || '')}
                   </Text>
                 </TouchableOpacity>
               );

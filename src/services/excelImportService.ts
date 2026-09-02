@@ -1,18 +1,19 @@
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
+import { Tarjeta, TarjetaDatosValores } from '../types/kanban';
 
 export interface ImportResult {
   exito: boolean;
   totalProcesados: number;
   mensajes: string[];
-  tarjetasInsertadas?: any[];
+  tarjetasInsertadas?: Tarjeta[];
 }
 
 /**
  * Normaliza las llaves de un objeto de fila extraído del Excel
  */
-export function normalizarFilaExcel(row: Record<string, any>): Record<string, any> {
-  const normalizado: Record<string, any> = {};
+export function normalizarFilaExcel(row: Record<string, unknown>): TarjetaDatosValores {
+  const normalizado: TarjetaDatosValores = {};
 
   const clean = (str: string) =>
     str
@@ -68,24 +69,22 @@ export function normalizarFilaExcel(row: Record<string, any>): Record<string, an
       normalizado.zona = valueStr;
       normalizado['ZONA'] = valueStr;
     } else if (cleanKey === 'barrio' || cleanKey === 'sector') {
-      normalizado.barrio = valueStr;
+      normalizado.sector = valueStr;
       normalizado['BARRIO'] = valueStr;
     } else if (cleanKey === 'direccion' || cleanKey === 'calle') {
-      normalizado.direccion = valueStr;
+      normalizado.calle = valueStr;
       normalizado.puntoReferencia = valueStr;
       normalizado['DIRECCION'] = valueStr;
     } else if (cleanKey === 'vendedor' || cleanKey === 'asesor') {
       normalizado.vendedor = valueStr;
-      normalizado.asesorComercial = valueStr;
       normalizado['VENDEDOR'] = valueStr;
     } else if (!normalizado[rawKey]) {
       normalizado[rawKey] = valueStr;
     }
   });
 
-  // Marca de origen para identificar la importación
-  normalizado.origenImportacion = 'COBRANZA-RECUPERO-CHURN';
-  normalizado.fechaCarga = new Date().toISOString();
+  normalizado.origen = 'COBRANZA-RECUPERO-CHURN';
+  normalizado.fechaCenso = new Date().toISOString();
 
   return normalizado;
 }
@@ -93,7 +92,7 @@ export function normalizarFilaExcel(row: Record<string, any>): Record<string, an
 /**
  * Parsea un ArrayBuffer de un archivo Excel y retorna una lista de filas mapeadas
  */
-export function procesarArchivoExcelBuffer(arrayBuffer: ArrayBuffer): Record<string, any>[] {
+export function procesarArchivoExcelBuffer(arrayBuffer: ArrayBuffer): TarjetaDatosValores[] {
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
   const firstSheetName = workbook.SheetNames[0];
   if (!firstSheetName) {
@@ -101,7 +100,7 @@ export function procesarArchivoExcelBuffer(arrayBuffer: ArrayBuffer): Record<str
   }
 
   const sheet = workbook.Sheets[firstSheetName];
-  const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  const rawRows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
   if (!rawRows || rawRows.length === 0) {
     throw new Error('La hoja de trabajo no contiene filas con datos.');
@@ -114,7 +113,7 @@ export function procesarArchivoExcelBuffer(arrayBuffer: ArrayBuffer): Record<str
  * Inserta un conjunto de filas extraídas del Excel como Tarjetas en Supabase
  */
 export async function importarTarjetasDesdeExcel(
-  filasNormalizadas: Record<string, any>[],
+  filasNormalizadas: TarjetaDatosValores[],
   listaId: string,
   empresaId: string | null,
   creadorId: string | null
@@ -132,24 +131,18 @@ export async function importarTarjetasDesdeExcel(
       estado_archivo: false,
     }));
 
-    // Inserción en lotes de 50 registros
     const BATCH_SIZE = 50;
-    const insertedCards: any[] = [];
+    const insertedCards: Tarjeta[] = [];
 
     for (let i = 0; i < payloads.length; i += BATCH_SIZE) {
       const chunk = payloads.slice(i, i + BATCH_SIZE);
-      const { data, error } = await supabase
-        .from('tarjetas')
-        .insert(chunk)
-        .select();
+      const { data, error } = await supabase.from('tarjetas').insert(chunk).select();
 
       if (error) {
         console.error('Error al insertar lote de tarjetas:', error);
         throw error;
       }
-      if (data) {
-        insertedCards.push(...data);
-      }
+      if (data) insertedCards.push(...(data as Tarjeta[]));
     }
 
     return {
@@ -158,12 +151,12 @@ export async function importarTarjetasDesdeExcel(
       mensajes: [`Se cargaron ${insertedCards.length} clientes cortados correctamente.`],
       tarjetasInsertadas: insertedCards,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error en importarTarjetasDesdeExcel:', err);
     return {
       exito: false,
       totalProcesados: 0,
-      mensajes: [`Error al guardar tarjetas en la base de datos: ${err?.message || err}`],
+      mensajes: [`Error al guardar tarjetas en la base de datos: ${(err as Error)?.message || String(err)}`],
     };
   }
 }
@@ -176,12 +169,12 @@ export interface ReconciliacionResult extends ImportResult {
 
 /**
  * Importa un nuevo archivo Excel de Cobranza/Recupero y realiza la reconciliación automática:
- * 1. Los clientes existentes que ya NO figuran en el nuevo Excel se mueven automáticamente a 'Acción efectiva' con el resultado 'COBRO EFECTIVO'.
- * 2. Los clientes que SÍ siguen apareciendo en el Excel se mantienen en su posición actual.
- * 3. Los clientes completamente nuevos del Excel se insertan en la columna de carga.
+ * 1. Clientes que ya NO figuran en el nuevo Excel se mueven a 'Acción efectiva'.
+ * 2. Clientes que siguen en el Excel se mantienen en su posición.
+ * 3. Clientes nuevos se insertan en la columna de carga.
  */
 export async function importarYReconciliarCobranzaDesdeExcel(
-  filasNormalizadas: Record<string, any>[],
+  filasNormalizadas: TarjetaDatosValores[],
   listaId: string,
   empresaId: string | null,
   creadorId: string | null
@@ -198,7 +191,6 @@ export async function importarYReconciliarCobranzaDesdeExcel(
   }
 
   try {
-    // 1. Obtener la información de la lista y todas las listas del mismo tablero
     const { data: listaTarget, error: errLista } = await supabase
       .from('listas')
       .select('id, tablero_id, empresa_id, nombre')
@@ -219,8 +211,6 @@ export async function importarYReconciliarCobranzaDesdeExcel(
     }
 
     const listaIdsTablero = listasTablero.map(l => l.id);
-
-    // Buscar lista de destino 'Acción efectiva' (o 'Acción efectiva (Recupero)')
     const esFlujoRecuperoTarget = (listaTarget.nombre || '').toLowerCase().includes('recupero');
 
     const listaEfectivaObj = listasTablero.find(l => {
@@ -228,63 +218,52 @@ export async function importarYReconciliarCobranzaDesdeExcel(
       return esFlujoRecuperoTarget ? n.includes('efectiva') && n.includes('recupero') : n === 'acción efectiva' || n === 'accion efectiva';
     }) || listasTablero.find(l => (l.nombre || '').toLowerCase().includes('efectiva'));
 
-    // 2. Obtener todas las tarjetas activas existentes en el tablero
     const { data: tarjetasExistentes, error: errTarjetas } = await supabase
       .from('tarjetas')
       .select('id, lista_id, datos_valores')
       .in('lista_id', listaIdsTablero)
       .eq('estado_archivo', false);
 
-    if (errTarjetas) {
-      throw errTarjetas;
-    }
+    if (errTarjetas) throw errTarjetas;
 
-    // 3. Extraer identificadores clave del nuevo Excel (Abonado y Cédula/Documento)
     const abonadosEnNuevoExcel = new Set<string>();
     const docsEnNuevoExcel = new Set<string>();
     const nombresEnNuevoExcel = new Set<string>();
 
     filasNormalizadas.forEach(row => {
-      const ab = String(row.nroAbonado || row['NRO SUSCRIPTOR'] || '').toLowerCase().trim();
-      const doc = String(row.documentoIdentidad || row.nroIdentidad || row['DOC IDENTIDAD'] || '').toLowerCase().trim();
-      const nom = String(row.nombreApellido || row['NOMBRE Y APELLIDO'] || '').toLowerCase().trim();
+      const ab = String(row.nroAbonado || (row['NRO SUSCRIPTOR'] as string) || '').toLowerCase().trim();
+      const doc = String(row.documentoIdentidad || row.nroIdentidad || (row['DOC IDENTIDAD'] as string) || '').toLowerCase().trim();
+      const nom = String(row.nombreApellido || (row['NOMBRE Y APELLIDO'] as string) || '').toLowerCase().trim();
 
       if (ab) abonadosEnNuevoExcel.add(ab);
       if (doc) docsEnNuevoExcel.add(doc);
       if (nom) nombresEnNuevoExcel.add(nom);
     });
 
-    // Helper para verificar si una tarjeta coincide con el nuevo Excel
-    const existeEnNuevoExcel = (t: any): boolean => {
+    const existeEnNuevoExcel = (t: Tarjeta): boolean => {
       const vals = t.datos_valores || {};
-      const ab = String(vals.nroAbonado || vals['NRO SUSCRIPTOR'] || '').toLowerCase().trim();
-      const doc = String(vals.documentoIdentidad || vals.nroIdentidad || vals['DOC IDENTIDAD'] || '').toLowerCase().trim();
-      const nom = String(vals.nombreApellido || vals['NOMBRE Y APELLIDO'] || '').toLowerCase().trim();
+      const ab = String(vals.nroAbonado || (vals['NRO SUSCRIPTOR'] as string) || '').toLowerCase().trim();
+      const doc = String(vals.documentoIdentidad || vals.nroIdentidad || (vals['DOC IDENTIDAD'] as string) || '').toLowerCase().trim();
+      const nom = String(vals.nombreApellido || (vals['NOMBRE Y APELLIDO'] as string) || '').toLowerCase().trim();
 
-      if (ab && abonadosEnNuevoExcel.has(ab)) return true;
-      if (doc && docsEnNuevoExcel.has(doc)) return true;
-      if (nom && nombresEnNuevoExcel.has(nom)) return true;
-      return false;
+      return !!((ab && abonadosEnNuevoExcel.has(ab)) || (doc && docsEnNuevoExcel.has(doc)) || (nom && nombresEnNuevoExcel.has(nom)));
     };
 
-    // 4. Analizar tarjetas existentes en el tablero
-    const tarjetasAMoverAEfectiva: any[] = [];
-    const tarjetasQueSiguenEnCobro: any[] = [];
+    const tarjetasAMoverAEfectiva: Tarjeta[] = [];
+    const tarjetasQueSiguenEnCobro: Tarjeta[] = [];
     const idsExistentesEnTablero = new Set<string>();
 
-    (tarjetasExistentes || []).forEach(t => {
+    ((tarjetasExistentes || []) as Tarjeta[]).forEach(t => {
       const vals = t.datos_valores || {};
-      const ab = String(vals.nroAbonado || vals['NRO SUSCRIPTOR'] || '').toLowerCase().trim();
-      const doc = String(vals.documentoIdentidad || vals.nroIdentidad || vals['DOC IDENTIDAD'] || '').toLowerCase().trim();
-      const nom = String(vals.nombreApellido || vals['NOMBRE Y APELLIDO'] || '').toLowerCase().trim();
+      const ab = String(vals.nroAbonado || (vals['NRO SUSCRIPTOR'] as string) || '').toLowerCase().trim();
+      const doc = String(vals.documentoIdentidad || vals.nroIdentidad || (vals['DOC IDENTIDAD'] as string) || '').toLowerCase().trim();
+      const nom = String(vals.nombreApellido || (vals['NOMBRE Y APELLIDO'] as string) || '').toLowerCase().trim();
 
       if (ab) idsExistentesEnTablero.add(ab);
       if (doc) idsExistentesEnTablero.add(doc);
       if (nom) idsExistentesEnTablero.add(nom);
 
       const estaEnNuevoExcel = existeEnNuevoExcel(t);
-
-      // Si NO está en el nuevo Excel y NO está ya en Acción Efectiva -> ¡PAGÓ!
       const listaNombreCard = (listasTablero.find(l => l.id === t.lista_id)?.nombre || '').toLowerCase();
       const yaEstaEnEfectiva = listaNombreCard.includes('efectiva');
 
@@ -295,16 +274,14 @@ export async function importarYReconciliarCobranzaDesdeExcel(
       }
     });
 
-    // 5. Ejecutar movimientos automáticos a Acción Efectiva para los clientes que ya no vienen en la lista
     let contadorMovidas = 0;
     if (tarjetasAMoverAEfectiva.length > 0 && listaEfectivaObj) {
       for (const t of tarjetasAMoverAEfectiva) {
-        const datosActualizados = {
+        const datosActualizados: TarjetaDatosValores = {
           ...(t.datos_valores || {}),
           tipoContacto: (t.datos_valores?.tipoContacto) || 'RECONCILIACIÓN EXCEL',
           resultadoContacto: 'COBRO EFECTIVO',
           RESULTADO: 'COBRO EFECTIVO',
-          etiquetaCobranza: 'Cobranza (Pagado)',
           fechaCobroReconciliacion: new Date().toISOString(),
         };
 
@@ -320,19 +297,17 @@ export async function importarYReconciliarCobranzaDesdeExcel(
       }
     }
 
-    // 6. Filtrar filas del Excel para insertar SOLO clientes que no existían previamente en el tablero
     const filasParaInsertar = filasNormalizadas.filter(row => {
-      const ab = String(row.nroAbonado || row['NRO SUSCRIPTOR'] || '').toLowerCase().trim();
-      const doc = String(row.documentoIdentidad || row.nroIdentidad || row['DOC IDENTIDAD'] || '').toLowerCase().trim();
-      const nom = String(row.nombreApellido || row['NOMBRE Y APELLIDO'] || '').toLowerCase().trim();
+      const ab = String(row.nroAbonado || (row['NRO SUSCRIPTOR'] as string) || '').toLowerCase().trim();
+      const doc = String(row.documentoIdentidad || row.nroIdentidad || (row['DOC IDENTIDAD'] as string) || '').toLowerCase().trim();
+      const nom = String(row.nombreApellido || (row['NOMBRE Y APELLIDO'] as string) || '').toLowerCase().trim();
 
       const yaExiste = (ab && idsExistentesEnTablero.has(ab)) || (doc && idsExistentesEnTablero.has(doc)) || (nom && idsExistentesEnTablero.has(nom));
       return !yaExiste;
     });
 
-    // Insertar nuevas tarjetas
     let contadorInsertadas = 0;
-    const tarjetasInsertadasList: any[] = [];
+    const tarjetasInsertadasList: Tarjeta[] = [];
     if (filasParaInsertar.length > 0) {
       const resImport = await importarTarjetasDesdeExcel(filasParaInsertar, listaId, empresaId, creadorId);
       if (resImport.exito) {
@@ -354,7 +329,7 @@ export async function importarYReconciliarCobranzaDesdeExcel(
       ],
       tarjetasInsertadas: tarjetasInsertadasList,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error en importarYReconciliarCobranzaDesdeExcel:', err);
     return {
       exito: false,
@@ -362,7 +337,7 @@ export async function importarYReconciliarCobranzaDesdeExcel(
       tarjetasMovidasAEfectiva: 0,
       tarjetasConservadas: 0,
       tarjetasNuevasInsertadas: 0,
-      mensajes: [`Error durante la reconciliación: ${err?.message || err}`],
+      mensajes: [`Error durante la reconciliación: ${(err as Error)?.message || String(err)}`],
     };
   }
 }

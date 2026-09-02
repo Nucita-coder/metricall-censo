@@ -12,7 +12,13 @@ import {
   PhoneCall,
   UserPlus,
 } from 'lucide-react-native';
-import { EventoTrazabilidad, TipoEventoTrazabilidad } from '../../../hooks/useTrazabilidadEventos';
+import {
+  EventoTrazabilidad,
+  TipoEventoTrazabilidad,
+  AuditoriaModItem,
+  EventoDetallesGestion,
+  EventoDetallesAdjunto,
+} from '../../../hooks/useTrazabilidadEventos';
 
 const DICCIONARIO_CAMPOS: Record<string, string> = {
   nombreCliente: 'Nombre del Cliente',
@@ -43,7 +49,7 @@ const traducirCampo = (key: string): string => {
   return DICCIONARIO_CAMPOS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
-const formatearValor = (val: any): string => {
+const formatearValor = (val: unknown): string => {
   if (val === null || val === undefined || val === '') return 'Vacío';
   if (typeof val === 'boolean') return val ? 'Sí' : 'No';
   if (typeof val === 'object') {
@@ -119,7 +125,7 @@ export function TrazabilidadItemRow({ evento, isLast }: TrazabilidadItemRowProps
         {(evento.tipoDeEvento === 'edicion' || evento.tipoDeEvento === 'movimiento' || evento.tipoDeEvento === 'reasignacion') &&
           Array.isArray(evento.detallesExtra) && (
             <View style={styles.diffContainer}>
-              {evento.detallesExtra.map((mod: any, mIdx: number) => (
+              {(evento.detallesExtra as AuditoriaModItem[]).map((mod, mIdx: number) => (
                 <View key={mIdx} style={styles.diffRow}>
                   <Text style={styles.diffField}>{traducirCampo(mod.campo)}:</Text>
                   <View style={styles.diffValuesRow}>
@@ -132,27 +138,27 @@ export function TrazabilidadItemRow({ evento, isLast }: TrazabilidadItemRowProps
             </View>
           )}
 
-        {evento.tipoDeEvento === 'gestion' && evento.detallesExtra && (
+        {evento.tipoDeEvento === 'gestion' && !!evento.detallesExtra && (
           <View style={[styles.diffContainer, { backgroundColor: '#1C2B23', borderColor: '#22A06B' }]}>
             <Text style={{ color: '#22A06B', fontWeight: 'bold' }}>
-              Etapa: {evento.detallesExtra.etapa || 'Gestión'} | Resultado: {evento.detallesExtra.resultado}
+              Etapa: {(evento.detallesExtra as EventoDetallesGestion).etapa || 'Gestión'} | Resultado: {(evento.detallesExtra as EventoDetallesGestion).resultado || ''}
             </Text>
-            {evento.detallesExtra.motivoRechazo ? (
+            {(evento.detallesExtra as EventoDetallesGestion).motivoRechazo ? (
               <Text style={{ color: '#F56565', fontStyle: 'italic', marginTop: 4 }}>
-                Motivo Rechazo: {evento.detallesExtra.motivoRechazo}
+                Motivo Rechazo: {(evento.detallesExtra as EventoDetallesGestion).motivoRechazo}
               </Text>
             ) : null}
           </View>
         )}
 
-        {evento.tipoDeEvento === 'adjunto' && evento.detallesExtra?.url && (
+        {evento.tipoDeEvento === 'adjunto' && !!(evento.detallesExtra as EventoDetallesAdjunto)?.url && (
           <View style={styles.attachmentContainer}>
-            {evento.detallesExtra.url.match(/\.(jpeg|jpg|png|gif|webp)$/i) ? (
-              <TouchableOpacity onPress={() => Linking.openURL(evento.detallesExtra.url)}>
-                <Image source={{ uri: evento.detallesExtra.url }} style={styles.attachmentThumbnail} resizeMode="cover" />
+            {((evento.detallesExtra as EventoDetallesAdjunto).url || '').match(/\.(jpeg|jpg|png|gif|webp)$/i) ? (
+              <TouchableOpacity onPress={() => Linking.openURL((evento.detallesExtra as EventoDetallesAdjunto).url || '')}>
+                <Image source={{ uri: (evento.detallesExtra as EventoDetallesAdjunto).url }} style={styles.attachmentThumbnail} resizeMode="cover" />
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity style={styles.fileLinkBtn} onPress={() => Linking.openURL(evento.detallesExtra.url)}>
+              <TouchableOpacity style={styles.fileLinkBtn} onPress={() => Linking.openURL((evento.detallesExtra as EventoDetallesAdjunto).url || '')}>
                 <ImageIcon size={18} color="#38BDF8" />
                 <Text style={styles.fileLinkText}>Ver Archivo Adjunto</Text>
               </TouchableOpacity>

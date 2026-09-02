@@ -8,16 +8,23 @@
     "scheme": "metricall",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "com.metricall.app"
     },
     "android": {
+      "package": "com.metricall.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#0F172A",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyDU48GlpKoJZohNnb5N5_PlV0mz3WoqAes"
@@ -33,10 +40,10 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#0F172A",
           "android": {
             "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+            "imageWidth": 180
           }
         }
       ],
@@ -45,11 +52,36 @@
       "expo-font",
       "expo-image",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permite a Metricall acceder a tu ubicación para geolocalizar ventas y censos."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite a Metricall acceder a tu cámara para capturar evidencias y geofotos."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite a Metricall acceder a tu galería para adjuntar fotos de perfil y evidencias."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "20c342b9-d190-422b-9f78-f0e3ace6237e"
+      }
+    },
+    "owner": "gkaw"
   }
 }

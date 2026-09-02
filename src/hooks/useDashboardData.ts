@@ -24,7 +24,10 @@ export interface Sucursal {
 }
 
 export function useDashboardData() {
-  const { session, empresaId } = useAuth();
+  const { session, empresaId, userRol, isDeveloper } = useAuth();
+  const rolLower = (userRol || '').toLowerCase();
+  const canSeeAdmin = isDeveloper || ['admin', 'lider', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
+
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [liderNombre, setLiderNombre] = useState('');
@@ -65,7 +68,7 @@ export function useDashboardData() {
 
         const { data: sucursalesData, error: sucursalesError } = await supabase
           .from('sucursales')
-          .select('id, nombre, ubicacion, tableros(id, nombre, descripcion, fondo_url, es_favorito, es_anclado, orden, archivado, mes_periodo)')
+          .select('id, nombre, ubicacion, tableros(id, nombre, descripcion, tipo, fondo_url, es_favorito, es_anclado, orden, archivado, mes_periodo)')
           .eq('empresa_id', empresaId)
           .order('created_at', { ascending: true })
           .limit(20);
@@ -73,11 +76,11 @@ export function useDashboardData() {
         if (sucursalesError) throw sucursalesError;
 
         if (sucursalesData) {
-          sucursalesData.forEach((s: any) => {
+          (sucursalesData as unknown as Sucursal[]).forEach(s => {
             if (s.tableros) {
-              // Filtrar solo tableros activos (no archivados) para la vista de operaciones
-              s.tableros = s.tableros.filter((t: any) => !t.archivado);
-              s.tableros.sort((a: any, b: any) => {
+              // Filtrar solo tableros activos (no archivados) y restringir tableros de almacen solo a administradores
+              s.tableros = s.tableros.filter(t => !t.archivado && (canSeeAdmin || t.tipo !== 'almacen'));
+              s.tableros.sort((a, b) => {
                 if (a.es_favorito && !b.es_favorito) return -1;
                 if (!a.es_favorito && b.es_favorito) return 1;
                 if (a.es_anclado && !b.es_anclado) return -1;
@@ -91,9 +94,10 @@ export function useDashboardData() {
         }
 
         setSucursales(sucursalesData as unknown as Sucursal[]);
-      } catch (error: any) {
-        const msg: string = error?.message ?? '';
-        const code: string = error?.code ?? '';
+      } catch (error: unknown) {
+        const errObj = error as { message?: string; code?: string } | null;
+        const msg: string = errObj?.message ?? '';
+        const code: string = errObj?.code ?? '';
         if (
           msg === 'No hay usuario autenticado.' ||
           msg.includes('session missing') ||

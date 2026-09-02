@@ -4,7 +4,7 @@ import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from 're
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { KANBAN_COLORS, KANBAN_THEME, getResultadoColor } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-import { Lista, Tarjeta } from '../../types/kanban';
+import { Lista, Tarjeta, TarjetaMaterialItem } from '../../types/kanban';
 
 export interface KanbanCardProps {
   item: Tarjeta;
@@ -13,10 +13,7 @@ export interface KanbanCardProps {
   listaEnMovimiento: Lista | null;
   setTarjetaSeleccionada: (t: Tarjeta | null) => void;
   setTarjetaAuditoria: (t: Tarjeta | null) => void;
-  isLiberada?: boolean;
-  listaNombre?: string;
-  onRightClick?: (item: Tarjeta, x: number, y: number) => void;
-  isResaltada?: boolean;
+  isLiberada?: boolean; listaNombre?: string; onRightClick?: (item: Tarjeta, x: number, y: number) => void; isResaltada?: boolean;
 }
 
 const cleanEmojis = (str: string) => (!str ? '' : str.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}]/gu, '').replace(/\s{2,}/g, ' ').trim());
@@ -30,9 +27,7 @@ const KanbanCardComponent = ({
   const isListMoveMode = listaEnMovimiento !== null;
   const data = item.datos_valores || {};
 
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const hoverAnim = useRef(new Animated.Value(0)).current;
-  const highlightAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current, hoverAnim = useRef(new Animated.Value(0)).current, highlightAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.spring(scaleAnim, { toValue: isMovingThis ? 1.05 : 1, useNativeDriver: true, bounciness: 10 }).start();
@@ -50,9 +45,7 @@ const KanbanCardComponent = ({
 
   const rawTipoServicio = String(data.tipoServicio || '').toLowerCase().trim();
   const tipoServicio = (rawTipoServicio === 'n/a' || rawTipoServicio === 'none') ? '' : rawTipoServicio;
-  const esHogar = tipoServicio === 'hogar';
-  const esPymes = tipoServicio === 'pymes';
-  const isBloqueada = data.estadoLiberacion === 'bloqueada' || isLiberada;
+  const esHogar = tipoServicio === 'hogar', esPymes = tipoServicio === 'pymes', isBloqueada = data.estadoLiberacion === 'bloqueada' || isLiberada;
 
   const lowerLista = (listaNombre || '').toLowerCase();
   const esListaLimpia = lowerLista.includes('ventas') || lowerLista.includes('falla') || lowerLista.includes('soporte');
@@ -141,7 +134,7 @@ const KanbanCardComponent = ({
   };
 
   const webProps = Platform.OS === 'web' ? {
-    onContextMenu: (e: any) => { e.preventDefault(); onRightClick?.(item, e.nativeEvent.pageX, e.nativeEvent.pageY); },
+    onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); onRightClick?.(item, e.nativeEvent.pageX, e.nativeEvent.pageY); },
     onMouseEnter: () => { if (!isMoveMode && !isListMoveMode && !isMovingThis) Animated.spring(hoverAnim, { toValue: 4, useNativeDriver: true, bounciness: 8, speed: 20 }).start(); },
     onMouseLeave: () => { if (!isMoveMode && !isListMoveMode && !isMovingThis) Animated.spring(hoverAnim, { toValue: 0, useNativeDriver: true, bounciness: 8, speed: 20 }).start(); }
   } : {};
@@ -182,11 +175,11 @@ const KanbanCardComponent = ({
                 <Text style={styles.cardDate}>{data.fechaRecibido || new Date(item.created_at).toLocaleDateString()}</Text>
               </View>
               <Text style={styles.cardName} numberOfLines={2}>
-                {data.nombreMaterial || (Array.isArray(data.items) && data.items[0]?.nombreMaterial) || 'Carga de Material'}
+                {data.nombreMaterial || (Array.isArray(data.items) && (data.items as TarjetaMaterialItem[])[0]?.nombreMaterial) || 'Carga de Material'}
               </Text>
               <View style={styles.materialFooter}>
                 <Text style={styles.materialCantText}>
-                  Cant: {Array.isArray(data.items) ? data.items.reduce((s: number, i: any) => s + (parseFloat(i.cantidadRecibida) || 0), 0) : (data.cantidadRecibida || 0)} und.
+                  Cant: {Array.isArray(data.items) ? (data.items as TarjetaMaterialItem[]).reduce((s: number, i) => s + (parseFloat(String(i.cantidadRecibida || '0')) || 0), 0) : (data.cantidadRecibida || 0)} und.
                 </Text>
                 {data.nroOrdenEntrega ? <Text style={styles.materialOrdenText}>Orden: {data.nroOrdenEntrega}</Text> : null}
               </View>
@@ -260,18 +253,18 @@ const KanbanCardComponent = ({
               <View style={styles.contactInfoRow}>
                 {esReportePago ? (
                   (data.telefonoMovil || data.nroTelefonoMovil) && (
-                    <View style={styles.contactInfoItem}><Phone size={11} color="#A0AEC0" style={{ marginRight: 3 }} /><Text style={styles.contactInfoText}>{data.telefonoMovil || data.nroTelefonoMovil}</Text></View>
+                    <View style={styles.contactInfoItem}><Phone size={11} color="#A0AEC0" style={{ marginRight: 3 }} /><Text style={styles.contactInfoText}>{String(data.telefonoMovil || data.nroTelefonoMovil)}</Text></View>
                   )
                 ) : (
                   <>
                     {(data.nroAbonado || data['NRO SUSCRIPTOR'] || data.abonado) && (
-                      <View style={styles.contactInfoItem}><Hash size={11} color="#38BDF8" style={{ marginRight: 2 }} /><Text style={styles.contactAbonadoText}>{data.nroAbonado || data['NRO SUSCRIPTOR'] || data.abonado}</Text></View>
+                      <View style={styles.contactInfoItem}><Hash size={11} color="#38BDF8" style={{ marginRight: 2 }} /><Text style={styles.contactAbonadoText}>{String(data.nroAbonado || data['NRO SUSCRIPTOR'] || data.abonado)}</Text></View>
                     )}
                     {(data.documentoIdentidad || data.nroIdentidad) && (
-                      <View style={styles.contactInfoItem}><User size={11} color="#A0AEC0" style={{ marginRight: 3 }} /><Text style={styles.contactInfoText}>{data.tipoDocumento ? `${data.tipoDocumento} ` : ''}{data.documentoIdentidad || data.nroIdentidad}</Text></View>
+                      <View style={styles.contactInfoItem}><User size={11} color="#A0AEC0" style={{ marginRight: 3 }} /><Text style={styles.contactInfoText}>{data.tipoDocumento ? `${data.tipoDocumento} ` : ''}{String(data.documentoIdentidad || data.nroIdentidad)}</Text></View>
                     )}
                     {(data.telefonoMovil || data.nroTelefonoMovil) && (
-                      <View style={styles.contactInfoItem}><Phone size={11} color="#A0AEC0" style={{ marginRight: 3 }} /><Text style={styles.contactInfoText}>{data.telefonoMovil || data.nroTelefonoMovil}</Text></View>
+                      <View style={styles.contactInfoItem}><Phone size={11} color="#A0AEC0" style={{ marginRight: 3 }} /><Text style={styles.contactInfoText}>{String(data.telefonoMovil || data.nroTelefonoMovil)}</Text></View>
                     )}
                   </>
                 )}

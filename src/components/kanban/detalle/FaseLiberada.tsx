@@ -14,7 +14,7 @@ export const FaseLiberada = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSav
     <View>
       <View style={{ backgroundColor: '#4A1515', borderColor: '#F56565', borderWidth: 1, padding: 16, borderRadius: 8 }}>
         <Text style={{ color: '#F56565', fontWeight: 'bold', marginBottom: 12, textTransform: 'capitalize' }}>
-          Esta tarjeta ha sido liberada (caída) por: {motivoTexto}
+          Esta tarjeta ha sido liberada (caída) por: {String(motivoTexto)}
         </Text>
 
         <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#8C9BAB', marginBottom: 8 }}>Explicación para Retomar Proceso:</Text>
@@ -62,8 +62,8 @@ export const FaseLiberada = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSav
 
               if (!destId) throw new Error("Lista destino 'Asignado A' no encontrada");
               await autoMoverTarjeta(tarjeta, destId);
-            } catch (err: any) {
-              Alert.alert("Error", err.message || "No se pudo retomar el proceso");
+            } catch (err: unknown) {
+              Alert.alert("Error", (err as Error).message || "No se pudo retomar el proceso");
             } finally {
               setIsSaving(false);
             }

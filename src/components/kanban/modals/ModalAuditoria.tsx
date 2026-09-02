@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, ScrollView } from 'react-native';
 import { X, ArrowRight } from 'lucide-react-native';
+import { Tarjeta } from '../../../types/kanban';
+import { AuditoriaItem } from '../../../hooks/useTrazabilidadEventos';
 
 interface ModalAuditoriaProps {
   visible: boolean;
-  tarjetaAuditoria: any | null;
+  tarjetaAuditoria: Tarjeta | null;
   onClose: () => void;
 }
 
@@ -13,9 +15,9 @@ export const ModalAuditoria = ({ visible, tarjetaAuditoria, onClose }: ModalAudi
 
   if (!tarjetaAuditoria) return null;
 
-  const auditoriaCompleta = tarjetaAuditoria?.datos_valores?.historial_auditoria || [];
-  const usuariosUnicos = Array.from(new Set(auditoriaCompleta.map((a: any) => a.autor).filter(Boolean)));
-  const auditoriaFiltrada = filtroAuditoriaUsuario === 'Todos' ? auditoriaCompleta : auditoriaCompleta.filter((a: any) => a.autor === filtroAuditoriaUsuario);
+  const auditoriaCompleta = (tarjetaAuditoria?.datos_valores?.historial_auditoria || []) as AuditoriaItem[];
+  const usuariosUnicos = Array.from(new Set(auditoriaCompleta.map(a => a.autor).filter(Boolean))) as string[];
+  const auditoriaFiltrada = filtroAuditoriaUsuario === 'Todos' ? auditoriaCompleta : auditoriaCompleta.filter(a => a.autor === filtroAuditoriaUsuario);
 
   return (
     <Modal visible={visible} animationType="fade" transparent={true}>
@@ -40,13 +42,13 @@ export const ModalAuditoria = ({ visible, tarjetaAuditoria, onClose }: ModalAudi
                   >
                     <Text style={{ color: filtroAuditoriaUsuario === 'Todos' ? '#FFF' : '#B6C2CF', fontWeight: 'bold', fontSize: 13 }}>Todos los usuarios</Text>
                   </TouchableOpacity>
-                  {usuariosUnicos.map((user: any, idx) => (
+                  {usuariosUnicos.map((user, idx) => (
                     <TouchableOpacity 
                       key={idx}
                       onPress={() => setFiltroAuditoriaUsuario(user)}
                       style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16, backgroundColor: filtroAuditoriaUsuario === user ? '#0C66E4' : '#1D2125', borderWidth: 1, borderColor: filtroAuditoriaUsuario === user ? '#0C66E4' : '#384148', marginRight: 8 }}
                     >
-                      <Text style={{ color: filtroAuditoriaUsuario === user ? '#FFF' : '#B6C2CF', fontWeight: 'bold', fontSize: 13 }}>{user as string}</Text>
+                      <Text style={{ color: filtroAuditoriaUsuario === user ? '#FFF' : '#B6C2CF', fontWeight: 'bold', fontSize: 13 }}>{user}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -57,7 +59,7 @@ export const ModalAuditoria = ({ visible, tarjetaAuditoria, onClose }: ModalAudi
                 <Text style={{ textAlign: 'center', color: '#8C9BAB', marginTop: 40, fontSize: 16 }}>No hay ediciones registradas para este filtro.</Text>
               ) : (
                 <View style={{ paddingLeft: 24, paddingVertical: 12 }}>
-                  {auditoriaFiltrada.map((auditoria: any, index: number, arr: any[]) => (
+                  {auditoriaFiltrada.map((auditoria, index, arr) => (
                     <View key={index} style={{ position: 'relative', paddingBottom: index === arr.length - 1 ? 0 : 32 }}>
                       {/* Línea vertical continua */}
                       {index !== arr.length - 1 && (
@@ -74,7 +76,7 @@ export const ModalAuditoria = ({ visible, tarjetaAuditoria, onClose }: ModalAudi
                         
                         {/* Cuerpo de Modificaciones */}
                         <View style={{ gap: 12 }}>
-                          {auditoria.modificaciones.map((mod: any, modIdx: number) => (
+                          {(auditoria.modificaciones || []).map((mod, modIdx) => (
                             <View key={modIdx} style={{ flexDirection: 'column' }}>
                               <Text style={{ fontSize: 12, fontWeight: '900', color: '#9FADBC', textTransform: 'uppercase', marginBottom: 4 }}>{mod.campo}</Text>
                               <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', backgroundColor: '#1D2125', padding: 10, borderRadius: 8 }}>

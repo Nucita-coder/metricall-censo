@@ -12,6 +12,7 @@ import CardLayoutWrapper from '../../components/layout/CardLayoutWrapper';
 import { ModalMapaUbicacion } from '../../components/tarjetas/ModalMapaUbicacion';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { TarjetaDatosValores, TarjetaMaterialItem } from '../../types/kanban';
 
 const LISTAS_ALMACEN = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'];
 
@@ -82,7 +83,7 @@ export default function NuevaTarjetaScreen() {
             ...prev,
             ciudad: cachedCiudad,
             ciudadMunicipio: cachedCiudad
-          } as any));
+          }));
         }
       } catch (e) {
         console.log('Error cargando ciudad del caché', e);
@@ -91,7 +92,7 @@ export default function NuevaTarjetaScreen() {
     loadCachedCiudad();
   }, []);
 
-  const [formData, setFormData] = useState<Record<string, any>>({
+  const [formData, setFormData] = useState<TarjetaDatosValores>({
     fechaVenta: '', vendedor: '', tipoServicio: '', nombreApellido: '', tipoDocumento: '', documentoIdentidad: '',
     fechaNacimiento: '', telefonoMovil: '', telefonoAdicional: '', telefonoResidencial: '', correo: '',
     estado: '', ciudad: '', zona: '', sector: '', calle: '', urbanizacion: '', piso: '', edificio: '', referencia: '',
@@ -101,7 +102,7 @@ export default function NuevaTarjetaScreen() {
     equipoAdicional: '', nroAbonado: '', cuentaConInternet: '', dispuestoCambiar: '', tipoCarga: ''
   });
 
-  const updateForm = (key: string, value: any) => setFormData(prev => ({ ...prev, [key]: value }));
+  const updateForm = (key: string, value: unknown) => setFormData(prev => ({ ...prev, [key]: value }));
 
   const obtenerUbicacion = async () => {
     try {
@@ -116,8 +117,8 @@ export default function NuevaTarjetaScreen() {
       let location = await Location.getCurrentPositionAsync({});
       setFormData(prev => ({ ...prev, latitud: location.coords.latitude, longitud: location.coords.longitude }));
       Alert.alert('Ubicación obtenida', 'Coordenadas capturadas con éxito.');
-    } catch (e: any) {
-      Alert.alert('Error', 'No se pudo obtener la ubicación: ' + e.message);
+    } catch (e: unknown) {
+      Alert.alert('Error', 'No se pudo obtener la ubicación: ' + (e as Error).message);
     } finally {
       setIsLocating(false);
     }
@@ -132,18 +133,18 @@ export default function NuevaTarjetaScreen() {
     const isMaterialesMode = LISTAS_ALMACEN.includes(listaNombre || (lista_nombre as string) || '');
 
     if (isMaterialesMode) {
-      const items = Array.isArray(formData.items) && formData.items.length > 0 ? formData.items : [formData];
-      const hasValidItem = items.some((i: any) => i.codigoMaterial && i.nombreMaterial && i.cantidadRecibida);
+      const items = Array.isArray(formData.items) && formData.items.length > 0 ? (formData.items as TarjetaMaterialItem[]) : [formData as unknown as TarjetaMaterialItem];
+      const hasValidItem = items.some((i) => i.codigoMaterial && i.nombreMaterial && i.cantidadRecibida);
       if (!formData.nroOrdenEntrega || !formData.recibidoPor || !formData.entregadoPor || !formData.tipoCarga || !hasValidItem) {
         Alert.alert('Campos incompletos', 'Por favor, completa los campos obligatorios de la orden, el tipo de carga y al menos un material válido.');
         return;
       }
-      if (formData.tipoCarga?.toUpperCase() === 'MATERIAL ASIGNADO') {
+      if (typeof formData.tipoCarga === 'string' && formData.tipoCarga.toUpperCase() === 'MATERIAL ASIGNADO') {
         if (!formData.asignadoA) {
           Alert.alert('Campo incompleto', 'Por favor, selecciona el miembro o personal al cual se le va a asignar el material.');
           return;
         }
-        const hasUnselectedItem = items.some((i: any) => !i.codigoMaterial || !i.codigoMaterial.trim());
+        const hasUnselectedItem = items.some((i) => !i.codigoMaterial || !i.codigoMaterial.trim());
         if (hasUnselectedItem) {
           Alert.alert('Material no seleccionado', 'Por favor, selecciona el material de Almacén a asignar utilizando el menú desplegable.');
           return;
@@ -199,7 +200,7 @@ export default function NuevaTarjetaScreen() {
       }
 
       try {
-        const ciudadToCache = formData.ciudad || (formData as any).ciudadMunicipio;
+        const ciudadToCache = (formData.ciudad as string) || (formData.ciudadMunicipio as string);
         if (ciudadToCache) {
           await AsyncStorage.setItem('@ultima_ciudad_registrada', ciudadToCache);
         }
@@ -237,7 +238,7 @@ export default function NuevaTarjetaScreen() {
             .eq('tablero_id', currentLista.tablero_id);
 
           if (tableroListas && tableroListas.length > 0) {
-            const targetClean = formData.tipoCarga.toLowerCase().trim();
+            const targetClean = (formData.tipoCarga as string).toLowerCase().trim();
             const targetList = tableroListas.find(l => l.nombre && l.nombre.toLowerCase().trim() === targetClean);
 
             if (targetList && targetList.id !== currentLista.id) {
@@ -255,13 +256,13 @@ export default function NuevaTarjetaScreen() {
           console.error('Error al mover tarjeta de almacén:', err);
         }
 
-        const tipoUpper = (formData.tipoCarga || '').toUpperCase();
+        const tipoUpper = ((formData.tipoCarga as string) || '').toUpperCase();
         const isDevolucion = tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN');
-        const isAsignado = !isDevolucion && (tipoUpper.includes('ASIGNA') || Boolean(formData.asignadoA && formData.asignadoA.trim()));
+        const isAsignado = !isDevolucion && (tipoUpper.includes('ASIGNA') || Boolean(formData.asignadoA && (formData.asignadoA as string).trim()));
 
-        if ((isAsignado || isDevolucion) && formData.asignadoA && formData.asignadoA.trim()) {
+        if ((isAsignado || isDevolucion) && formData.asignadoA && (formData.asignadoA as string).trim()) {
           try {
-            const targetName = formData.asignadoA.trim().toLowerCase();
+            const targetName = (formData.asignadoA as string).trim().toLowerCase();
             const { data: perfiles, error: perfilError } = await supabase
               .from('perfiles')
               .select('id, nombre_completo')
@@ -282,8 +283,8 @@ export default function NuevaTarjetaScreen() {
                 datos_valores: { ...formData, asignado_a: matchedProfile.id }
               }).eq('id', nuevaTarjeta.id);
 
-              const itemsList = Array.isArray(formData.items) && formData.items.length > 0 ? formData.items : [formData];
-              const resumenItems = itemsList.map((it: any) => `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`).join(', ');
+              const itemsList = Array.isArray(formData.items) && formData.items.length > 0 ? (formData.items as TarjetaMaterialItem[]) : [formData as unknown as TarjetaMaterialItem];
+              const resumenItems = itemsList.map((it) => `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`).join(', ');
               const mensaje = isDevolucion
                 ? `Se registró la devolución de ${resumenItems} al almacén correctamente.`
                 : `Se te asignó ${resumenItems}. Este material está ahora en tu custodia.`;
@@ -319,8 +320,8 @@ export default function NuevaTarjetaScreen() {
       } else {
         Alert.alert('Éxito', mensajeExito, [{ text: 'OK', onPress: navigateBack }]);
       }
-    } catch (e: any) {
-      Alert.alert('Error', 'No se pudo guardar: ' + e.message);
+    } catch (e: unknown) {
+      Alert.alert('Error', 'No se pudo guardar: ' + (e as Error).message);
     } finally {
       setIsSubmitting(false);
     }
@@ -363,8 +364,8 @@ export default function NuevaTarjetaScreen() {
 
       <ModalMapaUbicacion
         visible={mapaVisible}
-        latitud={formData.latitud}
-        longitud={formData.longitud}
+        latitud={typeof formData.latitud === 'number' ? formData.latitud : null}
+        longitud={typeof formData.longitud === 'number' ? formData.longitud : null}
         ubicacionTemporal={ubicacionTemporal}
         setUbicacionTemporal={setUbicacionTemporal}
         onConfirmar={(loc) => {

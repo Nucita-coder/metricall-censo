@@ -9,13 +9,14 @@ import { renderSection } from './SeccionRegistro';
 import { useSyncQueue } from '../../../hooks/useSyncQueue';
 import { HistorialGestionList } from './HistorialGestionList';
 import { DropdownSelector, EvidenciaUpload } from './FormularioGestionForm';
+import { GestionItem, TarjetaDatosValores } from '../../../types/kanban';
 
 export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving, onSolicitarConversionVenta, soloHistorial }: FaseProps) => {
   const { addJob } = useSyncQueue();
-  const gestiones = tarjeta.datos_valores?.gestiones || [];
-  const hasGestion1 = gestiones.some((g: any) => g.etapa === 'gestion_1');
-  const hasGestion2 = gestiones.some((g: any) => g.etapa === 'gestion_2');
-  const fechaAgendada = tarjeta.datos_valores?.fecha_gestion_2;
+  const gestiones = (tarjeta.datos_valores?.gestiones as Array<GestionItem & Record<string, unknown>>) || [];
+  const hasGestion1 = gestiones.some((g) => g.etapa === 'gestion_1');
+  const hasGestion2 = gestiones.some((g) => g.etapa === 'gestion_2');
+  const fechaAgendada = tarjeta.datos_valores?.fecha_gestion_2 ? String(tarjeta.datos_valores.fecha_gestion_2) : '';
 
   // Estados GESTION 1
   const [tipoContacto1, setTipoContacto1] = useState('');
@@ -69,7 +70,7 @@ export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving
 
     setIsSaving(true);
     try {
-      const nuevaGestion: any = {
+      const nuevaGestion: Record<string, unknown> = {
         etapa: 'gestion_1',
         fecha: fechaActualStr,
         tipoContacto: tipoContacto1,
@@ -81,7 +82,7 @@ export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving
         nuevaGestion.motivoRechazo = motivoRechazo;
       }
 
-      const payload: any = { gestiones: [...gestiones, nuevaGestion] };
+      const payload: Partial<TarjetaDatosValores> = { gestiones: [...gestiones, nuevaGestion as unknown as GestionItem] };
       if (opcionesAgendar.includes(resultado1)) {
         payload.fecha_gestion_2 = fechaContacto2.toLocaleString();
       }
@@ -118,7 +119,7 @@ export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving
         await onUpdateTarjeta(payload);
         Alert.alert('Éxito', 'Gestión 1 registrada exitosamente.');
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       Alert.alert('Error', 'No se pudo guardar la gestión.');
     } finally {
       setIsSaving(false);
@@ -165,11 +166,11 @@ export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving
         setResultado2('');
         setEvidenciaUrl2('');
       } else {
-        const payload: any = { gestiones: [...gestiones, nuevaGestion] };
+        const payload: Partial<TarjetaDatosValores> = { gestiones: [...gestiones, nuevaGestion as unknown as GestionItem] };
         await onUpdateTarjeta(payload);
         Alert.alert('Éxito', 'Gestión 2 registrada exitosamente.');
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       Alert.alert('Error', 'No se pudo guardar la gestión.');
     } finally {
       setIsSaving(false);
@@ -183,7 +184,7 @@ export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving
   return (
     <View>
       {/* FORMULARIO GESTIÓN 1 */}
-      {!hasGestion1 && renderSection("Gestión 1", (
+      {!hasGestion1 ? renderSection("Gestión 1", (
         <View>
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' }}>Fecha y Hora</Text>
@@ -246,10 +247,10 @@ export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving
             {isSaving ? <ActivityIndicator color="#FFF" /> : <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Registrar Gestión 1</Text>}
           </TouchableOpacity>
         </View>
-      ))}
+      )) : null}
 
       {/* FORMULARIO GESTIÓN 2 */}
-      {hasGestion1 && fechaAgendada && !hasGestion2 && renderSection("Gestión 2 (Cierre)", (
+      {(hasGestion1 && Boolean(fechaAgendada) && !hasGestion2) ? renderSection("Gestión 2 (Cierre)", (
         <View>
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' }}>Fecha Agendada para hoy</Text>
@@ -268,7 +269,7 @@ export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving
             {isSaving ? <ActivityIndicator color="#FFF" /> : <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Cerrar Gestión 2</Text>}
           </TouchableOpacity>
         </View>
-      ))}
+      )) : null}
 
       <HistorialGestionList gestiones={gestiones} />
     </View>

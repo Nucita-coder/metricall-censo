@@ -1,12 +1,29 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import { Check, Settings, ShieldAlert, Trash2, X } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { router, Href } from 'expo-router';
+
+export interface EquipoMemberItem {
+  id: string;
+  rol?: string;
+  nombre_completo?: string;
+  avatar_url?: string | null;
+  mensaje?: string | null;
+  etiquetas?: string[];
+  created_at?: string;
+  perfil?: {
+    id?: string;
+    nombre_completo?: string;
+    avatar_url?: string | null;
+    mensaje?: string | null;
+    rol?: string;
+  } | null;
+}
 
 interface EquipoMemberCardProps {
   type: 'solicitud' | 'activo';
-  item: any;
-  onAceptar?: (item: any) => void;
+  item: EquipoMemberItem;
+  onAceptar?: (item: EquipoMemberItem) => void;
   onRechazar?: (id: string) => void;
   onBloquear?: (id: string) => void;
   onEliminar?: (id: string, nombre?: string) => void;
@@ -52,7 +69,7 @@ export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear
           {renderAvatar()}
           <View style={styles.cardTextContent}>
             <Text style={styles.cardName}>{nombre}</Text>
-            <Text style={styles.cardDate}>Solicitado el: {new Date(item.created_at).toLocaleDateString()}</Text>
+            <Text style={styles.cardDate}>Solicitado el: {item.created_at ? new Date(item.created_at).toLocaleDateString() : '—'}</Text>
             {mensaje ? (
               <Text style={styles.cardMensaje} numberOfLines={2}>
                 "{mensaje}"
@@ -110,7 +127,7 @@ export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           {item.rol === 'empleado' && (
-            <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push(`/(drawer)/gestion/permisos/${item.id}` as any)}>
+            <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push(`/(drawer)/gestion/permisos/${item.id}` as Href)}>
               <Settings size={22} color="#666" />
             </TouchableOpacity>
           )}

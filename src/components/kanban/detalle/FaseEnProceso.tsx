@@ -11,6 +11,7 @@ import { FaseProps, findListaTarget, getAtencionFallasListaId } from './types';
 import { renderSection } from './SeccionRegistro';
 import { uploadImageToSupabase } from '../../../services/uploadImage';
 import { GeofotoTool } from './GeofotoTool';
+import { Tarjeta, TarjetaMaterialItem } from '../../../types/kanban';
 
 export const FaseEnProceso = ({
   tarjeta,
@@ -39,7 +40,7 @@ export const FaseEnProceso = ({
 
   const [tipoInstalacion, setTipoInstalacion] = useState(data.tipoInstalacion || '');
   const [serialEquipo, setSerialEquipo] = useState(data.serialEquipo || '');
-  const [macEquipo, setMacEquipo] = useState(data.macEquipo || '');
+  const [macEquipo, setMacEquipo] = useState(data.mac_equipo || '');
   const [puertoAsignado, setPuertoAsignado] = useState(data.puertoAsignado || '');
   const [puertosDisponibles, setPuertosDisponibles] = useState(data.puertosDisponibles || '');
   const [nroNap, setNroNap] = useState(data.nroNap || '');
@@ -47,13 +48,13 @@ export const FaseEnProceso = ({
   const [potenciaCasa, setPotenciaCasa] = useState(data.potencia_casa || '');
   const [cableDrop, setCableDrop] = useState(data.cable_drop || '');
   const [mostrarDropdownCable, setMostrarDropdownCable] = useState(false);
-  const [geoNap, setGeoNap] = useState<{ lat: number, lng: number } | null>(data.geo_nap || null);
-  const [geoCasa, setGeoCasa] = useState<{ lat: number, lng: number } | null>(data.geo_casa || null);
+  const [geoNap, setGeoNap] = useState<{ lat: number; lng: number } | null>((data.geo_nap && typeof data.geo_nap.lat === 'number' && typeof data.geo_nap.lng === 'number') ? { lat: data.geo_nap.lat, lng: data.geo_nap.lng } : null);
+  const [geoCasa, setGeoCasa] = useState<{ lat: number; lng: number } | null>((data.geo_casa && typeof data.geo_casa.lat === 'number' && typeof data.geo_casa.lng === 'number') ? { lat: data.geo_casa.lat, lng: data.geo_casa.lng } : null);
   const [geoFotos, setGeoFotos] = useState<string[]>(data.geofotos || []);
   const [obteniendoGeoNap, setObteniendoGeoNap] = useState(false);
   const [obteniendoGeoCasa, setObteniendoGeoCasa] = useState(false);
 
-  const [materiales, setMateriales] = useState<any>(data.materiales || {
+  const [materiales, setMateriales] = useState<Record<string, string>>((data.materiales as Record<string, string>) || {
     tensorPlastico: '',
     tensorHierro: '',
     grapas: '',
@@ -81,10 +82,10 @@ export const FaseEnProceso = ({
       if (!rows) return;
       const mapaStock: Record<string, number> = {};
 
-      rows.forEach((row: any) => {
+      (rows as unknown as Tarjeta[]).forEach((row) => {
         const v = row.datos_valores || {};
         const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
-        const miembro = (v.asignadoA || v.recibidoPor || '').toString().trim().toUpperCase();
+        const miembro = (v.asignadoA || (v.recibidoPor as string) || '').toString().trim().toUpperCase();
         const isMatch = miembro === targetTecnico || (miembro && targetTecnico && (miembro.includes(targetTecnico) || targetTecnico.includes(miembro)));
 
         const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
@@ -92,10 +93,10 @@ export const FaseEnProceso = ({
 
         if (isMatch && (isAsignado || isDevolucion)) {
           const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
-          itemsList.forEach((item: any) => {
+          (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((item) => {
             const cod = (item.codigoMaterial || '').trim().toUpperCase();
             const nom = (item.nombreMaterial || '').trim().toUpperCase();
-            const cant = parseFloat(item.cantidadRecibida || '0') || 0;
+            const cant = parseFloat(item.cantidadRecibida as string || '0') || 0;
             const key = cod || nom;
             if (key) {
               if (!mapaStock[key]) mapaStock[key] = 0;
@@ -126,13 +127,15 @@ export const FaseEnProceso = ({
             cableDrop: 'MAT-CABLE-DROP'
           };
 
-          Object.keys(v.materiales).forEach((fk) => {
-            const cantUsed = parseFloat(v.materiales[fk] || '0') || 0;
-            if (cantUsed > 0 && fieldMap[fk]) {
-              const k = fieldMap[fk];
-              if (mapaStock[k] !== undefined) mapaStock[k] -= cantUsed;
-            }
-          });
+          if (v.materiales && typeof v.materiales === 'object') {
+            Object.keys(v.materiales).forEach((fk) => {
+              const cantUsed = parseFloat(String(v.materiales?.[fk] || '0')) || 0;
+              if (cantUsed > 0 && fieldMap[fk]) {
+                const k = fieldMap[fk];
+                if (mapaStock[k] !== undefined) mapaStock[k] -= cantUsed;
+              }
+            });
+          }
         }
       });
 
@@ -198,7 +201,7 @@ export const FaseEnProceso = ({
                   onChangeText={val => {
                     const cleaned = val.replace(/[^0-9]/g, '');
                     if (!cleaned) {
-                      setMateriales((p: any) => ({ ...p, [item.key]: '' }));
+                      setMateriales((p) => ({ ...p, [item.key]: '' }));
                       return;
                     }
                     const inputNum = parseInt(cleaned, 10);
@@ -207,10 +210,10 @@ export const FaseEnProceso = ({
                         "Acción no permitida",
                         `No posees suficiente stock de ${item.label} en tu custodia (Disponible: ${disp} und.). Solicita una carga a Almacén.`
                       );
-                      setMateriales((p: any) => ({ ...p, [item.key]: '' }));
+                      setMateriales((p) => ({ ...p, [item.key]: '' }));
                       return;
                     }
-                    setMateriales((p: any) => ({ ...p, [item.key]: cleaned }));
+                    setMateriales((p) => ({ ...p, [item.key]: cleaned }));
                   }}
                   editable={!readOnly && !isSaving}
                 />
@@ -256,7 +259,7 @@ export const FaseEnProceso = ({
                       setMostrarDropdownCable(false);
                       return;
                     }
-                    setMateriales((p: any) => ({ ...p, cablePreconectorizado: opcion }));
+                    setMateriales((p) => ({ ...p, cablePreconectorizado: opcion }));
                     setMostrarDropdownCable(false);
                   }}
                 >
@@ -457,9 +460,9 @@ export const FaseEnProceso = ({
                   isFalla ? '¡Falla Atendida!' : '¡Instalación Exitosa!',
                   isFalla ? "La tarjeta fue completada y enviada a 'En Revisión'." : "La tarjeta pasó a 'Por Activar'."
                 );
-              } catch (e: any) {
+              } catch (e: unknown) {
                 console.error('[FaseEnProceso] Error al procesar:', e);
-                Alert.alert('Error', e.message || 'No se pudo completar el proceso.');
+                Alert.alert('Error', (e as Error).message || 'No se pudo completar el proceso.');
               } finally {
                 setIsSaving(false);
               }

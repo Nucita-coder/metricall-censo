@@ -98,8 +98,8 @@ export function ModalSoporteTecnico({ visible, onClose }: ModalSoporteTecnicoPro
           await cargarMensajesChat(currentUserId, techId);
         }
       }
-    } catch (e: any) {
-      console.error('Error al inicializar soporte:', e.message);
+    } catch (e: unknown) {
+      console.error('Error al inicializar soporte:', (e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -115,7 +115,16 @@ export function ModalSoporteTecnico({ visible, onClose }: ModalSoporteTecnicoPro
 
       if (error) throw error;
       const mapConversaciones = new Map<string, UsuarioConversacion>();
-      (data || []).forEach((m: any) => {
+      interface RowSoporteMensaje {
+        id: string;
+        emisor_id: string;
+        receptor_id: string;
+        mensaje: string;
+        created_at: string;
+        leido: boolean;
+        perfiles?: { nombre_completo?: string } | null;
+      }
+      ((data || []) as unknown as RowSoporteMensaje[]).forEach((m) => {
         const otroId = m.emisor_id === techId ? m.receptor_id : m.emisor_id;
         const nombreOtro = m.perfiles?.nombre_completo || 'Usuario';
         if (!mapConversaciones.has(otroId)) {
@@ -129,8 +138,8 @@ export function ModalSoporteTecnico({ visible, onClose }: ModalSoporteTecnicoPro
         }
       });
       setConversaciones(Array.from(mapConversaciones.values()));
-    } catch (e: any) {
-      console.error('Error al cargar conversaciones:', e.message);
+    } catch (e: unknown) {
+      console.error('Error al cargar conversaciones:', (e as Error).message);
     }
   };
 
@@ -159,7 +168,7 @@ export function ModalSoporteTecnico({ visible, onClose }: ModalSoporteTecnicoPro
           await supabase.from('soporte_mensajes').update({ leido: true }).in('id', noLeidosIds);
         }
       }
-    } catch (e: any) {
+    } catch (_: unknown) {
       setMensajes([]);
     }
   };
@@ -201,8 +210,8 @@ export function ModalSoporteTecnico({ visible, onClose }: ModalSoporteTecnicoPro
 
       if (error) throw error;
       await cargarMensajesChat(currentUserId, receptorId);
-    } catch (e: any) {
-      console.error('Error enviando mensaje:', e.message);
+    } catch (e: unknown) {
+      console.error('Error enviando mensaje:', (e as Error).message);
     } finally {
       setSending(false);
     }
@@ -226,8 +235,8 @@ export function ModalSoporteTecnico({ visible, onClose }: ModalSoporteTecnicoPro
           await handleEnviarMensaje(`[IMG]${publicUrl}`);
         }
       }
-    } catch (e: any) {
-      console.error('Error seleccionando/subiendo imagen:', e.message);
+    } catch (e: unknown) {
+      console.error('Error seleccionando/subiendo imagen:', (e as Error).message);
     } finally {
       setUploadingImage(false);
     }
@@ -331,17 +340,11 @@ export function ModalSoporteTecnico({ visible, onClose }: ModalSoporteTecnicoPro
         {/* Modal de Imagen Expandida */}
         <Modal visible={!!imagenExpandida} transparent animationType="fade" onRequestClose={() => setImagenExpandida(null)}>
           <View style={styles.fullImgOverlay}>
-            <TouchableOpacity style={styles.closeFullImg} onPress={() => setImagenExpandida(null)}>
-              <X size={28} color="#FFF" />
-            </TouchableOpacity>
-            {imagenExpandida && (
-              <Image source={{ uri: imagenExpandida }} style={styles.fullImg} resizeMode="contain" />
-            )}
+            <TouchableOpacity style={styles.closeFullImg} onPress={() => setImagenExpandida(null)}><X size={28} color="#FFF" /></TouchableOpacity>
+            {imagenExpandida ? <Image source={{ uri: imagenExpandida }} style={styles.fullImg} resizeMode="contain" /> : null}
           </View>
         </Modal>
       </View>
     </Modal>
   );
 }
-
-

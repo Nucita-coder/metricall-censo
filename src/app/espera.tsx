@@ -5,10 +5,16 @@ import { supabase } from '../lib/supabase';
 import { LogOut, Building, Clock, ShieldAlert } from 'lucide-react-native';
 
 
+interface SolicitudEstado {
+  id: string;
+  estado: string;
+  empresas?: { nombre: string } | null;
+}
+
 export default function EsperaScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [solicitud, setSolicitud] = useState<any>(null);
+  const [solicitud, setSolicitud] = useState<SolicitudEstado | null>(null);
   const [codigo, setCodigo] = useState('');
 
   useEffect(() => {
@@ -100,8 +106,8 @@ export default function EsperaScreen() {
       Alert.alert('¡Solicitud Enviada!', `Se ha enviado tu petición para unirte a ${empresa.nombre}.`);
       checkSolicitudStatus(); // Refrescar pantalla
 
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Error', (error as Error).message);
     } finally {
       setSubmitting(false);
     }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as shareAsync from 'expo-sharing';
 import { printToFileAsync } from 'expo-print';
@@ -20,12 +20,25 @@ export const FaseClienteActivo = ({ tarjeta, isSaving }: FaseProps) => {
             const htmlEstructural = generarHTMLInforme(tarjeta);
             const { base64 } = await printToFileAsync({ html: htmlEstructural, base64: true });
             
-            const finalUri = FileSystem.documentDirectory + `Reporte_Instalacion_${tarjeta.id}.pdf`;
-            await FileSystem.writeAsStringAsync(finalUri, base64!, { encoding: FileSystem.EncodingType.Base64 });
-
-            await shareAsync.shareAsync(finalUri, { mimeType: 'application/pdf', dialogTitle: 'Descargar Informe' });
-          } catch (error: any) {
-            Alert.alert("Error", "No se pudo generar el PDF: " + error.message);
+            if (Platform.OS === 'web') {
+              const link = document.createElement('a');
+              link.href = `data:application/pdf;base64,${base64}`;
+              link.download = `Reporte_Instalacion_${tarjeta.id}.pdf`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            } else {
+              const finalUri = (FileSystem.documentDirectory || '') + `Reporte_Instalacion_${tarjeta.id}.pdf`;
+              await FileSystem.writeAsStringAsync(finalUri, base64!, { encoding: FileSystem.EncodingType.Base64 });
+              await shareAsync.shareAsync(finalUri, { mimeType: 'application/pdf', dialogTitle: 'Descargar Informe' });
+            }
+          } catch (error: unknown) {
+            const msg = (error as Error).message || String(error);
+            if (Platform.OS === 'web') {
+              alert("Error al generar el PDF: " + msg);
+            } else {
+              Alert.alert("Error", "No se pudo generar el PDF: " + msg);
+            }
           }
         }}
         disabled={isSaving}

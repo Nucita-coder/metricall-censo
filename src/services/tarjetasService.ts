@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { Tarjeta } from '../types/kanban';
 
 export interface FetchTarjetasOptions {
   listaIds?: string[];
@@ -13,7 +14,7 @@ export interface FetchTarjetasOptions {
  * Realiza consultas paginadas en lotes a la tabla 'tarjetas'
  * eliminando el límite por defecto de 1000 filas impuesto por Supabase PostgREST.
  */
-export async function fetchTodasLasTarjetas(options: FetchTarjetasOptions = {}): Promise<any[]> {
+export async function fetchTodasLasTarjetas(options: FetchTarjetasOptions = {}): Promise<Tarjeta[]> {
   const {
     listaIds,
     empresaId,
@@ -24,7 +25,7 @@ export async function fetchTodasLasTarjetas(options: FetchTarjetasOptions = {}):
   } = options;
 
   const PAGE_SIZE = 1000;
-  const allTarjetas: any[] = [];
+  const allTarjetas: Tarjeta[] = [];
   let from = 0;
   let hasMore = true;
 
@@ -49,7 +50,7 @@ export async function fetchTodasLasTarjetas(options: FetchTarjetasOptions = {}):
     if (error) throw error;
 
     if (data && data.length > 0) {
-      allTarjetas.push(...data);
+      allTarjetas.push(...(data as unknown as Tarjeta[]));
       if (data.length < PAGE_SIZE) {
         hasMore = false;
       } else {

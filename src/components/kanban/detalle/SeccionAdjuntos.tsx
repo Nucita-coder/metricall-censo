@@ -41,9 +41,9 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
 
       await onUpdateTarjeta({ adjuntos: nuevosAdjuntos });
       Alert.alert('Éxito', 'Imagen adjuntada correctamente.');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[SeccionAdjuntos] Error al subir imagen:', error);
-      Alert.alert('Error al subir imagen', error.message || 'Ocurrió un error inesperado');
+      Alert.alert('Error al subir imagen', (error as Error).message || 'Ocurrió un error inesperado');
     } finally {
       setSubiendoImagen(false);
     }
@@ -63,9 +63,9 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
       if (!result.canceled && result.assets && result.assets.length > 0) {
         uploadImage(result.assets[0].uri, result.assets[0].base64);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[SeccionAdjuntos] Error galería:', e);
-      Alert.alert('Error', e.message || 'No se pudo seleccionar la imagen.');
+      Alert.alert('Error', (e as Error).message || 'No se pudo seleccionar la imagen.');
     }
   };
 
@@ -82,9 +82,9 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
       if (!result.canceled && result.assets && result.assets.length > 0) {
         uploadImage(result.assets[0].uri, result.assets[0].base64);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[SeccionAdjuntos] Error cámara:', e);
-      Alert.alert('Error', e.message || 'No se pudo tomar la foto.');
+      Alert.alert('Error', (e as Error).message || 'No se pudo tomar la foto.');
     }
   };
 
@@ -130,7 +130,7 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
         </TouchableOpacity>
       )}
 
-      {data.adjuntos?.length > 0 && (
+      {Boolean(data.adjuntos && data.adjuntos.length > 0) && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
           {data.adjuntos?.map((url: string, index: number) => {
             const isPdf = typeof url === 'string' && url.toLowerCase().includes('.pdf');
@@ -192,7 +192,7 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
                     elevation: 3,
                   }}
                   onPress={async () => {
-                    const nuevosAdjuntos = (data.adjuntos || []).filter((_: any, i: number) => i !== index);
+                    const nuevosAdjuntos = (data.adjuntos || []).filter((_, i: number) => i !== index);
                     await onUpdateTarjeta({ adjuntos: nuevosAdjuntos });
                   }}
                 >

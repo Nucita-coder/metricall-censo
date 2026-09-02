@@ -117,8 +117,8 @@ export default function RegisterScreen() {
         }
       );
 
-    } catch (error: any) {
-      showAlert('Error en Registro', error.message || 'Error desconocido');
+    } catch (error: unknown) {
+      showAlert('Error en Registro', (error as Error).message || 'Error desconocido');
     } finally {
       setLoading(false);
     }

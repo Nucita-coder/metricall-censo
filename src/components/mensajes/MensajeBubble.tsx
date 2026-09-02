@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 import { FolderKanban, ListFilter, FileText, ExternalLink } from 'lucide-react-native';
 import { MensajeGlobal } from '../../services/mensajesService';
 
@@ -35,11 +35,11 @@ export function MensajeBubble({ mensaje, esMio, onExpandirImagen }: MensajeBubbl
     const tarId = adjunto.id || mensaje.tarjeta_id;
 
     if (adjunto.tipo === 'tarjeta' && tabId && tarId) {
-      router.push(`/tablero/${tabId}?abrirTarjeta=${tarId}&resaltarTarjeta=${tarId}` as any);
+      router.push(`/tablero/${tabId}?abrirTarjeta=${tarId}&resaltarTarjeta=${tarId}` as Href);
     } else if (adjunto.tipo === 'lista' && tabId && lisId) {
-      router.push(`/tablero/${tabId}?resaltarLista=${lisId}` as any);
+      router.push(`/tablero/${tabId}?resaltarLista=${lisId}` as Href);
     } else if (tabId) {
-      router.push(`/tablero/${tabId}?resaltarTablero=true` as any);
+      router.push(`/tablero/${tabId}?resaltarTablero=true` as Href);
     }
   };
 

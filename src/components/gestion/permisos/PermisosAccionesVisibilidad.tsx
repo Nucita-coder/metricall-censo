@@ -1,24 +1,26 @@
 import React from 'react';
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
-interface PermisosAccionesVisibilidadProps {
-  permisos: {
-    tarjetas_visibilidad: 'todas' | 'propias';
-    acciones: { crear: boolean; editar: boolean; borrar: boolean };
-  };
-  setPermisos: React.Dispatch<React.SetStateAction<any>>;
+export interface PermisosConfig {
+  tarjetas_visibilidad: 'todas' | 'propias';
+  acciones: { crear: boolean; editar: boolean; borrar: boolean };
+}
+
+interface PermisosAccionesVisibilidadProps<T extends PermisosConfig = PermisosConfig> {
+  permisos: T;
+  setPermisos: React.Dispatch<React.SetStateAction<T>>;
   etiquetas: string[];
   setEtiquetas: React.Dispatch<React.SetStateAction<string[]>>;
   opcionesEtiquetas: string[];
 }
 
-export function PermisosAccionesVisibilidad({
+export function PermisosAccionesVisibilidad<T extends PermisosConfig>({
   permisos,
   setPermisos,
   etiquetas,
   setEtiquetas,
   opcionesEtiquetas,
-}: PermisosAccionesVisibilidadProps) {
+}: PermisosAccionesVisibilidadProps<T>) {
   return (
     <>
       <View style={styles.sectionBlock}>
@@ -27,7 +29,7 @@ export function PermisosAccionesVisibilidad({
           <Text style={styles.switchLabel}>Crear Tarjetas</Text>
           <Switch
             value={permisos.acciones.crear}
-            onValueChange={(val) => setPermisos((p: any) => ({ ...p, acciones: { ...p.acciones, crear: val } }))}
+            onValueChange={(val) => setPermisos((p) => ({ ...p, acciones: { ...p.acciones, crear: val } }))}
             trackColor={{ false: '#384148', true: '#0C66E4' }}
             thumbColor={permisos.acciones.crear ? '#FFF' : '#8C9BAB'}
           />
@@ -36,7 +38,7 @@ export function PermisosAccionesVisibilidad({
           <Text style={styles.switchLabel}>Editar Tarjetas</Text>
           <Switch
             value={permisos.acciones.editar}
-            onValueChange={(val) => setPermisos((p: any) => ({ ...p, acciones: { ...p.acciones, editar: val } }))}
+            onValueChange={(val) => setPermisos((p) => ({ ...p, acciones: { ...p.acciones, editar: val } }))}
             trackColor={{ false: '#384148', true: '#0C66E4' }}
             thumbColor={permisos.acciones.editar ? '#FFF' : '#8C9BAB'}
           />
@@ -45,7 +47,7 @@ export function PermisosAccionesVisibilidad({
           <Text style={styles.switchLabel}>Borrar Tarjetas</Text>
           <Switch
             value={permisos.acciones.borrar}
-            onValueChange={(val) => setPermisos((p: any) => ({ ...p, acciones: { ...p.acciones, borrar: val } }))}
+            onValueChange={(val) => setPermisos((p) => ({ ...p, acciones: { ...p.acciones, borrar: val } }))}
             trackColor={{ false: '#384148', true: '#0C66E4' }}
             thumbColor={permisos.acciones.borrar ? '#FFF' : '#8C9BAB'}
           />
@@ -57,13 +59,13 @@ export function PermisosAccionesVisibilidad({
         <View style={styles.selectorContainer}>
           <TouchableOpacity
             style={[styles.selectorBtn, permisos.tarjetas_visibilidad === 'propias' && styles.selectorBtnActive]}
-            onPress={() => setPermisos((p: any) => ({ ...p, tarjetas_visibilidad: 'propias' }))}
+            onPress={() => setPermisos((p) => ({ ...p, tarjetas_visibilidad: 'propias' }))}
           >
             <Text style={[styles.selectorBtnText, permisos.tarjetas_visibilidad === 'propias' && styles.selectorBtnTextActive]}>Solo Propias</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.selectorBtn, permisos.tarjetas_visibilidad === 'todas' && styles.selectorBtnActive]}
-            onPress={() => setPermisos((p: any) => ({ ...p, tarjetas_visibilidad: 'todas' }))}
+            onPress={() => setPermisos((p) => ({ ...p, tarjetas_visibilidad: 'todas' }))}
           >
             <Text style={[styles.selectorBtnText, permisos.tarjetas_visibilidad === 'todas' && styles.selectorBtnTextActive]}>Todas</Text>
           </TouchableOpacity>

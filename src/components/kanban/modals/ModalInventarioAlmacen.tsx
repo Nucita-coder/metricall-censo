@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions, TextStyle } from 'react-native';
 import { Package, Search, X, RefreshCw, ArrowUpRight, ArrowDownRight, SlidersHorizontal, ChevronDown, BarChart3, UserCheck, History } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
 import { useAuth } from '../../../context/AuthContext';
 import { WEB_MODAL_CONTAINER } from '../../../constants/theme';
+import { TarjetaMaterialItem } from '../../../types/kanban';
 
 export interface MaterialStockItem {
   codigoMaterial: string;
@@ -52,14 +53,14 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
       if (!data) return;
 
       const mapa: Record<string, MaterialStockItem> = {};
-      data.forEach((row: any) => {
+      data.forEach((row) => {
         const v = row.datos_valores || {};
         const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
         const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
-        itemsList.forEach((subItem: any) => {
+        (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((subItem) => {
           const cod = (subItem.codigoMaterial || '').trim().toUpperCase();
           if (!cod) return;
-          const cant = parseFloat(subItem.cantidadRecibida || '0') || 0;
+          const cant = parseFloat(subItem.cantidadRecibida as string || '0') || 0;
           const fechaIngreso = v.fechaRecibido || row.created_at;
 
           if (!mapa[cod]) {
@@ -186,7 +187,7 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
             <View style={s.searchBox}>
               <Search size={14} color="#6B7280" />
               <TextInput
-                style={s.searchInput as any}
+                style={s.searchInput as TextStyle}
                 placeholder="Buscar código, material, modelo..."
                 placeholderTextColor="#6B7280"
                 value={searchQuery}
@@ -217,8 +218,13 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
               <View style={s.filterGroup}>
                 <Text style={s.filterGroupTitle}>Estado de Stock:</Text>
                 <View style={s.pillsRow}>
-                  {[{ key: 'all', label: `Todos (${materiales.length})` }, { key: 'ok', label: 'Óptimo (>=10)' }, { key: 'low', label: 'Crítico (<10)' }, { key: 'zero', label: 'Agotado (0)' }].map((item) => (
-                    <TouchableOpacity key={item.key} onPress={() => setFiltroStock(item.key as any)} style={[s.pill, filtroStock === item.key && s.pillActive]}>
+                  {([
+                    { key: 'all' as const, label: `Todos (${materiales.length})` },
+                    { key: 'ok' as const, label: 'Óptimo (>=10)' },
+                    { key: 'low' as const, label: 'Crítico (<10)' },
+                    { key: 'zero' as const, label: 'Agotado (0)' }
+                  ]).map((item) => (
+                    <TouchableOpacity key={item.key} onPress={() => setFiltroStock(item.key)} style={[s.pill, filtroStock === item.key && s.pillActive]}>
                       <Text style={[s.pillTxt, filtroStock === item.key && s.pillTxtActive]}>{item.label}</Text>
                     </TouchableOpacity>
                   ))}
@@ -228,8 +234,12 @@ export function ModalInventarioAlmacen({ visible, onClose }: ModalInventarioAlma
               <View style={s.filterGroup}>
                 <Text style={s.filterGroupTitle}>Ordenar por:</Text>
                 <View style={s.pillsRow}>
-                  {[{ key: 'nombre', label: 'Nombre A-Z' }, { key: 'stockDesc', label: 'Mayor Stock' }, { key: 'stockAsc', label: 'Menor Stock' }].map((item) => (
-                    <TouchableOpacity key={item.key} onPress={() => setOrden(item.key as any)} style={[s.pill, orden === item.key && s.pillActive]}>
+                  {([
+                    { key: 'nombre' as const, label: 'Nombre A-Z' },
+                    { key: 'stockDesc' as const, label: 'Mayor Stock' },
+                    { key: 'stockAsc' as const, label: 'Menor Stock' }
+                  ]).map((item) => (
+                    <TouchableOpacity key={item.key} onPress={() => setOrden(item.key)} style={[s.pill, orden === item.key && s.pillActive]}>
                       <Text style={[s.pillTxt, orden === item.key && s.pillTxtActive]}>{item.label}</Text>
                     </TouchableOpacity>
                   ))}

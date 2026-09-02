@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ComentarioItem } from '../../../types/kanban';
 
 interface SeccionComentariosProps {
   nuevoComentario: string;
@@ -7,7 +8,7 @@ interface SeccionComentariosProps {
   handleEnviarComentario: () => void;
   isSaving: boolean;
   puedeEditar: boolean;
-  comentarios: any[];
+  comentarios: ComentarioItem[];
   isDesktop: boolean;
 }
 
@@ -74,7 +75,7 @@ export function SeccionComentarios({
       {!comentarios || comentarios.length === 0 ? (
         <Text style={{ textAlign: 'left', color: '#8C9BAB', fontSize: 14, marginTop: 12 }}>No hay comentarios aún.</Text>
       ) : (
-        comentarios.map((c: any, i: number) => (
+        comentarios.map((c: ComentarioItem, i: number) => (
           <View key={i} style={{ backgroundColor: '#2C333A', padding: 14, borderRadius: 8, marginBottom: 12 }}>
             <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#8C9BAB', marginBottom: 6 }}>
               {c.autor} • {c.fecha}

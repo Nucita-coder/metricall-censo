@@ -9,7 +9,7 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
-import { X, HelpCircle, BookOpen, Layers, ShieldCheck, LifeBuoy, ChevronRight } from 'lucide-react-native';
+import { X, HelpCircle, BookOpen, Layers, ShieldCheck, LifeBuoy, ChevronRight, LucideIcon } from 'lucide-react-native';
 
 interface ModalCentroAyudaProps {
   visible: boolean;
@@ -18,7 +18,7 @@ interface ModalCentroAyudaProps {
 
 interface SeccionFaq {
   id: string;
-  icon: any;
+  icon: LucideIcon;
   titulo: string;
   descripcion: string;
   detalles: string[];

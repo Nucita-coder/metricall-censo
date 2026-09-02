@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { ArrowLeftRight, Building2, MoreVertical, Plus, Search, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View, TextStyle } from 'react-native';
 import { DashboardBoardCard } from '../../../components/dashboard/DashboardBoardCard';
 import { ModalCrearRecurso } from '../../../components/dashboard/ModalCrearRecurso';
 import { ModalOpcionesTablero } from '../../../components/dashboard/ModalOpcionesTablero';
@@ -81,8 +81,8 @@ export default function DashboardScreen() {
       if (error) throw error;
       setOptionsModalVisible(false);
       fetchDashboardData(true);
-    } catch (e: any) {
-      Alert.alert('Error', e.message);
+    } catch (e: unknown) {
+      Alert.alert('Error', (e as Error).message);
     }
   };
 
@@ -100,7 +100,7 @@ export default function DashboardScreen() {
       return;
     }
     try {
-      let payloadToSave: any[] = [];
+      const payloadToSave: Array<{ id: string; orden: number }> = [];
       const updatedSucursales = sucursales.map(s => {
         if (!s.tableros) return s;
         const indexA = s.tableros.findIndex(t => t.id === boardToSwap.id);
@@ -129,8 +129,8 @@ export default function DashboardScreen() {
         const { error } = await supabase.rpc('actualizar_orden_tableros', { payload: payloadToSave });
         if (error) throw error;
       }
-    } catch (e: any) {
-      Alert.alert('Error al mover', e.message);
+    } catch (e: unknown) {
+      Alert.alert('Error al mover', (e as Error).message);
       fetchDashboardData(true);
     }
   };
@@ -142,8 +142,8 @@ export default function DashboardScreen() {
       if (error) throw error;
       setOptionsModalVisible(false);
       fetchDashboardData(true);
-    } catch (error: any) {
-      Alert.alert('Error al eliminar', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Error al eliminar', (error as Error).message);
     }
   };
 
@@ -195,8 +195,8 @@ export default function DashboardScreen() {
 
       setModalVisible(false);
       fetchDashboardData(true);
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Error', (error as Error).message);
     } finally {
       setIsCreating(false);
     }
@@ -241,7 +241,7 @@ export default function DashboardScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#22272B', borderRadius: 8, paddingHorizontal: 12, height: 44, marginBottom: 24, marginTop: 4, borderWidth: 1, borderColor: '#384148', marginHorizontal: 24 }}>
               <Search size={20} color="#9FADBC" />
               <TextInput
-                style={{ flex: 1, marginLeft: 8, fontSize: 15, color: '#FFF', outlineStyle: 'none' } as any}
+                style={{ flex: 1, marginLeft: 8, fontSize: 15, color: '#FFF', outlineStyle: 'none' } as unknown as TextStyle}
                 placeholder="Buscar tablero por nombre..."
                 placeholderTextColor="#9FADBC"
                 value={searchQuery}

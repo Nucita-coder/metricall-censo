@@ -185,8 +185,8 @@ export function ModalMapaUbicacion({
       }
       const loc = await Location.getCurrentPositionAsync({});
       updateCoords(loc.coords.latitude, loc.coords.longitude);
-    } catch (err: any) {
-      alert('Error obteniendo ubicación: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error obteniendo ubicación: ' + ((err as Error).message || String(err)));
     } finally {
       setIsLocating(false);
     }
@@ -295,7 +295,7 @@ export function ModalMapaUbicacion({
             {Platform.OS === 'web' ? (
               <iframe
                 srcDoc={interactiveHtml}
-                style={{ width: '100%', height: '100%', border: 'none' } as any}
+                style={{ width: '100%', height: '100%', border: 'none' } as React.CSSProperties}
               />
             ) : (
               <WebView

@@ -49,7 +49,7 @@ export default function AjustesScreen() {
         setInviteCode(data.codigo_invitacion || '');
         setLogoUrl(data.logo_url || null);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Error al cargar datos de empresa:', e);
     } finally {
       setLoading(false);

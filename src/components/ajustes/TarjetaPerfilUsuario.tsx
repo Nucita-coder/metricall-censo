@@ -79,8 +79,8 @@ export function TarjetaPerfilUsuario() {
         await refreshProfile();
         Alert.alert('Éxito', 'Foto de perfil actualizada correctamente.');
       }
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo actualizar la foto de perfil.');
+    } catch (e: unknown) {
+      Alert.alert('Error', (e as Error).message || 'No se pudo actualizar la foto de perfil.');
     } finally {
       setUploadingAvatar(false);
     }
@@ -106,8 +106,8 @@ export function TarjetaPerfilUsuario() {
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 2500);
       Alert.alert('Éxito', 'Tu perfil ha sido actualizado correctamente.');
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo actualizar el mensaje de perfil.');
+    } catch (e: unknown) {
+      Alert.alert('Error', (e as Error).message || 'No se pudo actualizar el mensaje de perfil.');
     } finally {
       setSavingProfile(false);
     }

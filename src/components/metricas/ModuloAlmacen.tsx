@@ -25,6 +25,7 @@ import {
   CheckCircle2,
 } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
+import { Tarjeta, TarjetaMaterialItem } from '../../types/kanban';
 
 export interface SKUDetailItem {
   codigoMaterial: string;
@@ -121,11 +122,11 @@ export function ModuloAlmacen({ empresaId }: ModuloAlmacenProps) {
       const desgloseAsignaciones: AsignacionDetallada[] = [];
       const mapaTecnicos: Record<string, TecnicoResumen> = {};
 
-      tarjetas.forEach((row: any) => {
+      (tarjetas as unknown as Tarjeta[]).forEach((row) => {
         const v = row.datos_valores || {};
         const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
 
-        let fechaCard = v.fechaInstalacion || v.fechaRecibido || v.fechaCenso || '';
+        let fechaCard = (v.fechaInstalacion as string) || (v.fechaRecibido as string) || (v.fechaCenso as string) || '';
         if (!fechaCard && row.created_at) {
           fechaCard = row.created_at.split('T')[0];
         }
@@ -139,15 +140,15 @@ export function ModuloAlmacen({ empresaId }: ModuloAlmacenProps) {
           const isAsignacion = !isDevAsignacion && !isDevCentral && (tipo.includes('ASIGN') || tipo.includes('MATERIAL ASIGNADO'));
           const isEntrada = !isAsignacion && !isDevAsignacion && !isDevCentral;
 
-          const tecnico = (v.asignadoA || v.recibidoPor || 'SIN TÉCNICO ASIGNADO').toString().trim().toUpperCase();
-          const entregado = (v.entregadoPor || 'ALMACÉN CENTRAL').toString().trim().toUpperCase();
-          const orden = v.nroOrdenEntrega || 'S/N';
-          const motivo = v.motivoAsignacion || 'Asignación de Material';
+          const tecnico = ((v.asignadoA as string) || (v.recibidoPor as string) || 'SIN TÉCNICO ASIGNADO').toString().trim().toUpperCase();
+          const entregado = ((v.entregadoPor as string) || 'ALMACÉN CENTRAL').toString().trim().toUpperCase();
+          const orden = (v.nroOrdenEntrega as string) || 'S/N';
+          const motivo = (v.motivoAsignacion as string) || 'Asignación de Material';
 
-          itemsList.forEach((subItem: any) => {
+          (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((subItem) => {
             const cod = (subItem.codigoMaterial || '').trim().toUpperCase();
             if (!cod) return;
-            const cant = parseFloat(subItem.cantidadRecibida || subItem.cantidad || '0') || 0;
+            const cant = parseFloat(String(subItem.cantidadRecibida || subItem.cantidad || '0')) || 0;
             const nombre = (subItem.nombreMaterial || 'MATERIAL').toUpperCase();
             const modelo = (subItem.modeloMaterial || 'GENERAL').toUpperCase();
             const serial = subItem.serialMaterial || '';
@@ -226,7 +227,7 @@ export function ModuloAlmacen({ empresaId }: ModuloAlmacenProps) {
           // Procesar consumo de materiales individuales
           if (v.materiales && typeof v.materiales === 'object') {
             Object.keys(v.materiales).forEach((fk) => {
-              const cantUsada = parseFloat(v.materiales[fk] || '0') || 0;
+              const cantUsada = parseFloat(String(v.materiales?.[fk] || '0')) || 0;
               if (cantUsada > 0 && MAPA_CAMPOS_INSTALACION[fk]) {
                 const itemMeta = MAPA_CAMPOS_INSTALACION[fk];
                 const cod = itemMeta.cod;

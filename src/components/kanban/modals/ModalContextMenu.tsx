@@ -1,7 +1,8 @@
-import { Archive, Calendar, Columns, Copy, Info, Tag, UserPlus } from 'lucide-react-native';
-import { Alert, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Archive, Calendar, Columns, Copy, Info, Tag, Trash2, UserPlus } from 'lucide-react-native';
+import { Alert, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Lista, Tarjeta } from '../../../types/kanban';
+import { useAuth } from '../../../context/AuthContext';
 
 interface ModalContextMenuProps {
   contextMenu: { visible: boolean; x: number; y: number; tarjeta: Tarjeta | null };
@@ -13,6 +14,7 @@ interface ModalContextMenuProps {
   onVerTrazabilidad: (tarjeta: Tarjeta) => void;
   onReasignarCaso: (tarjeta: Tarjeta) => void;
   onArchivarTarjeta: (tarjeta: Tarjeta) => void;
+  onEliminarTarjeta?: (tarjeta: Tarjeta) => void;
   tableroId: string;
 }
 
@@ -26,8 +28,13 @@ export const ModalContextMenu = ({
   onVerTrazabilidad,
   onReasignarCaso,
   onArchivarTarjeta,
+  onEliminarTarjeta,
   tableroId
 }: ModalContextMenuProps) => {
+  const { isDeveloper } = useAuth();
+  const rol = (userRol || '').toLowerCase();
+  const canDelete = isDeveloper || ['lider', 'admin', 'administrador', 'developer', 'desarrollador'].includes(rol);
+
   if (!contextMenu.visible || !contextMenu.tarjeta) return null;
 
   return (
@@ -44,7 +51,7 @@ export const ModalContextMenu = ({
         borderWidth: 1,
         borderColor: '#384148',
         ...Platform.select({
-          web: { boxShadow: '0px 0px 10px rgba(0,0,0,0.5)' } as any,
+          web: { boxShadow: '0px 0px 10px rgba(0,0,0,0.5)' } as unknown as ViewStyle,
           default: { shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 10, elevation: 10 }
         })
       }}>
@@ -108,6 +115,19 @@ export const ModalContextMenu = ({
           <Archive size={16} color="#B6C2CF" style={{ marginLeft: 16 }} />
           <Text style={[styles.menuListText, { fontSize: 14 }]}>Archivar</Text>
         </TouchableOpacity>
+
+        {canDelete && onEliminarTarjeta && (
+          <>
+            <View style={{ height: 1, backgroundColor: '#384148', marginVertical: 4 }} />
+            <TouchableOpacity style={[styles.menuListItem, { paddingVertical: 8 }]} onPress={() => {
+              onClose();
+              onEliminarTarjeta(contextMenu.tarjeta!);
+            }}>
+              <Trash2 size={16} color="#EF4444" style={{ marginLeft: 16 }} />
+              <Text style={[styles.menuListText, { fontSize: 14, color: '#EF4444', fontWeight: 'bold' }]}>Eliminar</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </Modal>
   );

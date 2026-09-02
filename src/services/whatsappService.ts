@@ -6,7 +6,7 @@ const ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || 'EABCWkEzhIB0BSVmIhtsF
 export interface SesionWhatsApp {
   numero_telefono: string;
   estado: 'INICIO' | 'ESPERANDO_DATOS_SUSCRIPCION' | string;
-  datos_temporales?: any;
+  datos_temporales?: Record<string, unknown>;
 }
 
 export async function enviarMensajeTextoWhatsApp(to: string, texto: string): Promise<boolean> {
@@ -78,7 +78,7 @@ export async function obtenerEstadoSesion(numeroTelefono: string): Promise<Sesio
 export async function actualizarEstadoSesion(
   numeroTelefono: string,
   nuevoEstado: string,
-  datosTemporales?: any
+  datosTemporales?: Record<string, unknown>
 ): Promise<void> {
   const cleanNumber = numeroTelefono.replace(/\D/g, '');
   try {
@@ -120,8 +120,8 @@ export async function crearTarjetaVentaOnline(datos: {
     }
 
     const targetLista =
-      listas.find((l: any) => (l.nombre || '').toLowerCase().includes('ventas online')) ||
-      listas.find((l: any) => (l.nombre || '').toLowerCase().includes('ventas')) ||
+      listas.find(l => (l.nombre || '').toLowerCase().includes('ventas online')) ||
+      listas.find(l => (l.nombre || '').toLowerCase().includes('ventas')) ||
       listas[0];
 
     console.log('[CREAR TARJETA] Lista seleccionada:', JSON.stringify(targetLista));

@@ -58,8 +58,8 @@ export default function GestionOrganizacionScreen() {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setSucursales((data as any) || []);
-    } catch (error: any) {
+      setSucursales((data as unknown as Sucursal[]) || []);
+    } catch (error: unknown) {
       Alert.alert('Error', 'No se pudo cargar la jerarquía de la organización');
     } finally {
       setIsLoading(false);
@@ -95,8 +95,8 @@ export default function GestionOrganizacionScreen() {
       setModalVisible(false);
       setItemToDelete(null);
       fetchJerarquia(true);
-    } catch (error: any) {
-      Alert.alert('Error al eliminar', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Error al eliminar', (error as Error).message);
     } finally {
       setIsDeleting(false);
     }
@@ -125,8 +125,8 @@ export default function GestionOrganizacionScreen() {
 
       setCreateModalVisible(false);
       fetchJerarquia(true);
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Error', (error as Error).message);
     } finally {
       setIsCreating(false);
     }

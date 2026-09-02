@@ -9,8 +9,15 @@ interface ModalReasignacionProps {
   empresaId: string | undefined;
 }
 
+interface AsesorItem {
+  id: string;
+  nombre_completo: string | null;
+  rol: string | null;
+  etiquetas: string[] | null;
+}
+
 export const ModalReasignacion = ({ visible, onClose, onReasignar, empresaId }: ModalReasignacionProps) => {
-  const [asesores, setAsesores] = useState<any[]>([]);
+  const [asesores, setAsesores] = useState<AsesorItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedAsesor, setSelectedAsesor] = useState<string | null>(null);
@@ -33,7 +40,7 @@ export const ModalReasignacion = ({ visible, onClose, onReasignar, empresaId }: 
       if (error) throw error;
       
       // Filtramos en el cliente para abarcar varias posibilidades (rol o etiqueta)
-      const filtrados = (data || []).filter((u: any) => {
+      const filtrados = ((data || []) as AsesorItem[]).filter((u) => {
         const hasRolAsesor = u.rol === 'asesor';
         const hasEtiquetaVentas = Array.isArray(u.etiquetas) && u.etiquetas.some((e: string) => 
           e.toLowerCase() === 'asesor' || e.toLowerCase() === 'ventas' || e.toLowerCase() === 'vendedor' || e.toLowerCase() === 'venta'
@@ -42,8 +49,8 @@ export const ModalReasignacion = ({ visible, onClose, onReasignar, empresaId }: 
       });
 
       setAsesores(filtrados);
-    } catch (e) {
-      console.error('Error fetching asesores', e);
+    } catch (e: unknown) {
+      console.error('Error fetching asesores', (e as Error).message);
     } finally {
       setIsLoading(false);
     }
@@ -55,8 +62,8 @@ export const ModalReasignacion = ({ visible, onClose, onReasignar, empresaId }: 
     try {
       await onReasignar(selectedAsesor);
       onClose();
-    } catch (e) {
-      console.error('Error en reasignación', e);
+    } catch (e: unknown) {
+      console.error('Error en reasignación', (e as Error).message);
     } finally {
       setIsSaving(false);
     }

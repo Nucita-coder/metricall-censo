@@ -62,8 +62,8 @@ export function TarjetaSoporteTecnico({ empresaId, userRol }: TarjetaSoporteTecn
           setSelectedNombre(asignado.nombre_completo);
         }
       }
-    } catch (e: any) {
-      console.warn('Error al cargar miembros o soporte:', e.message);
+    } catch (e: unknown) {
+      console.warn('Error al cargar miembros o soporte:', (e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -85,8 +85,8 @@ export function TarjetaSoporteTecnico({ empresaId, userRol }: TarjetaSoporteTecn
 
       setCurrentSoporteId(nuevoId);
       Alert.alert('Éxito', 'Encargado de Soporte Técnico actualizado correctamente.');
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo guardar el soporte técnico.');
+    } catch (e: unknown) {
+      Alert.alert('Error', (e as Error).message || 'No se pudo guardar el soporte técnico.');
     } finally {
       setSaving(false);
     }

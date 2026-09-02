@@ -33,12 +33,14 @@ import {
   Package,
   Receipt,
   CreditCard,
+  Globe,
 } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
-import { Tarjeta } from '../../../types/kanban';
+import { Tarjeta, GestionItem } from '../../../types/kanban';
 import { ModuloCobranza } from '../../../components/metricas/ModuloCobranza';
 import { ModuloAlmacen } from '../../../components/metricas/ModuloAlmacen';
+import { ModuloGestionOnline } from '../../../components/metricas/ModuloGestionOnline';
 
 export interface VendedorStats {
   vendedorNombre: string;
@@ -74,8 +76,8 @@ export default function MetricasScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
-  // Subtab activo: 'cobranza' | 'vendedores' | 'censos' | 'tecnicos' | 'almacen'
-  const [subTab, setSubTab] = useState<'cobranza' | 'vendedores' | 'censos' | 'tecnicos' | 'almacen'>('cobranza');
+  // Subtab activo: 'cobranza' | 'gestion_online' | 'vendedores' | 'censos' | 'tecnicos' | 'almacen'
+  const [subTab, setSubTab] = useState<'cobranza' | 'gestion_online' | 'vendedores' | 'censos' | 'tecnicos' | 'almacen'>('cobranza');
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -220,8 +222,8 @@ export default function MetricasScreen() {
           'Sin Vendedor Asignado';
         const nombreVendedor = String(vendedorRaw).trim() || 'Sin Vendedor Asignado';
 
-        const gestiones = data.gestiones || [];
-        const tieneVentaConcretada = gestiones.some((g: any) => g.resultado === 'Venta concretada');
+        const gestiones = (data.gestiones || []) as GestionItem[];
+        const tieneVentaConcretada = gestiones.some((g: GestionItem) => g.resultado === 'Venta concretada');
 
         const esVenta =
           tieneVentaConcretada ||
@@ -291,7 +293,7 @@ export default function MetricasScreen() {
         let tecnicoRaw =
           data.tecnicoAsignado ||
           data.tecnico ||
-          (t.asignado_a ? mapPerfiles.get(t.asignado_a) : null);
+          (t.asignado_a ? mapPerfiles.get(t.asignado_a as string) : null);
 
         if (tecnicoRaw) {
           const nombreTecnico = String(tecnicoRaw).trim();
@@ -301,7 +303,7 @@ export default function MetricasScreen() {
               cleanLista.includes('activo') ||
               data.reporteInstalacion ||
               data.fechaInstalacion ||
-              gestiones.some((g: any) => g.resultado === 'Instalado' || g.resultado === 'Completado');
+              gestiones.some((g: GestionItem) => g.resultado === 'Instalado' || g.resultado === 'Completado');
 
             const esInstalacionLiberada =
               data.motivoLiberacion ||
@@ -309,7 +311,7 @@ export default function MetricasScreen() {
               cleanLista.includes('liberad') ||
               cleanLista.includes('rechazad') ||
               cleanLista.includes('no factible') ||
-              gestiones.some((g: any) =>
+              gestiones.some((g: GestionItem) =>
                 g.resultado === 'Liberada' ||
                 g.resultado === 'Rechazada' ||
                 g.resultado === 'No factible'
@@ -397,7 +399,7 @@ export default function MetricasScreen() {
           ? { nombre: listaTecnicos[0].tecnicoNombre, completadas: listaTecnicos[0].completadas }
           : null
       );
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[MetricasScreen] Error cargando métricas:', e);
     } finally {
       setIsLoading(false);
@@ -522,6 +524,19 @@ export default function MetricasScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.subTabButton, subTab === 'gestion_online' && styles.subTabButtonActive]}
+            onPress={() => {
+              setSubTab('gestion_online');
+              setExpandidoId(null);
+            }}
+          >
+            <Globe size={16} color={subTab === 'gestion_online' ? '#FFF' : '#8C9BAB'} />
+            <Text style={[styles.subTabText, subTab === 'gestion_online' && styles.subTabTextActive]}>
+              Gestión Online
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.subTabButton, subTab === 'almacen' && styles.subTabButtonActive]}
             onPress={() => {
               setSubTab('almacen');
@@ -538,6 +553,15 @@ export default function MetricasScreen() {
         {/* MODULO ACTIVO: COBRANZA Y RECUPERO */}
         {subTab === 'cobranza' && empresaId && (
           <ModuloCobranza
+            empresaId={empresaId}
+            filtroPeriodo={filtroPeriodo}
+            busquedaTexto={busquedaTexto}
+          />
+        )}
+
+        {/* MODULO ACTIVO: GESTIÓN ONLINE */}
+        {subTab === 'gestion_online' && empresaId && (
+          <ModuloGestionOnline
             empresaId={empresaId}
             filtroPeriodo={filtroPeriodo}
             busquedaTexto={busquedaTexto}

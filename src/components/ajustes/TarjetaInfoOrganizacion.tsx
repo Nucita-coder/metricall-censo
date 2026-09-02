@@ -37,8 +37,8 @@ export function TarjetaInfoOrganizacion({
 
       if (error) throw error;
       Alert.alert('Éxito', 'Nombre de la empresa actualizado.');
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo actualizar el nombre.');
+    } catch (e: unknown) {
+      Alert.alert('Error', (e as Error).message || 'No se pudo actualizar el nombre.');
     } finally {
       setSavingName(false);
     }

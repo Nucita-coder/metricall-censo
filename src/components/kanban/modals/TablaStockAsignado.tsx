@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../../../lib/supabase';
 import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
+import { TarjetaMaterialItem } from '../../../types/kanban';
 import { ModalHistorialAsignaciones } from './ModalHistorialAsignaciones';
 
 export interface AssignedStockRecord {
@@ -18,10 +19,10 @@ export interface AssignedStockRecord {
 
 interface TablaStockAsignadoProps {
   empresaId: string | null;
-  searchQuery: string;
+  searchQuery?: string;
 }
 
-export function TablaStockAsignado({ empresaId, searchQuery }: TablaStockAsignadoProps) {
+export const TablaStockAsignado = ({ empresaId, searchQuery = '' }: TablaStockAsignadoProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [records, setRecords] = useState<AssignedStockRecord[]>([]);
   const [selectedMiembroHistorial, setSelectedMiembroHistorial] = useState<string | null>(null);
@@ -42,10 +43,10 @@ export function TablaStockAsignado({ empresaId, searchQuery }: TablaStockAsignad
 
       const mapa: Record<string, AssignedStockRecord> = {};
 
-      data.forEach((row: any) => {
+      data.forEach((row) => {
         const v = row.datos_valores || {};
         const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
-        const rawMiembro = (v.asignadoA || v.recibidoPor || '').toString().trim();
+        const rawMiembro = (v.asignadoA || (v.recibidoPor as string) || '').toString().trim();
         const hasAsignadoA = Boolean(rawMiembro && rawMiembro.toUpperCase() !== 'SIN ASIGNAR' && rawMiembro !== '—');
 
         const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
@@ -58,10 +59,10 @@ export function TablaStockAsignado({ empresaId, searchQuery }: TablaStockAsignad
 
           const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
 
-          itemsList.forEach((item: any, idx: number) => {
-            const cod = (item.codigoMaterial || '').trim().toUpperCase();
+          (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((item, idx: number) => {
+            const cod = (item.codigoMaterial || '').toString().trim().toUpperCase();
             if (!cod) return;
-            const cant = parseFloat(item.cantidadRecibida || '0') || 0;
+            const cant = parseFloat(item.cantidadRecibida as string || '0') || 0;
             const key = `${miembro}___${cod}`;
 
             if (!mapa[key]) {

@@ -3,10 +3,11 @@ import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { DatePickerInput, InputTexto, SelectDropdown } from './CamposVenta';
 import { ESTADOS_VENEZUELA, OPCIONES_TIPO_DOC } from './constantes';
+import { TarjetaDatosValores } from '../../types/kanban';
 
 interface Props {
-  formData: any;
-  update: (key: string, val: any) => void;
+  formData: TarjetaDatosValores;
+  update: (key: string, val: unknown) => void;
   isLocating?: boolean;
   onCaptarGPS?: () => void;
   onMapaManual?: () => void;

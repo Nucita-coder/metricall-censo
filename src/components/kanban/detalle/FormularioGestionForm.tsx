@@ -77,8 +77,8 @@ export function EvidenciaUpload({ tipo, url, setUrl, subiendo, setSubiendo, isSa
           await FileSystem.copyAsync({ from: uri, to: localPath });
           setUrl(localPath);
         }
-      } catch (e: any) {
-        // error hander
+      } catch (e: unknown) {
+        // error handler
       } finally {
         setSubiendo(false);
       }

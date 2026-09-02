@@ -6,6 +6,26 @@ import { Session } from '@supabase/supabase-js';
 // UUID exclusivo del desarrollador / propietario de la plataforma
 export const DEVELOPER_UUID = 'ab95cfb2-dc2e-41f0-b8f6-52f2a2ccbb47';
 
+export interface PermisosEspeciales {
+  puede_exportar_excel?: boolean;
+  puede_importar_excel?: boolean;
+  puede_reasignar_casos?: boolean;
+  puede_cerrar_mes?: boolean;
+  puede_ver_todos?: boolean;
+  [key: string]: unknown;
+}
+
+interface PerfilData {
+  rol?: string | null;
+  empresa_id?: string | null;
+  permisos_especiales?: PermisosEspeciales | null;
+  etiquetas?: string[] | null;
+  nombre_completo?: string | null;
+  avatar_url?: string | null;
+  mensaje?: string | null;
+  empresas?: { nombre?: string | null } | { nombre?: string | null }[] | null;
+}
+
 interface AuthContextData {
   session: Session | null | undefined;
   userRol: string;
@@ -13,7 +33,7 @@ interface AuthContextData {
   empresaId: string | null;
   nombreCompleto: string;
   empresaNombre: string;
-  permisosEspeciales: any;
+  permisosEspeciales: PermisosEspeciales;
   etiquetas: string[];
   avatarUrl: string | null;
   mensaje: string;
@@ -44,7 +64,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [nombreCompleto, setNombreCompleto] = useState<string>('');
   const [empresaNombre, setEmpresaNombre] = useState<string>('');
-  const [permisosEspeciales, setPermisosEspeciales] = useState<any>({});
+  const [permisosEspeciales, setPermisosEspeciales] = useState<PermisosEspeciales>({});
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState<string>('');
@@ -52,8 +72,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchProfile = async (userId: string) => {
     try {
-      let data: any = null;
-      let error: any = null;
+      let data: PerfilData | null = null;
+      let error: { message?: string; code?: string } | null = null;
 
       const res = await supabase
         .from('perfiles')
@@ -61,7 +81,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .eq('id', userId)
         .single();
 
-      data = res.data;
+      data = res.data as PerfilData | null;
       error = res.error;
         
       if (error && error.message?.includes('avatar_url')) {
@@ -71,7 +91,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .select('rol, empresa_id, permisos_especiales, etiquetas, nombre_completo, empresas!empresa_id(nombre)')
           .eq('id', userId)
           .single();
-        data = fallbackRes.data;
+        data = fallbackRes.data as PerfilData | null;
         error = fallbackRes.error;
       }
 
@@ -88,12 +108,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUserRol(data.rol || '');
         setEmpresaId(data.empresa_id || null);
         setNombreCompleto(data.nombre_completo || '');
-        setAvatarUrl((data as any).avatar_url || null);
-        setMensaje((data as any).mensaje || '');
-        const empresaData: any = data.empresas;
+        setAvatarUrl(data.avatar_url || null);
+        setMensaje(data.mensaje || '');
+        const empresaData = data.empresas;
         const nombreEmpresa = Array.isArray(empresaData) ? empresaData[0]?.nombre : empresaData?.nombre;
         setEmpresaNombre(nombreEmpresa || '');
-        setPermisosEspeciales(data.permisos_especiales || {});
+        setPermisosEspeciales((data.permisos_especiales as PermisosEspeciales) || {});
         setEtiquetas(data.etiquetas || []);
       }
     } catch (e) {

@@ -21,7 +21,7 @@ import {
   View,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import { Tarjeta } from '../../types/kanban';
+import { Tarjeta, GestionItem } from '../../types/kanban';
 import { DatePickerInput, SelectDropdown } from '../venta/CamposVenta';
 
 interface ModuloCobranzaProps {
@@ -362,7 +362,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
     tarjetasMesB.forEach(t => {
       const data = t.datos_valores || {};
       const resStr = (data.resultadoContacto || data.RESULTADO || data.resultado || '').toString().trim().toUpperCase();
-      const esCobroExitoso = (resStr === 'COBRO EFECTIVO' || resStr === 'RECUPERADO') && resStr !== 'FUERA DE ZONA';
+      const esCobroExitoso = resStr === 'COBRO EFECTIVO' || resStr === 'RECUPERADO';
 
       if (esCobroExitoso) {
         efectivos++;
@@ -524,7 +524,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
 
         const resStr = (data.resultadoContacto || data.RESULTADO || data.resultado || '').toString().trim().toUpperCase();
 
-        const esCobroExitoso = (resStr === 'COBRO EFECTIVO' || resStr === 'RECUPERADO') && resStr !== 'FUERA DE ZONA';
+        const esCobroExitoso = resStr === 'COBRO EFECTIVO' || resStr === 'RECUPERADO';
 
         const esNegativa =
           listaNombre.includes('negativa') ||
@@ -651,7 +651,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
               }]
             : []);
 
-      gestiones.forEach((g: any) => {
+      (gestiones as GestionItem[]).forEach((g: GestionItem) => {
         if (!g.fecha) return;
         const gDate = parseFechaAObjeto(g.fecha);
         if (!gDate) return;
@@ -748,7 +748,7 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
               }]
             : []);
 
-      gestiones.forEach((g: any) => {
+      (gestiones as GestionItem[]).forEach((g: GestionItem) => {
         if (!g.fecha) return;
         const gDate = parseFechaAObjeto(g.fecha);
         if (!gDate) return;

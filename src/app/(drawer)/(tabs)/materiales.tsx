@@ -12,10 +12,18 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, Redirect } from 'expo-router';
 import { Package, History, FileText, Calendar, Tag, CheckCircle2, RotateCcw } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
+import { Tarjeta, TarjetaMaterialItem } from '../../../types/kanban';
+
+interface ListaAlmacenRel {
+  id: string;
+  nombre: string;
+  tablero_id: string;
+  tableros?: { tipo?: string; empresa_id?: string } | null;
+}
 
 export interface CustodiaItem {
   codigo: string;
@@ -44,7 +52,14 @@ export interface MovimientoItem {
 }
 
 export default function MaterialesScreen() {
-  const { empresaId, nombreCompleto } = useAuth();
+  const { empresaId, nombreCompleto, userRol, isDeveloper } = useAuth();
+  const rolLower = (userRol || '').toLowerCase();
+  const canSeeAdmin = isDeveloper || ['admin', 'lider', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
+
+  if (!canSeeAdmin) {
+    return <Redirect href="/(drawer)/(tabs)" />;
+  }
+
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
@@ -66,13 +81,13 @@ export default function MaterialesScreen() {
 
       if (error) throw error;
 
-      const devList = listasData?.find((l: any) => 
+      const devList = (listasData as unknown as ListaAlmacenRel[])?.find((l) => 
         l.tableros?.tipo === 'almacen' && (
           l.nombre.toLowerCase().includes('devolución de asignación') ||
           l.nombre.toLowerCase().includes('devolucion de asignacion') ||
           l.nombre.toLowerCase().includes('devolucion')
         )
-      ) || listasData?.find((l: any) => l.nombre.toLowerCase().includes('devolucion'));
+      ) || (listasData as unknown as ListaAlmacenRel[])?.find((l) => l.nombre.toLowerCase().includes('devolucion'));
 
       if (!devList) {
         Alert.alert('Almacén no encontrado', 'No se encontró la lista de Devolución de Asignación en los tableros de Almacén de tu empresa.');
@@ -92,9 +107,9 @@ export default function MaterialesScreen() {
           cantidad: String(item.cantidad)
         }
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Error al buscar lista de devolución:', e);
-      Alert.alert('Error', e.message || 'No se pudo abrir el formulario de devolución.');
+      Alert.alert('Error', (e as Error).message || 'No se pudo abrir el formulario de devolución.');
     }
   };
 
@@ -119,7 +134,7 @@ export default function MaterialesScreen() {
       const mapaDevueltos: Record<string, CustodiaItem> = {};
       const movimientos: Array<MovimientoItem & { createdAt?: string }> = [];
 
-      data.forEach((row: any) => {
+      (data as unknown as Tarjeta[]).forEach((row) => {
         const v = row.datos_valores || {};
         const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
         const asignadoA = (v.asignadoA || v.recibidoPor || '').toString().trim().toUpperCase();
@@ -137,9 +152,9 @@ export default function MaterialesScreen() {
         const mappedItems: Array<{ codigoMaterial: string; nombreMaterial: string; modeloMaterial: string; serialMaterial?: string; cantidad: number }> = [];
         let cardTotal = 0;
 
-        rawItems.forEach((sub: any) => {
+        (rawItems as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((sub) => {
           const cod = (sub.codigoMaterial || '').trim().toUpperCase();
-          const cant = parseFloat(sub.cantidadRecibida || '0') || 0;
+          const cant = parseFloat(String(sub.cantidadRecibida || '0')) || 0;
           if (cod || cant > 0) {
             const itemCod = cod || 'SIN-CÓDIGO';
             const itemName = (sub.nombreMaterial || 'Material').toUpperCase();

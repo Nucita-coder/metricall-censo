@@ -36,24 +36,47 @@ interface ModalAdjuntarElementoProps {
   onSelectElemento: (elemento: ElementoAdjunto) => void;
 }
 
+interface SucursalAdjunto {
+  id: string;
+  nombre: string;
+  ubicacion?: string | null;
+}
+
+interface TableroAdjunto {
+  id: string;
+  nombre: string;
+  descripcion?: string | null;
+}
+
+interface ListaAdjunto {
+  id: string;
+  nombre: string;
+}
+
+interface TarjetaAdjunto {
+  id: string;
+  titulo?: string;
+  datos_valores?: Record<string, unknown>;
+}
+
 export function ModalAdjuntarElemento({
   visible,
   empresaId,
   onClose,
   onSelectElemento,
 }: ModalAdjuntarElementoProps) {
-  const [busqueda, setBusqueda] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [nivel, setNivel] = useState<1 | 2 | 3 | 4>(1);
+  const [busqueda, setBusqueda] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [nivel, setNivel] = useState<number>(1);
 
   const [sucursalSel, setSucursalSel] = useState<{ id: string; nombre: string } | null>(null);
   const [tableroSel, setTableroSel] = useState<{ id: string; nombre: string } | null>(null);
   const [listaSel, setListaSel] = useState<{ id: string; nombre: string } | null>(null);
 
-  const [sucursales, setSucursales] = useState<any[]>([]);
-  const [tableros, setTableros] = useState<any[]>([]);
-  const [listas, setListas] = useState<any[]>([]);
-  const [tarjetas, setTarjetas] = useState<any[]>([]);
+  const [sucursales, setSucursales] = useState<SucursalAdjunto[]>([]);
+  const [tableros, setTableros] = useState<TableroAdjunto[]>([]);
+  const [listas, setListas] = useState<ListaAdjunto[]>([]);
+  const [tarjetas, setTarjetas] = useState<TarjetaAdjunto[]>([]);
   const [busquedaResultados, setBusquedaResultados] = useState<ElementoAdjunto[]>([]);
 
   useEffect(() => {
@@ -70,34 +93,34 @@ export function ModalAdjuntarElemento({
   const cargarSucursales = async () => {
     setLoading(true);
     const res = await obtenerSucursales(empresaId);
-    setSucursales(res);
+    setSucursales(res as SucursalAdjunto[]);
     setLoading(false);
   };
 
-  const handleSeleccionarSucursal = async (suc: any) => {
+  const handleSeleccionarSucursal = async (suc: SucursalAdjunto) => {
     setSucursalSel(suc);
     setNivel(2);
     setLoading(true);
     const res = await obtenerTablerosDeSucursal(empresaId, suc.id);
-    setTableros(res);
+    setTableros(res as TableroAdjunto[]);
     setLoading(false);
   };
 
-  const handleSeleccionarTablero = async (tab: any) => {
+  const handleSeleccionarTablero = async (tab: TableroAdjunto) => {
     setTableroSel(tab);
     setNivel(3);
     setLoading(true);
     const res = await obtenerListasDeTablero(empresaId, tab.id);
-    setListas(res);
+    setListas(res as ListaAdjunto[]);
     setLoading(false);
   };
 
-  const handleSeleccionarLista = async (lis: any) => {
+  const handleSeleccionarLista = async (lis: ListaAdjunto) => {
     setListaSel(lis);
     setNivel(4);
     setLoading(true);
     const res = await obtenerTarjetasDeLista(empresaId, lis.id);
-    setTarjetas(res);
+    setTarjetas(res as TarjetaAdjunto[]);
     setLoading(false);
   };
 

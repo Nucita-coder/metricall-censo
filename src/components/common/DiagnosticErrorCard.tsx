@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, Platform, ViewStyle } from 'react-native';
 import { AlertOctagon, Copy, Check, X } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 520,
     ...Platform.select({
-      web: { boxShadow: '0px 0px 20px rgba(255, 77, 77, 0.4)' } as any,
+      web: { boxShadow: '0px 0px 20px rgba(255, 77, 77, 0.4)' } as unknown as ViewStyle,
       default: { elevation: 12, shadowColor: '#FF4D4D', shadowRadius: 10, shadowOpacity: 0.5 },
     }),
   },

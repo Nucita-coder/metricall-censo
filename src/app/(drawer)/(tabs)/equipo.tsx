@@ -3,9 +3,16 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Fla
 import { supabase } from '../../../lib/supabase';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
-import { EquipoMemberCard } from '../../../components/equipo/EquipoMemberCard';
+import { EquipoMemberCard, EquipoMemberItem } from '../../../components/equipo/EquipoMemberCard';
 import { ModalAsignacionGranular } from '../../../components/equipo/ModalAsignacionGranular';
 import { ModalVerFotoPerfil } from '../../../components/common/ModalVerFotoPerfil';
+
+interface SucursalRow { id: string; nombre: string; }
+interface TableroRow { id: string; nombre: string; }
+interface SolicitudRow extends EquipoMemberItem {
+  usuario_id?: string;
+  id: string;
+}
 
 export default function EquipoScreen() {
   const { userRol } = useAuth();
@@ -15,16 +22,16 @@ export default function EquipoScreen() {
   }
 
   const [activeTab, setActiveTab] = useState<'pendientes' | 'activos'>('pendientes');
-  const [solicitudes, setSolicitudes] = useState<any[]>([]);
-  const [activos, setActivos] = useState<any[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudRow[]>([]);
+  const [activos, setActivos] = useState<EquipoMemberItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [codigoInvitacion, setCodigoInvitacion] = useState<string | null>(null);
 
   const [asignarModalVisible, setAsignarModalVisible] = useState(false);
-  const [solicitudEnProceso, setSolicitudEnProceso] = useState<any>(null);
+  const [solicitudEnProceso, setSolicitudEnProceso] = useState<SolicitudRow | null>(null);
   
-  const [sucursales, setSucursales] = useState<any[]>([]);
-  const [tableros, setTableros] = useState<any[]>([]);
+  const [sucursales, setSucursales] = useState<SucursalRow[]>([]);
+  const [tableros, setTableros] = useState<TableroRow[]>([]);
   const [selectedSucursal, setSelectedSucursal] = useState<string | null>(null);
   const [selectedTableros, setSelectedTableros] = useState<string[]>([]);
   const [selectedEtiquetas, setSelectedEtiquetas] = useState<string[]>([]);
@@ -106,7 +113,7 @@ export default function EquipoScreen() {
           }
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.warn("Error fetching:", error);
     } finally {
       setLoading(false);
@@ -123,7 +130,7 @@ export default function EquipoScreen() {
     if (!error && data) setTableros(data);
   };
 
-  const handleAceptarClick = (solicitud: any) => {
+  const handleAceptarClick = (solicitud: SolicitudRow) => {
     setSolicitudEnProceso(solicitud);
     setAsignarModalVisible(true);
     setSelectedSucursal(null);
@@ -134,7 +141,7 @@ export default function EquipoScreen() {
   };
 
   const confirmarAsignacion = async () => {
-    if (!selectedSucursal) {
+    if (!selectedSucursal || !solicitudEnProceso) {
       Alert.alert('Error', 'Debes seleccionar una sucursal.');
       return;
     }
@@ -149,16 +156,15 @@ export default function EquipoScreen() {
 
       if (error) throw error;
 
-      if (selectedEtiquetas.length > 0) {
+      if (selectedEtiquetas.length > 0 && solicitudEnProceso.usuario_id) {
         await supabase.from('perfiles').update({ etiquetas: selectedEtiquetas }).eq('id', solicitudEnProceso.usuario_id);
       }
 
       Alert.alert('¡Aceptado!', 'El empleado ha sido integrado al equipo.');
       setAsignarModalVisible(false);
       fetchData();
-
-    } catch (error: any) {
-      Alert.alert('Error al asignar', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Error al asignar', (error as Error).message);
     } finally {
       setGuardando(false);
     }
@@ -166,9 +172,7 @@ export default function EquipoScreen() {
 
   const confirmAction = (title: string, message: string, onConfirm: () => void) => {
     if (Platform.OS === 'web') {
-      if (window.confirm(`${title}\n\n${message}`)) {
-        onConfirm();
-      }
+      if (window.confirm(`${title}\n\n${message}`)) onConfirm();
     } else {
       Alert.alert(title, message, [
         { text: 'Cancelar', style: 'cancel' },
@@ -178,64 +182,48 @@ export default function EquipoScreen() {
   };
 
   const handleRechazar = (id: string) => {
-    confirmAction(
-      '¿Rechazar Solicitud?',
-      'La solicitud de este usuario será eliminada.',
-      async () => {
-        try {
-          const { error: rpcErr } = await supabase.rpc('rechazar_solicitud_acceso', { p_solicitud_id: id });
-          if (rpcErr) {
-            const { error: delErr } = await supabase.from('solicitudes_acceso').delete().eq('id', id);
-            if (delErr) throw delErr;
-          }
-          fetchData();
-        } catch (e: any) {
-          Alert.alert('Error', e.message || 'No se pudo rechazar la solicitud.');
+    confirmAction('¿Rechazar Solicitud?', 'La solicitud de este usuario será eliminada.', async () => {
+      try {
+        const { error: rpcErr } = await supabase.rpc('rechazar_solicitud_acceso', { p_solicitud_id: id });
+        if (rpcErr) {
+          const { error: delErr } = await supabase.from('solicitudes_acceso').delete().eq('id', id);
+          if (delErr) throw delErr;
         }
+        fetchData();
+      } catch (e: unknown) {
+        Alert.alert('Error', (e as Error).message || 'No se pudo rechazar la solicitud.');
       }
-    );
+    });
   };
 
   const handleBloquear = (id: string) => {
-    confirmAction(
-      '¿Bloquear Usuario?',
-      'Este usuario no podrá volver a solicitar acceso a tu empresa.',
-      async () => {
-        try {
-          const { error: rpcErr } = await supabase.rpc('bloquear_solicitud_acceso', { p_solicitud_id: id });
-          if (rpcErr) {
-            const { error: upErr } = await supabase.from('solicitudes_acceso').update({ estado: 'bloqueado' }).eq('id', id);
-            if (upErr) throw upErr;
-          }
-          fetchData();
-        } catch (e: any) {
-          Alert.alert('Error', e.message || 'No se pudo bloquear la solicitud.');
+    confirmAction('¿Bloquear Usuario?', 'Este usuario no podrá volver a solicitar acceso a tu empresa.', async () => {
+      try {
+        const { error: rpcErr } = await supabase.rpc('bloquear_solicitud_acceso', { p_solicitud_id: id });
+        if (rpcErr) {
+          const { error: upErr } = await supabase.from('solicitudes_acceso').update({ estado: 'bloqueado' }).eq('id', id);
+          if (upErr) throw upErr;
         }
+        fetchData();
+      } catch (e: unknown) {
+        Alert.alert('Error', (e as Error).message || 'No se pudo bloquear la solicitud.');
       }
-    );
+    });
   };
 
   const handleEliminarMiembro = (miembroId: string, nombre?: string) => {
-    confirmAction(
-      '¿Eliminar miembro de la compañía?',
-      `El usuario "${nombre || 'Seleccionado'}" será desvinculado de la empresa y perderá acceso a los tableros.`,
-      async () => {
-        try {
-          const { error: rpcErr } = await supabase.rpc('eliminar_miembro_empresa', { p_miembro_id: miembroId });
-          if (rpcErr) {
-            console.error('[EQUIPO] Error RPC eliminar_miembro_empresa:', rpcErr);
-            throw rpcErr;
-          }
-          setActivos(prev => prev.filter(m => m.id !== miembroId));
-          fetchData();
-          if (Platform.OS === 'web') alert('El miembro ha sido desvinculado de la empresa.');
-          else Alert.alert('Éxito', 'El miembro ha sido desvinculado de la empresa.');
-        } catch (e: any) {
-          console.error('[EQUIPO] Error desvinculando miembro:', e);
-          Alert.alert('Error', e.message || 'No se pudo eliminar el miembro de la empresa.');
-        }
+    confirmAction('¿Eliminar miembro de la compañía?', `El usuario "${nombre || 'Seleccionado'}" será desvinculado de la empresa y perderá acceso a los tableros.`, async () => {
+      try {
+        const { error: rpcErr } = await supabase.rpc('eliminar_miembro_empresa', { p_miembro_id: miembroId });
+        if (rpcErr) throw rpcErr;
+        setActivos(prev => prev.filter(m => m.id !== miembroId));
+        fetchData();
+        if (Platform.OS === 'web') alert('El miembro ha sido desvinculado de la empresa.');
+        else Alert.alert('Éxito', 'El miembro ha sido desvinculado de la empresa.');
+      } catch (e: unknown) {
+        Alert.alert('Error', (e as Error).message || 'No se pudo eliminar el miembro de la empresa.');
       }
-    );
+    });
   };
 
   const toggleTablero = (id: string) => {
@@ -339,34 +327,12 @@ export default function EquipoScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1D2125' },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  codeContainer: {
-    backgroundColor: '#22272B',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#384148',
-    alignItems: 'center',
-  },
+  codeContainer: { backgroundColor: '#22272B', padding: 16, borderBottomWidth: 1, borderBottomColor: '#384148', alignItems: 'center' },
   codeLabel: { fontSize: 13, color: '#8C9BAB', marginBottom: 4 },
   codeValue: { fontSize: 24, fontWeight: '900', color: '#0C66E4', letterSpacing: 2 },
-  segmentedControl: {
-    flexDirection: 'row',
-    backgroundColor: '#1D2125',
-    padding: 12,
-    gap: 8,
-  },
-  segmentTab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    backgroundColor: '#22272B',
-    borderWidth: 1,
-    borderColor: '#384148',
-  },
-  segmentTabActive: {
-    backgroundColor: '#0C66E4',
-    borderColor: '#0C66E4',
-  },
+  segmentedControl: { flexDirection: 'row', backgroundColor: '#1D2125', padding: 12, gap: 8 },
+  segmentTab: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center', backgroundColor: '#22272B', borderWidth: 1, borderColor: '#384148' },
+  segmentTabActive: { backgroundColor: '#0C66E4', borderColor: '#0C66E4' },
   segmentTabText: { fontSize: 13, fontWeight: 'bold', color: '#8C9BAB' },
   segmentTabTextActive: { color: '#FFF' },
   listContainer: { padding: 16 },

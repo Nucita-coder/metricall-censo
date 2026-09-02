@@ -65,9 +65,9 @@ export const FaseEnRevision = (props: FaseProps) => {
       if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
       Alert.alert('¡Falla Solventada!', "La tarjeta fue aprobada exitosamente y pasó a 'Falla Solventada'.");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[FaseEnRevision] Error al solventar falla:', e);
-      Alert.alert('Error', e.message || 'No se pudo mover a Falla Solventada.');
+      Alert.alert('Error', (e as Error).message || 'No se pudo mover a Falla Solventada.');
     } finally {
       setIsSaving(false);
     }
@@ -107,9 +107,9 @@ export const FaseEnRevision = (props: FaseProps) => {
       if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
       Alert.alert('¡Devuelto a En Proceso!', "La tarjeta fue rechazada y devuelta a 'En Proceso' para recarga.");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[FaseEnRevision] Error al devolver a En Proceso:', e);
-      Alert.alert('Error', e.message || 'No se pudo devolver a En Proceso.');
+      Alert.alert('Error', (e as Error).message || 'No se pudo devolver a En Proceso.');
     } finally {
       setIsSaving(false);
     }

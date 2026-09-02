@@ -1,7 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, TextStyle } from 'react-native';
 import { ChevronDown, ChevronLeft, CloudUpload, Columns, Search, Settings, X, Boxes, SlidersHorizontal } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { router, Href } from 'expo-router';
 import { TableroInfo } from '../../types/kanban';
 
 interface BoardHeaderProps {
@@ -51,7 +51,7 @@ export function BoardHeader({
         <View style={styles.mobileSearchBox}>
           <Search size={18} color="#9FADBC" />
           <TextInput
-            style={styles.mobileSearchInput as any}
+            style={styles.mobileSearchInput}
             placeholder="Buscar tarjeta..."
             placeholderTextColor="#9FADBC"
             value={searchQuery}
@@ -149,7 +149,7 @@ export function BoardHeader({
               <View style={styles.desktopSearchBox}>
                 <Search size={16} color="#FFF" />
                 <TextInput
-                  style={styles.desktopSearchInput as any}
+                  style={styles.desktopSearchInput}
                   placeholder="Buscar..."
                   placeholderTextColor="rgba(255,255,255,0.6)"
                   value={searchQuery}
@@ -175,7 +175,7 @@ export function BoardHeader({
             )}
 
             {tableroInfo?.tipo === 'privado' && (
-              <TouchableOpacity onPress={() => router.push(`/tablero/${id}/privacidad` as any)} style={styles.headerIconBtn}>
+              <TouchableOpacity onPress={() => router.push({ pathname: '/tablero/[id]/privacidad' as unknown as '/tablero/[id]', params: { id } } as unknown as Href)} style={styles.headerIconBtn}>
                 <Text style={{ fontSize: 16 }}>🔒</Text>
               </TouchableOpacity>
             )}
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     outlineStyle: 'none',
     paddingVertical: 0,
-  } as any,
+  } as unknown as TextStyle,
   desktopSearchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     minWidth: 200,
     height: '100%',
     outlineStyle: 'none',
-  } as any,
+  } as unknown as TextStyle,
   pendingBadge: {
     flexDirection: 'row',
     alignItems: 'center',

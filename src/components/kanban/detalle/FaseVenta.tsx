@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react-native';
 import { FaseProps, findListaTarget } from './types';
 import { renderSection } from './SeccionRegistro';
 import { useErrorDiagnostics } from '../../../context/ErrorDiagnosticsContext';
+import { TarjetaDatosValores } from '../../../types/kanban';
 
 export const FaseVenta = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSaving, setIsSaving, listasGlobales = [] }: FaseProps) => {
   const data = tarjeta.datos_valores || {};
@@ -17,7 +18,7 @@ export const FaseVenta = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSaving
 
   const handleGuardar = async () => {
     setIsSaving(true);
-    const updateData: any = {};
+    const updateData: Partial<TarjetaDatosValores> = {};
     if (planHogar && planHogar !== 'Ninguno') {
       updateData.plan_hogar = planHogar;
       updateData.plan_pymes = '';
@@ -36,7 +37,7 @@ export const FaseVenta = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSaving
       const destId = findListaTarget(listasGlobales, 'factibilidad')?.id;
       if (!destId) throw new Error("No se encontró la lista destino 'Factibilidad' en la estructura del tablero.");
       await autoMoverTarjeta(tarjeta, destId);
-    } catch (e: any) {
+    } catch (e: unknown) {
       showDiagnosticError('ERR-KANBAN-VENTA', 'Error al procesar la venta o enviar la tarjeta a Factibilidad.', e, 'Venta');
     } finally {
       setIsSaving(false);

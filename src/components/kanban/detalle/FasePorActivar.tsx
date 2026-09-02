@@ -7,7 +7,7 @@ import { generarReporteActivacion } from '../../../services/reportes';
 
 export const FasePorActivar = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSaving, setIsSaving, listasGlobales = [] }: FaseProps) => {
   const data = tarjeta.datos_valores || {};
-  const [activadoPor, setActivadoPor] = useState(data.activadoPor || '');
+  const [activadoPor, setActivadoPor] = useState(String(data.activadoPor || ''));
   const [fotosSeleccionadas, setFotosSeleccionadas] = useState<Record<string, boolean>>({});
 
   const geofotos = data.geofotos || [];

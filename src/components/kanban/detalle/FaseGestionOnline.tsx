@@ -79,7 +79,7 @@ export const FaseGestionOnline = ({
 
       if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
-    } catch (e: any) {
+    } catch (e: unknown) {
       showDiagnosticError(
         'ERR-GESTION-ONLINE-SIN-CAJA',
         'Error al mover la tarjeta a Liberada.',
@@ -140,7 +140,7 @@ export const FaseGestionOnline = ({
 
       if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
-    } catch (e: any) {
+    } catch (e: unknown) {
       showDiagnosticError(
         'ERR-GESTION-ONLINE-NO-QUIZO',
         'Error al mover la tarjeta a la lista NO DESEA de Censo.',
@@ -202,7 +202,7 @@ export const FaseGestionOnline = ({
 
       if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
-    } catch (e: any) {
+    } catch (e: unknown) {
       showDiagnosticError(
         'ERR-GESTION-ONLINE-COMPRARA-LUEGO',
         'Error al mover la tarjeta a la lista SI DESEA de Censo.',
@@ -238,7 +238,7 @@ export const FaseGestionOnline = ({
         estadoGestion: nuevoEstado.toLowerCase().replace(/\s+/g, '_'),
         fechaUltimaGestionPago: new Date().toISOString(),
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       showDiagnosticError(
         'ERR-GESTION-PAGO-ESTADO',
         'Error al actualizar el estado de pago.',
@@ -262,7 +262,7 @@ export const FaseGestionOnline = ({
 
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
       Alert.alert('¡Procesado en SAE!', 'La tarjeta fue marcada correctamente como resuelta.');
-    } catch (e: any) {
+    } catch (e: unknown) {
       showDiagnosticError('ERR-GESTION-FALLA-SAE', 'Error al marcar Procesado en SAE.', e, 'GestionOnline');
     } finally {
       setIsSaving(false);
@@ -288,8 +288,9 @@ export const FaseGestionOnline = ({
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*,.pdf,application/pdf';
-        input.onchange = async (e: any) => {
-          const file = e.target.files?.[0];
+        input.onchange = async (e: Event) => {
+          const target = e.target as HTMLInputElement;
+          const file = target?.files?.[0];
           if (file) {
             setSubiendoAdjunto(true);
             try {
@@ -297,8 +298,8 @@ export const FaseGestionOnline = ({
               const publicUrl = await uploadImageToSupabase(fileUri, 'adjuntos', 'ordenes');
               setAdjuntoOrdenUrl(publicUrl || fileUri);
               setNombreAdjunto(file.name);
-            } catch (err: any) {
-              Alert.alert('Error al subir archivo', err.message || 'Ocurrió un error inesperado');
+            } catch (err: unknown) {
+              Alert.alert('Error al subir archivo', (err as Error).message || 'Ocurrió un error inesperado');
             } finally {
               setSubiendoAdjunto(false);
             }
@@ -325,15 +326,15 @@ export const FaseGestionOnline = ({
           const publicUrl = await uploadImageToSupabase(asset.uri, 'adjuntos', 'ordenes');
           setAdjuntoOrdenUrl(publicUrl || asset.uri);
           setNombreAdjunto(asset.fileName || 'orden_adjunta.jpg');
-        } catch (err: any) {
-          Alert.alert('Error al subir imagen', err.message || 'Ocurrió un error inesperado');
+        } catch (err: unknown) {
+          Alert.alert('Error al subir imagen', (err as Error).message || 'Ocurrió un error inesperado');
         } finally {
           setSubiendoAdjunto(false);
         }
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[ASISTENCIA TECNICA] Error selector de archivo:', e);
-      Alert.alert('Error', e.message || 'No se pudo seleccionar el archivo');
+      Alert.alert('Error', (e as Error).message || 'No se pudo seleccionar el archivo');
     }
   };
 
@@ -374,7 +375,7 @@ export const FaseGestionOnline = ({
       if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
       Alert.alert('¡Orden Procesada!', `La orden ${nroOrden.trim()} fue procesada y enviada a Atención de Fallas (Por Asignar).`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       showDiagnosticError(
         'ERR-GESTION-FALLA-ASISTENCIA-TECNICA',
         'Error al procesar la asistencia técnica.',
@@ -890,7 +891,7 @@ export const FaseGestionOnline = ({
           initialData={tarjeta.datos_valores || {}}
           isSubmitting={isSavingVenta}
           onCancel={() => setMostrarFormularioVenta(false)}
-          onConfirm={async (datosComerciales: any) => {
+          onConfirm={async (datosComerciales: Record<string, unknown>) => {
             setIsSavingVenta(true);
             try {
               const oldData = tarjeta.datos_valores || {};
@@ -899,7 +900,7 @@ export const FaseGestionOnline = ({
               const nuevosDatos = {
                 ...oldData,
                 ...datosComerciales,
-                tipoServicio: datosComerciales.tipoServicio || '',
+                tipoServicio: (datosComerciales.tipoServicio as string) || '',
                 documentoIdentidad: oldData.documentoIdentidad || oldData.cedula || '',
                 telefonoMovil: oldData.telefonoMovil || oldData.telefono || '',
                 sector: oldData.sector || '',
@@ -917,7 +918,7 @@ export const FaseGestionOnline = ({
               setMostrarFormularioVenta(false);
               if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
               if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
-            } catch (e: any) {
+            } catch (e: unknown) {
               showDiagnosticError(
                 'ERR-GESTION-ONLINE-COMPRA-EFECTIVA',
                 'Error al convertir la tarjeta a Venta Efectiva en Instalaciones.',

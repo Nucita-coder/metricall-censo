@@ -28,7 +28,7 @@ export const uploadImageToSupabase = async (
     const cleanExt = ext.toLowerCase();
     const mimeType = cleanExt === 'pdf' ? 'application/pdf' : cleanExt === 'png' ? 'image/png' : cleanExt === 'webp' ? 'image/webp' : 'image/jpeg';
 
-    let error: any;
+    let error: { message?: string } | null = null;
 
     if (Platform.OS === 'web') {
       // 3. (Web) Usar Fetch y Blob directo

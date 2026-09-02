@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { uploadImageToSupabase } from '../services/uploadImage';
 import { DatePickerInput, InputTexto, SelectDropdown } from './venta/CamposVenta';
+import { Tarjeta, TarjetaDatosValores, TarjetaMaterialItem } from '../types/kanban';
 
 export interface MaterialRowItem { codigoMaterial: string; nombreMaterial: string; modeloMaterial: string; serialMaterial: string; cantidadRecibida: string; }
 
@@ -28,7 +29,7 @@ export const INSUMOS_PRECARGADOS: Array<{ nombre: string; codigo: string; modelo
 ];
 
 interface StockInfo { stockExistente: number | null; esNuevoCodigo: boolean | null; isSearching: boolean; }
-interface FormularioReciboMaterialProps { formData: any; handleChange?: (campo: string, valor: any) => void; readOnly?: boolean; }
+interface FormularioReciboMaterialProps { formData: TarjetaDatosValores; handleChange?: (campo: string, valor: unknown) => void; readOnly?: boolean; }
 
 export default function FormularioReciboMaterial({ formData, handleChange, readOnly = false }: FormularioReciboMaterialProps) {
   const { empresaId, nombreCompleto } = useAuth();
@@ -57,12 +58,12 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
   useEffect(() => {
     if (!empresaId) return;
     supabase.from('perfiles').select('nombre_completo').eq('empresa_id', empresaId).then(({ data }) => {
-      if (data) setMiembrosList(data.map((m: any) => m.nombre_completo).filter(Boolean));
+      if (data) setMiembrosList((data as Array<{ nombre_completo: string }>).map((m) => m.nombre_completo).filter(Boolean));
     });
     supabase.from('tarjetas').select('datos_valores').eq('empresa_id', empresaId).then(({ data }) => {
       if (!data) return;
       const mapa: Record<string, { codigo: string; nombre: string; modelo: string; stock: number }> = {};
-      data.forEach((row: any) => {
+      (data as unknown as Tarjeta[]).forEach((row) => {
         const v = row.datos_valores || {};
         const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
         const isDevolucionAsig = tipo.includes('DEVOLUCIÓN DE ASIGNACIÓN') || tipo.includes('DEVOLUCION DE ASIGNACION');
@@ -70,10 +71,10 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
         const isAsignado = !isDevolucionAsig && !isDevolucionAlmacen && (tipo.includes('ASIGNA') || Boolean(v.asignadoA && v.asignadoA.toString().trim()));
 
         const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
-        itemsList.forEach((subItem: any) => {
+        (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((subItem) => {
           const cod = (subItem.codigoMaterial || '').trim().toUpperCase();
           if (!cod) return;
-          const cant = parseFloat(subItem.cantidadRecibida || '0') || 0;
+          const cant = parseFloat(String(subItem.cantidadRecibida || '0')) || 0;
           if (!mapa[cod]) mapa[cod] = { codigo: cod, nombre: (subItem.nombreMaterial || '').toUpperCase(), modelo: (subItem.modeloMaterial || '').toUpperCase(), stock: 0 };
 
           if (isAsignado) {
@@ -97,10 +98,10 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
       supabase.from('tarjetas').select('datos_valores').eq('empresa_id', empresaId).then(({ data }) => {
         if (!data) return;
         const mapa: Record<string, { codigo: string; nombre: string; modelo: string; stock: number }> = {};
-        data.forEach((row: any) => {
+        (data as unknown as Tarjeta[]).forEach((row) => {
           const v = row.datos_valores || {};
           const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
-          const miembro = (v.asignadoA || v.recibidoPor || '').toString().trim().toUpperCase();
+          const miembro = (v.asignadoA || (v.recibidoPor as string) || '').toString().trim().toUpperCase();
 
           const matchMiembro = targetMiembro === '' || miembro === targetMiembro || (targetMiembro && miembro && (miembro.includes(targetMiembro) || targetMiembro.includes(miembro)));
           if (!matchMiembro) return;
@@ -111,10 +112,10 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
           if (!isAsignado && !isDevolucion) return;
 
           const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
-          itemsList.forEach((subItem: any) => {
+          (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((subItem) => {
             const cod = (subItem.codigoMaterial || '').trim().toUpperCase();
             if (!cod) return;
-            const cant = parseFloat(subItem.cantidadRecibida || '0') || 0;
+            const cant = parseFloat(subItem.cantidadRecibida as string || '0') || 0;
             if (!mapa[cod]) mapa[cod] = { codigo: cod, nombre: (subItem.nombreMaterial || '').toUpperCase(), modelo: (subItem.modeloMaterial || '').toUpperCase(), stock: 0 };
 
             if (isAsignado) {
@@ -132,7 +133,15 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
   const adjuntos: string[] = Array.isArray(formData.adjuntos) ? formData.adjuntos : [];
 
   const getItems = (): MaterialRowItem[] => {
-    if (Array.isArray(formData.items) && formData.items.length > 0) return formData.items;
+    if (Array.isArray(formData.items) && formData.items.length > 0) {
+      return formData.items.map(item => ({
+        codigoMaterial: item.codigoMaterial || '',
+        nombreMaterial: item.nombreMaterial || '',
+        modeloMaterial: item.modeloMaterial || '',
+        serialMaterial: item.serialMaterial || '',
+        cantidadRecibida: item.cantidadRecibida ? String(item.cantidadRecibida) : '',
+      }));
+    }
     return [{
       codigoMaterial: formData.codigoMaterial || '',
       nombreMaterial: formData.nombreMaterial || '',
@@ -157,14 +166,14 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
     }
   };
 
-  const updateHeaderField = (key: string, val: any) => {
+  const updateHeaderField = (key: string, val: unknown) => {
     if (readOnly || !handleChange) return;
     handleChange(key, typeof val === 'string' ? val.toUpperCase() : val);
   };
 
-  const updateItemField = (index: number, field: keyof MaterialRowItem, val: any) => {
+  const updateItemField = (index: number, field: keyof MaterialRowItem, val: unknown) => {
     if (readOnly || !handleChange) return;
-    const upperVal = typeof val === 'string' ? val.toUpperCase() : val;
+    const upperVal = typeof val === 'string' ? val.toUpperCase() : String(val ?? '');
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: upperVal };
     updateRootAndItems(newItems);
@@ -173,12 +182,12 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
   const updateMultipleItemFields = (index: number, fields: Partial<MaterialRowItem>) => {
     if (readOnly || !handleChange) return;
     const newItems = [...items];
-    const updated = { ...(newItems[index] || {}) };
+    const updated: MaterialRowItem = { ...(newItems[index] || { codigoMaterial: '', nombreMaterial: '', modeloMaterial: '', serialMaterial: '', cantidadRecibida: '' }) };
     Object.keys(fields).forEach((key) => {
       const k = key as keyof MaterialRowItem;
       const val = fields[k];
       if (val !== undefined) {
-        (updated as any)[k] = typeof val === 'string' ? val.toUpperCase() : val;
+        updated[k] = typeof val === 'string' ? val.toUpperCase() : String(val);
       }
     });
     newItems[index] = updated;
@@ -200,13 +209,13 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
       if (error) throw error;
       let totalStock = 0, primerNombre = '', primerModelo = '', encontrado = false;
       if (data) {
-        data.forEach((row: any) => {
+        (data as unknown as Tarjeta[]).forEach((row) => {
           const val = row.datos_valores || {};
           const rowItems = Array.isArray(val.items) ? val.items : [val];
-          rowItems.forEach((subItem: any) => {
+          (rowItems as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((subItem) => {
             if ((subItem.codigoMaterial || '').trim().toUpperCase() === cleanCodigo) {
               encontrado = true;
-              const cant = parseFloat(subItem.cantidadRecibida || '0');
+              const cant = parseFloat(subItem.cantidadRecibida as string || '0');
               if (!isNaN(cant)) totalStock += cant;
               if (!primerNombre && subItem.nombreMaterial) primerNombre = subItem.nombreMaterial;
               if (!primerModelo && subItem.modeloMaterial) primerModelo = subItem.modeloMaterial;
@@ -241,7 +250,7 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
       try {
         const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
         if (!res.canceled && res.assets && res.assets[0]) processUpload(res.assets[0].uri);
-      } catch (e: any) { Alert.alert('Error', e.message); }
+      } catch (e: unknown) { Alert.alert('Error', (e as Error).message); }
       return;
     }
     Alert.alert('Adjuntar Evidencia', '¿Desde dónde deseas adjuntar?', [
@@ -257,13 +266,13 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
       const publicUrl = await uploadImageToSupabase(uri, 'facturas');
       const cur = Array.isArray(formData.adjuntos) ? formData.adjuntos : [];
       handleChange?.('adjuntos', [...cur, publicUrl]);
-    } catch (e: any) { Alert.alert('Error', e.message); } finally { setSubiendoImagen(false); }
+    } catch (e: unknown) { Alert.alert('Error', (e as Error).message); } finally { setSubiendoImagen(false); }
   };
 
   const handleRemoveAdjunto = (index: number) => {
     if (readOnly || !handleChange) return;
     const cur = Array.isArray(formData.adjuntos) ? formData.adjuntos : [];
-    handleChange('adjuntos', cur.filter((_: any, i: number) => i !== index));
+    handleChange('adjuntos', cur.filter((_, i: number) => i !== index));
   };
 
   return (
@@ -373,14 +382,14 @@ export default function FormularioReciboMaterial({ formData, handleChange, readO
               )}
               <View style={styles.row}>
                 <View style={styles.flex1}>
-                  <InputTexto label={isDevolucionMode ? "Cantidad a Devolver" : isAsignadoMode ? "Cantidad a Asignar" : "Cantidad Recibida"} value={item.cantidadRecibida} onChangeText={(v) => updateItemField(idx, 'cantidadRecibida', v)} placeholder="Ej. 50" keyboardType="numeric" isRequired readOnly={readOnly} />
-                  {isDevolucionCentralMode && info?.stockExistente !== null && info?.stockExistente !== undefined && parseFloat(item.cantidadRecibida || '0') > info.stockExistente && (
+                  <InputTexto label={isDevolucionMode ? "Cantidad a Devolver" : isAsignadoMode ? "Cantidad a Asignar" : "Cantidad Recibida"} value={item.cantidadRecibida ? String(item.cantidadRecibida) : ''} onChangeText={(v) => updateItemField(idx, 'cantidadRecibida', v)} placeholder="Ej. 50" keyboardType="numeric" isRequired readOnly={readOnly} />
+                  {isDevolucionCentralMode && info?.stockExistente !== null && info?.stockExistente !== undefined && parseFloat(String(item.cantidadRecibida || '0')) > info.stockExistente && (
                     <Text style={{ fontSize: 10, color: '#F87171', fontWeight: 'bold', marginTop: 2 }}>⚠️ Excede las {info.stockExistente} und. disponibles en almacén local</Text>
                   )}
-                  {isDevolucionAsignacionMode && info?.stockExistente !== null && info?.stockExistente !== undefined && parseFloat(item.cantidadRecibida || '0') > info.stockExistente && (
+                  {isDevolucionAsignacionMode && info?.stockExistente !== null && info?.stockExistente !== undefined && parseFloat(String(item.cantidadRecibida || '0')) > info.stockExistente && (
                     <Text style={{ fontSize: 10, color: '#F87171', fontWeight: 'bold', marginTop: 2 }}>⚠️ Excede las {info.stockExistente} und. en tu poder</Text>
                   )}
-                  {isAsignadoMode && info?.stockExistente !== null && info?.stockExistente !== undefined && parseFloat(item.cantidadRecibida || '0') > info.stockExistente && (
+                  {isAsignadoMode && info?.stockExistente !== null && info?.stockExistente !== undefined && parseFloat(String(item.cantidadRecibida || '0')) > info.stockExistente && (
                     <Text style={{ fontSize: 10, color: '#F87171', fontWeight: 'bold', marginTop: 2 }}>⚠️ Excede las {info.stockExistente} und. disponibles en almacén</Text>
                   )}
                 </View>

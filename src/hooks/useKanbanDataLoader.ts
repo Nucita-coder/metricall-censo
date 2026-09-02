@@ -1,14 +1,50 @@
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
+import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { fetchTodasLasTarjetas } from '../services/tarjetasService';
-import { Lista, TableroInfo } from '../types/kanban';
+import { Lista, TableroInfo, PermisosRelacionales, TableroDisponible } from '../types/kanban';
+import { PermisosEspeciales } from '../context/AuthContext';
+
+export interface PerfilUsuario {
+  id: string;
+  nombre_completo: string;
+  rol?: string;
+  etiquetas?: string[];
+  avatar_url?: string | null;
+  [key: string]: unknown;
+}
+
+interface RawEmpleadoPermiso {
+  empleado_id?: string;
+  puede_ver?: boolean;
+  puede_crear?: boolean;
+  puede_editar?: boolean;
+  puede_mover?: boolean;
+  puede_eliminar?: boolean;
+  [key: string]: unknown;
+}
+
+interface RawListaRow {
+  id: string;
+  tablero_id?: string;
+  empresa_id?: string;
+  nombre: string;
+  slug?: string;
+  orden?: number;
+  posicion?: number;
+  color_fondo?: string;
+  estado_archivo?: boolean;
+  transiciones_permitidas?: string[];
+  empleado_lista_permisos?: RawEmpleadoPermiso[];
+  [key: string]: unknown;
+}
 
 interface UseKanbanDataLoaderProps {
   id: string;
-  session: any;
+  session?: Session | null;
   userRol: string | null;
-  permisosEspeciales: any;
+  permisosEspeciales: PermisosEspeciales;
   empresaId: string | null;
 }
 
@@ -16,8 +52,8 @@ export function useKanbanDataLoader({ id, session, userRol, permisosEspeciales, 
   const [isLoading, setIsLoading] = useState(true);
   const [tableroInfo, setTableroInfo] = useState<TableroInfo | null>(null);
   const [listas, setListas] = useState<Lista[]>([]);
-  const [tablerosDisponibles, setTablerosDisponibles] = useState<any[]>([]);
-  const [miembros, setMiembros] = useState<any[]>([]);
+  const [tablerosDisponibles, setTablerosDisponibles] = useState<TableroDisponible[]>([]);
+  const [miembros, setMiembros] = useState<PerfilUsuario[]>([]);
 
   const fetchKanbanData = useCallback(async () => {
     try {
@@ -41,21 +77,28 @@ export function useKanbanDataLoader({ id, session, userRol, permisosEspeciales, 
 
       if (listasError) throw listasError;
 
-      const listasActivas = listasData.filter((l: any) => l.estado_archivo !== true).map((l: any) => {
-        let permisos = null;
-        if (l.empleado_lista_permisos && l.empleado_lista_permisos.length > 0) {
-          permisos = l.empleado_lista_permisos.find((p: any) => p.empleado_id === session?.user?.id) || l.empleado_lista_permisos[0];
-        }
-        delete l.empleado_lista_permisos;
-        return { ...l, permisos_relacionales: permisos };
-      });
-      const listaIds = listasActivas.map((l: any) => l.id);
+      const rawListas = (listasData || []) as unknown as RawListaRow[];
+      const listasActivas = rawListas
+        .filter(l => l.estado_archivo !== true)
+        .map(l => {
+          let permisos: PermisosRelacionales | null = null;
+          if (l.empleado_lista_permisos && l.empleado_lista_permisos.length > 0) {
+            permisos = l.empleado_lista_permisos.find(p => p.empleado_id === session?.user?.id) || l.empleado_lista_permisos[0];
+          }
+          const { empleado_lista_permisos: _, ...resto } = l;
+          return { ...resto, tarjetas: [], permisos_relacionales: permisos || undefined } as Lista;
+        });
 
-      const updatedTableroInfo = {
+      const listaIds = listasActivas.map(l => l.id);
+
+      const sucursalesData = tabData.sucursales as { nombre?: string } | Array<{ nombre?: string }> | null;
+      const sucursalNombre = Array.isArray(sucursalesData) ? sucursalesData[0]?.nombre : sucursalesData?.nombre;
+
+      const updatedTableroInfo: TableroInfo = {
         id: tabData.id,
         nombre: tabData.nombre,
         fondo_url: tabData.fondo_url,
-        sucursal_nombre: (tabData.sucursales as any)?.nombre || 'Sucursal',
+        sucursal_nombre: sucursalNombre || 'Sucursal',
         es_favorito: tabData.es_favorito || false,
         descripcion: tabData.descripcion || '',
         opacidad_listas: tabData.opacidad_listas ?? 0.85,
@@ -71,9 +114,9 @@ export function useKanbanDataLoader({ id, session, userRol, permisosEspeciales, 
           ascending: false,
         });
 
-        const tarjetasData = tData;
+        const tarjetasData = tData || [];
 
-        const listasAgrupadas: Lista[] = listasActivas.map((lista: any) => ({
+        const listasAgrupadas: Lista[] = listasActivas.map(lista => ({
           ...lista,
           tarjetas: tarjetasData.filter(t => t.lista_id === lista.id)
         }));
@@ -88,16 +131,16 @@ export function useKanbanDataLoader({ id, session, userRol, permisosEspeciales, 
       let tabsQuery = supabase.from('tableros').select('id, nombre, fondo_url');
       if (empresaId) tabsQuery = tabsQuery.eq('empresa_id', empresaId);
       const { data: tabs } = await tabsQuery;
-      if (tabs) setTablerosDisponibles(tabs.filter(t => t.id !== id));
+      if (tabs) setTablerosDisponibles((tabs as TableroDisponible[]).filter(t => t.id !== id));
 
       let usersQuery = supabase.from('perfiles').select('id, nombre_completo, rol, etiquetas, avatar_url');
       if (empresaId) usersQuery = usersQuery.eq('empresa_id', empresaId);
       const { data: users } = await usersQuery;
-      if (users) setMiembros(users);
+      if (users) setMiembros(users as PerfilUsuario[]);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (listas.length === 0) {
-        Alert.alert('Error', error.message);
+        Alert.alert('Error', (error as Error).message || String(error));
       }
     } finally {
       setIsLoading(false);

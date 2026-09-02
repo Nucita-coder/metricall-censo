@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet, Image } from 'react-native';
 import { Columns, X, Check, LayoutGrid } from 'lucide-react-native';
 import { InputTexto } from '../../venta/CamposVenta';
+import { TableroDisponible } from '../../../types/kanban';
+
+export type TableroDisponibleItem = TableroDisponible;
 
 interface ModalPantallaDivididaProps {
   visible: boolean;
   onClose: () => void;
-  tablerosDisponibles: any[];
+  tablerosDisponibles: TableroDisponible[];
   tableroActualId: string;
   onSeleccionarSecundario: (tableroId: string) => void;
 }

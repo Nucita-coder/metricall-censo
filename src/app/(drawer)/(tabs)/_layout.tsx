@@ -9,7 +9,8 @@ export default function TabLayout() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const rolLower = (userRol || '').toLowerCase();
-  const canSeeAdmin = isDeveloper || ['admin', 'lider', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
+  const isDevUser = isDeveloper || rolLower === 'developer' || rolLower === 'desarrollador';
+  const canSeeAdmin = isDevUser || ['admin', 'lider', 'administrador', 'supervisor'].includes(rolLower);
 
   return (
     <Tabs
@@ -46,6 +47,7 @@ export default function TabLayout() {
         options={{
           title: 'Mis Materiales',
           tabBarIcon: ({ color }) => <Package size={24} color={color} />,
+          href: canSeeAdmin ? '/(drawer)/(tabs)/materiales' : null,
         }}
       />
       <Tabs.Screen
@@ -76,7 +78,7 @@ export default function TabLayout() {
         options={{
           title: 'Bot WA',
           tabBarIcon: ({ color }) => <Bot size={24} color={color} />,
-          href: canSeeAdmin ? '/(drawer)/(tabs)/whatsapp' : null,
+          href: isDevUser ? '/(drawer)/(tabs)/whatsapp' : null,
         }}
       />
       <Tabs.Screen

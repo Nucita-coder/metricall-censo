@@ -111,9 +111,9 @@ export const useKanbanDragDrop = ({ listas, setListas, tableroInfo }: UseKanbanD
         p_lista_destino_id: targetListaId
       });
       if (error) throw error;
-    } catch (e: any) {
+    } catch (e: unknown) {
       setListas(previousListas);
-      Alert.alert('Error', 'No se pudo mover la tarjeta: ' + e.message);
+      Alert.alert('Error', 'No se pudo mover la tarjeta: ' + ((e as Error).message || String(e)));
     }
   };
 
@@ -123,13 +123,16 @@ export const useKanbanDragDrop = ({ listas, setListas, tableroInfo }: UseKanbanD
     const currentIndex = listas.findIndex(l => l.id === listaEnMovimiento.id);
     const targetIndex = listas.findIndex(l => l.id === targetListaId);
 
-    if (currentIndex === -1 || targetIndex === -1) return;
+    if (currentIndex === -1 || targetIndex === -1 || currentIndex === targetIndex) {
+      setListaEnMovimiento(null);
+      return;
+    }
 
     const currentLista = listas[currentIndex];
     const targetLista = listas[targetIndex];
 
-    const newOrdenCurrent = targetLista.orden;
-    const newOrdenTarget = currentLista.orden;
+    const newOrdenCurrent = targetLista.orden ?? targetIndex;
+    const newOrdenTarget = currentLista.orden ?? currentIndex;
 
     const previousListas = [...listas];
     setListaEnMovimiento(null);
@@ -139,16 +142,16 @@ export const useKanbanDragDrop = ({ listas, setListas, tableroInfo }: UseKanbanD
         const newList = [...prev];
         newList[currentIndex] = { ...currentLista, orden: newOrdenCurrent };
         newList[targetIndex] = { ...targetLista, orden: newOrdenTarget };
-        return newList.sort((a, b) => a.orden - b.orden);
+        return newList.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
       });
 
       await Promise.all([
         supabase.from('listas').update({ orden: newOrdenCurrent }).eq('id', currentLista.id),
         supabase.from('listas').update({ orden: newOrdenTarget }).eq('id', targetLista.id)
       ]);
-    } catch (e: any) {
+    } catch (e: unknown) {
       setListas(previousListas);
-      Alert.alert('Error', 'No se pudieron intercambiar las columnas en la nube.');
+      Alert.alert('Error', 'No se pudo cambiar el orden de las listas: ' + ((e as Error).message || String(e)));
     }
   };
 

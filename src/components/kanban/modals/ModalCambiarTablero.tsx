@@ -4,12 +4,14 @@ import { router } from 'expo-router';
 import { LayoutGrid, X, Check } from 'lucide-react-native';
 import { InputTexto } from '../../venta/CamposVenta';
 
+import { TableroInfo, TableroDisponible } from '../../../types/kanban';
+
 interface ModalCambiarTableroProps {
   visible: boolean;
   onClose: () => void;
-  tablerosDisponibles: any[];
+  tablerosDisponibles: TableroDisponible[];
   tableroActualId: string;
-  tableroInfo?: any;
+  tableroInfo?: TableroInfo | null;
 }
 
 export function ModalCambiarTablero({
@@ -38,7 +40,7 @@ export function ModalCambiarTablero({
   const handleSeleccionar = (tableroId: string) => {
     onClose();
     if (tableroId !== tableroActualId) {
-      router.push(`/tablero/${tableroId}` as any);
+      router.push({ pathname: '/tablero/[id]', params: { id: tableroId } });
     }
   };
 

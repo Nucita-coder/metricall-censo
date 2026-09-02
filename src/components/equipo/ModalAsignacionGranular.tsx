@@ -3,11 +3,29 @@ import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacit
 import { CheckSquare, Square, X } from 'lucide-react-native';
 import { WEB_MODAL_CONTAINER } from '../../constants/theme';
 
+interface SucursalItem {
+  id: string;
+  nombre: string;
+}
+
+interface TableroItem {
+  id: string;
+  nombre: string;
+}
+
+interface SolicitudItem {
+  id?: string;
+  perfil?: {
+    nombre_completo?: string;
+    rol?: string;
+  } | null;
+}
+
 interface ModalAsignacionGranularProps {
   visible: boolean;
-  solicitudEnProceso: any;
-  sucursales: any[];
-  tableros: any[];
+  solicitudEnProceso: SolicitudItem | null;
+  sucursales: SucursalItem[];
+  tableros: TableroItem[];
   selectedSucursal: string | null;
   setSelectedSucursal: (id: string) => void;
   selectedTableros: string[];

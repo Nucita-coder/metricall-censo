@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, FlatList, Platform } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, FlatList, Platform, ViewStyle } from 'react-native';
 import { X, RotateCcw, LayoutList, Layers } from 'lucide-react-native';
+import { Tarjeta, Lista } from '../../../types/kanban';
 
-const WEB_MODAL_CONTAINER = Platform.OS === 'web' ? {
+const WEB_MODAL_CONTAINER: ViewStyle = Platform.OS === 'web' ? ({
   width: '55%',
   maxWidth: 650,
   alignSelf: 'center',
   marginTop: '4%'
-} as any : {};
+} as ViewStyle) : {};
 
 interface ModalArchivadasProps {
   visible: boolean;
   onClose: () => void;
-  tarjetasArchivadas: any[];
-  listasArchivadas: any[];
+  tarjetasArchivadas: Tarjeta[];
+  listasArchivadas: Lista[];
   restoreCard: (id: string) => void;
   restoreList: (id: string) => void;
 }
@@ -104,7 +105,7 @@ export const ModalArchivadas = ({
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: 'bold', color: '#579DFF', fontSize: 13 }}>{item.listas?.nombre || 'Sin Lista'}</Text>
                     <Text numberOfLines={2} style={{ color: '#FFF', fontSize: 14, marginTop: 4 }}>
-                      {item.datos_valores?.nombreCliente || item.datos_valores?.texto_libre || item.nombre || 'Sin contenido'}
+                      {String(item.datos_valores?.nombreCliente || item.datos_valores?.texto_libre || item.nombre || 'Sin contenido')}
                     </Text>
                   </View>
                   <TouchableOpacity style={styles.restoreBtn} onPress={() => restoreCard(item.id)}>

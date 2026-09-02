@@ -41,6 +41,18 @@ export interface PerfilUsuario {
   avatar_url?: string | null;
 }
 
+interface RawMensajeItem {
+  id: string;
+  emisor_id: string;
+  receptor_id: string;
+  mensaje: string;
+  created_at: string;
+  leido?: boolean;
+  adjunto?: ElementoAdjunto | null;
+  perfiles_emisor?: { nombre_completo?: string; rol?: string; avatar_url?: string | null } | null;
+  perfiles_receptor?: { nombre_completo?: string; rol?: string; avatar_url?: string | null } | null;
+}
+
 export async function obtenerConversaciones(
   currentUserId: string,
   empresaId: string
@@ -57,7 +69,7 @@ export async function obtenerConversaciones(
     if (!msgs) return [];
 
     const map = new Map<string, UsuarioConversacion>();
-    for (const m of msgs as any[]) {
+    for (const m of (msgs as unknown as RawMensajeItem[])) {
       const esEmisor = m.emisor_id === currentUserId;
       const otroId = esEmisor ? m.receptor_id : m.emisor_id;
       const perfilOtro = esEmisor ? m.perfiles_receptor : m.perfiles_emisor;
@@ -82,8 +94,8 @@ export async function obtenerConversaciones(
       }
     }
     return Array.from(map.values());
-  } catch (e: any) {
-    console.error('Error al obtener conversaciones:', e.message);
+  } catch (e: unknown) {
+    console.error('Error al obtener conversaciones:', (e as Error).message);
     return [];
   }
 }
@@ -107,8 +119,8 @@ export async function obtenerMiembrosEmpresa(
       rol: p.rol,
       avatar_url: p.avatar_url || null,
     }));
-  } catch (e: any) {
-    console.error('Error obteniendo miembros de empresa:', e.message);
+  } catch (e: unknown) {
+    console.error('Error obteniendo miembros de empresa:', (e as Error).message);
     return [];
   }
 }
@@ -126,8 +138,8 @@ export async function obtenerMensajesChat(
 
     if (error) throw error;
     return (data || []) as MensajeGlobal[];
-  } catch (e: any) {
-    console.error('Error al obtener mensajes:', e.message);
+  } catch (e: unknown) {
+    console.error('Error al obtener mensajes:', (e as Error).message);
     return [];
   }
 }
@@ -140,8 +152,8 @@ export async function marcarMensajesLeidos(currentUserId: string, emisorId: stri
       .eq('receptor_id', currentUserId)
       .eq('emisor_id', emisorId)
       .eq('leido', false);
-  } catch (e: any) {
-    console.error('Error marcando leídos:', e.message);
+  } catch (e: unknown) {
+    console.error('Error marcando leídos:', (e as Error).message);
   }
 }
 
@@ -153,7 +165,7 @@ export async function enviarMensaje(
   adjunto?: ElementoAdjunto
 ): Promise<boolean> {
   try {
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       empresa_id: empresaId,
       emisor_id: emisorId,
       receptor_id: receptorId,
@@ -170,8 +182,8 @@ export async function enviarMensaje(
     const { error } = await supabase.from('soporte_mensajes').insert(payload);
     if (error) throw error;
     return true;
-  } catch (e: any) {
-    console.error('Error enviando mensaje:', e.message);
+  } catch (e: unknown) {
+    console.error('Error enviando mensaje:', (e as Error).message);
     return false;
   }
 }
@@ -253,7 +265,7 @@ export async function buscarElementosParaAdjuntar(
     if (q) tabQuery = tabQuery.ilike('nombre', `%${q}%`);
     const { data: tableros } = await tabQuery;
 
-    (tableros || []).forEach((t: any) => {
+    ((tableros || []) as unknown as Array<{ id: string; nombre: string; sucursales?: { nombre?: string } | Array<{ nombre?: string }> | null }>).forEach(t => {
       const sucNom = Array.isArray(t.sucursales) ? t.sucursales[0]?.nombre : t.sucursales?.nombre;
       resultados.push({
         tipo: 'tablero',
@@ -272,10 +284,11 @@ export async function buscarElementosParaAdjuntar(
     if (q) lisQuery = lisQuery.ilike('nombre', `%${q}%`);
     const { data: listas } = await lisQuery;
 
-    (listas || []).forEach((l: any) => {
+    ((listas || []) as unknown as Array<{ id: string; nombre: string; tablero_id?: string; tableros?: Record<string, unknown> | Array<Record<string, unknown>> }>).forEach(l => {
       const tabData = Array.isArray(l.tableros) ? l.tableros[0] : l.tableros;
-      const tabNombre = tabData?.nombre || '';
-      const sucNombre = Array.isArray(tabData?.sucursales) ? tabData?.sucursales[0]?.nombre : tabData?.sucursales?.nombre;
+      const tabNombre = (tabData as { nombre?: string } | null)?.nombre || '';
+      const sucData = (tabData as { sucursales?: { nombre?: string } | Array<{ nombre?: string }> } | null)?.sucursales;
+      const sucNombre = Array.isArray(sucData) ? sucData[0]?.nombre : sucData?.nombre;
       const pathStr = [sucNombre, tabNombre].filter(Boolean).join(' > ');
       resultados.push({
         tipo: 'lista',
@@ -295,12 +308,13 @@ export async function buscarElementosParaAdjuntar(
     if (q) tarQuery = tarQuery.ilike('titulo', `%${q}%`);
     const { data: tarjetas } = await tarQuery;
 
-    (tarjetas || []).forEach((t: any) => {
+    ((tarjetas || []) as unknown as Array<{ id: string; titulo?: string; lista_id?: string; listas?: Record<string, unknown> | Array<Record<string, unknown>> }>).forEach(t => {
       const lisData = Array.isArray(t.listas) ? t.listas[0] : t.listas;
-      const lisNombre = lisData?.nombre || '';
-      const tabData = Array.isArray(lisData?.tableros) ? lisData?.tableros[0] : lisData?.tableros;
-      const tabNombre = tabData?.nombre || '';
-      const tabId = lisData?.tablero_id || '';
+      const lisNombre = (lisData as { nombre?: string } | null)?.nombre || '';
+      const tabDataRaw = (lisData as { tableros?: Record<string, unknown> | Array<Record<string, unknown>> } | null)?.tableros;
+      const tabData = Array.isArray(tabDataRaw) ? tabDataRaw[0] : tabDataRaw;
+      const tabNombre = (tabData as { nombre?: string } | null)?.nombre || '';
+      const tabId = (lisData as { tablero_id?: string } | null)?.tablero_id || '';
       const pathStr = [tabNombre, lisNombre].filter(Boolean).join(' > ');
       resultados.push({
         tipo: 'tarjeta',
@@ -313,8 +327,8 @@ export async function buscarElementosParaAdjuntar(
     });
 
     return resultados;
-  } catch (e: any) {
-    console.error('Error buscando elementos para adjuntar:', e.message);
+  } catch (e: unknown) {
+    console.error('Error buscando elementos para adjuntar:', (e as Error).message);
     return resultados;
   }
 }

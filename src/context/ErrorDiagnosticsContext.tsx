@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { DiagnosticErrorCard, DiagnosticErrorData } from '../components/common/DiagnosticErrorCard';
 
 interface ErrorDiagnosticsContextType {
-  showDiagnosticError: (code: string, message: string, technicalDetails?: string | any, module?: string) => void;
+  showDiagnosticError: (code: string, message: string, technicalDetails?: unknown, module?: string) => void;
   clearDiagnosticError: () => void;
   currentError: DiagnosticErrorData | null;
 }
@@ -12,13 +12,14 @@ const ErrorDiagnosticsContext = createContext<ErrorDiagnosticsContextType | unde
 export const ErrorDiagnosticsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentError, setCurrentError] = useState<DiagnosticErrorData | null>(null);
 
-  const showDiagnosticError = (code: string, message: string, technicalDetails?: string | any, module?: string) => {
+  const showDiagnosticError = (code: string, message: string, technicalDetails?: unknown, module?: string) => {
     let techStr = '';
     if (typeof technicalDetails === 'string') {
       techStr = technicalDetails;
     } else if (technicalDetails && typeof technicalDetails === 'object') {
       try {
-        techStr = technicalDetails.message ? `${technicalDetails.message}\n${JSON.stringify(technicalDetails, null, 2)}` : JSON.stringify(technicalDetails, null, 2);
+        const detailsObj = technicalDetails as { message?: string };
+        techStr = detailsObj.message ? `${detailsObj.message}\n${JSON.stringify(technicalDetails, null, 2)}` : JSON.stringify(technicalDetails, null, 2);
       } catch {
         techStr = String(technicalDetails);
       }

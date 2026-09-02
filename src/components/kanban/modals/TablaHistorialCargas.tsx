@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-nativ
 import { History, Package, Calendar, User, FileText, ArrowDownRight, ArrowUpRight } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
+import { TarjetaMaterialItem } from '../../../types/kanban';
 
 export interface LoadHistoryRecord {
   id: string;
@@ -48,7 +49,7 @@ export function TablaHistorialCargas({ empresaId, searchQuery }: TablaHistorialC
 
       const list: Array<LoadHistoryRecord & { createdAt: string }> = [];
 
-      data.forEach((row: any) => {
+      data.forEach((row) => {
         const v = row.datos_valores || {};
         const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
 
@@ -57,9 +58,9 @@ export function TablaHistorialCargas({ empresaId, searchQuery }: TablaHistorialC
           const mappedItems: Array<{ codigoMaterial: string; nombreMaterial: string; modeloMaterial: string; serialMaterial?: string; cantidad: number }> = [];
           let totalCant = 0;
 
-          rawItems.forEach((sub: any) => {
+          (rawItems as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((sub) => {
             const cod = (sub.codigoMaterial || '').trim().toUpperCase();
-            const cant = parseFloat(sub.cantidadRecibida || '0') || 0;
+            const cant = parseFloat(String(sub.cantidadRecibida || '0')) || 0;
             if (cod || cant > 0) {
               mappedItems.push({
                 codigoMaterial: cod || 'S/C',

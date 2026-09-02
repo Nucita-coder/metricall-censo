@@ -2,9 +2,11 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { InputTexto } from './CamposVenta';
 
+import { TarjetaDatosValores } from '../../types/kanban';
+
 interface Props {
-  formData: any;
-  update: (key: string, val: any) => void;
+  formData: TarjetaDatosValores;
+  update: (key: string, val: unknown) => void;
   readOnly?: boolean;
 }
 

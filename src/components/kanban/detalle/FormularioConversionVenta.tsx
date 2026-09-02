@@ -5,7 +5,16 @@ import { useAuth } from '../../../context/AuthContext';
 import { ModalMapaUbicacion } from '../../tarjetas/ModalMapaUbicacion';
 import { DatePickerInput, InputTexto, SelectDropdown } from '../../venta/CamposVenta';
 
-export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, initialData }: any) => {
+import { TarjetaDatosValores } from '../../../types/kanban';
+
+interface FormularioConversionVentaProps {
+  onConfirm: (datos: Record<string, unknown>) => void;
+  onCancel: () => void;
+  isSubmitting?: boolean;
+  initialData?: TarjetaDatosValores;
+}
+
+export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, initialData }: FormularioConversionVentaProps) => {
   const { session, userRol } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = width > 768;
@@ -49,7 +58,7 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, i
     }
 
     // Añadir ubicación al formData si existe
-    const datosFinales: any = { ...formData };
+    const datosFinales: Record<string, unknown> = { ...formData };
     if (ubicacion) {
       datosFinales.latitud = ubicacion.latitude;
       datosFinales.longitud = ubicacion.longitude;
@@ -75,7 +84,7 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, i
 
           <SelectDropdown
             label="Tipo Documento"
-            value={formData.tipoDocumento}
+            value={String(formData.tipoDocumento || '')}
             onSelect={(v: string) => updateForm('tipoDocumento', v)}
             options={['V', 'E', 'J', 'P']}
             placeholder="Seleccione"

@@ -57,8 +57,8 @@ export function TarjetaLogoEmpresa({
         setLogoUrl(publicUrl);
         Alert.alert('¡Éxito!', 'El logo de la empresa ha sido actualizado.');
       }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo actualizar el logo.');
+    } catch (error: unknown) {
+      Alert.alert('Error', (error as Error).message || 'No se pudo actualizar el logo.');
     } finally {
       setUploading(false);
     }

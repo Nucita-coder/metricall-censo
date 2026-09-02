@@ -1,15 +1,17 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Calendar as CalendarIcon, ChevronDown, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   FlatList,
   Modal,
   Platform,
+  StyleProp,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  ViewStyle,
   useWindowDimensions,
 } from 'react-native';
 
@@ -45,7 +47,7 @@ export const InputTexto = ({
       style={[
         styles.fieldContainer,
         isDesktop && halfWidth ? { width: '48%' } : { width: '100%' },
-      ] as any}
+      ]}
     >
       <Text style={styles.label}>
         {label} {isRequired && <Text style={styles.required}>*</Text>}
@@ -92,7 +94,7 @@ export const DatePickerInput = ({
   const { width } = useWindowDimensions();
   const isDesktop = width > 768;
 
-  const containerStyle: any = [
+  const containerStyle: StyleProp<ViewStyle> = [
     styles.fieldContainer,
     disabled && styles.btnDisabled,
     isDesktop && halfWidth ? { width: '48%' } : { width: '100%' },
@@ -132,10 +134,10 @@ export const DatePickerInput = ({
               border: 'none',
               outline: 'none',
               color: value ? (disabled ? '#8C9BAB' : '#B6C2CF') : '#8C9BAB',
-              fontSize: '16px',
+              fontSize: 16,
               cursor: 'pointer',
               colorScheme: 'dark',
-            } as any}
+            } as React.CSSProperties}
           />
         </View>
       </View>
@@ -162,16 +164,15 @@ export const DatePickerInput = ({
           value={new Date()}
           mode="date"
           display="default"
-          onValueChange={(event: any, selectedDate?: Date) => {
+          onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
             setShow(false);
-            if (selectedDate) {
+            if (event.type !== 'dismissed' && selectedDate) {
               const day = String(selectedDate.getDate()).padStart(2, '0');
               const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
               const year = selectedDate.getFullYear();
               onDateChange(`${day}/${month}/${year}`);
             }
           }}
-          onDismiss={() => setShow(false)}
         />
       )}
     </View>
@@ -210,7 +211,7 @@ export const SelectDropdown = ({
         styles.fieldContainer,
         disabled && styles.btnDisabled,
         isDesktop && halfWidth ? { width: '48%' } : { width: '100%' },
-      ] as any}
+      ]}
     >
       <Text style={styles.label}>
         {label} {isRequired && <Text style={styles.required}>*</Text>}
@@ -325,33 +326,9 @@ const styles = StyleSheet.create({
     borderColor: '#384148',
     elevation: 5,
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#384148',
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#B6C2CF',
-  },
-  optionItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#384148',
-  },
-  optionText: {
-    fontSize: 15,
-    color: '#B6C2CF',
-    textTransform: 'capitalize',
-  },
-  optionTextSelected: {
-    fontWeight: 'bold',
-    color: '#90CDF4',
-  },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#384148' },
+  modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#B6C2CF' },
+  optionItem: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#384148' },
+  optionText: { fontSize: 15, color: '#B6C2CF', textTransform: 'capitalize' },
+  optionTextSelected: { fontWeight: 'bold', color: '#90CDF4' },
 });

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { Session } from '@supabase/supabase-js';
 import { Tarjeta, Lista } from '../types/kanban';
 
-export const useTarjetaDetalle = (session: any, userRol: string | null, setListas: React.Dispatch<React.SetStateAction<Lista[]>>) => {
+export const useTarjetaDetalle = (session: Session | null | undefined, userRol: string | null, setListas: React.Dispatch<React.SetStateAction<Lista[]>>) => {
   const [tarjetaSeleccionada, setTarjetaSeleccionada] = useState<Tarjeta | null>(null);
   const [tarjetaAuditoria, setTarjetaAuditoria] = useState<Tarjeta | null>(null);
   const [nuevoComentario, setNuevoComentario] = useState('');

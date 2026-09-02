@@ -81,7 +81,7 @@ const KanbanColumnComponent = ({
   const { userRol } = useAuth();
   const puedeCrear = userRol !== 'empleado' || item.permisos_relacionales?.puede_crear === true;
 
-  const dotsRef = useRef<any>(null);
+  const dotsRef = useRef<View>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
   const highlightAnim = useRef(new Animated.Value(0)).current;

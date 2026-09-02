@@ -1,9 +1,24 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Pressable, ScrollView, Platform, TextInput, ActivityIndicator, Image } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, Pressable, ScrollView, Platform, TextInput, ActivityIndicator, Image, TextStyle, StyleProp, ViewStyle } from 'react-native';
 import Reanimated, { SlideInRight, SlideOutRight } from 'react-native-reanimated';
 import { X, Star, Copy, Info, Archive, Plus, Image as ImageIcon, PackageCheck, History } from 'lucide-react-native';
+import { TableroInfo } from '../../../types/kanban';
+import { Miembro } from '../detalle/types';
 
-let Slider: any = null;
+interface SliderComponentProps {
+  style?: StyleProp<ViewStyle>;
+  value: number;
+  onValueChange: (val: number) => void;
+  onSlidingComplete: (val: number) => void;
+  minimumValue?: number;
+  maximumValue?: number;
+  step?: number;
+  minimumTrackTintColor?: string;
+  maximumTrackTintColor?: string;
+  thumbTintColor?: string;
+}
+
+let Slider: React.ComponentType<SliderComponentProps> | null = null;
 if (Platform.OS !== 'web') {
   Slider = require('@react-native-community/slider').default;
 }
@@ -11,8 +26,8 @@ if (Platform.OS !== 'web') {
 interface ModalTableroMenuProps {
   visible: boolean;
   onClose: () => void;
-  tableroInfo: any;
-  miembros: any[];
+  tableroInfo: TableroInfo | null;
+  miembros: Miembro[];
   toggleFavorite: () => void;
   handleCloneTablero: () => void;
   saveDescripcion: () => void;
@@ -49,7 +64,7 @@ export const ModalTableroMenu = ({
   onVerHistorial,
 }: ModalTableroMenuProps) => {
   const [isEditingDesc, setIsEditingDesc] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [selectedMember, setSelectedMember] = useState<Miembro | null>(null);
 
   if (!visible) return null;
 
@@ -203,8 +218,8 @@ export const ModalTableroMenu = ({
                 step={0.05}
                 defaultValue={tableroInfo?.opacidad_listas || 0.85}
                 onChange={(e) => handleOpacityChange(Number(e.target.value))}
-                onMouseUp={(e: any) => saveOpacityConfig(Number(e.target.value))}
-                style={{ width: '100%', marginTop: 8 } as any}
+                onMouseUp={(e) => saveOpacityConfig(Number((e.target as HTMLInputElement).value))}
+                style={{ width: '100%', marginTop: 8 } as React.CSSProperties}
               />
             )}
           </View>
@@ -377,7 +392,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     minHeight: 80,
     outlineStyle: 'none',
-  } as any,
+  } as unknown as TextStyle,
   descSaveBtn: {
     backgroundColor: '#0C66E4',
     borderRadius: 4,

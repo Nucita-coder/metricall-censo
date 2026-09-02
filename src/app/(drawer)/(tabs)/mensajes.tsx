@@ -40,8 +40,8 @@ export default function MensajesScreen() {
       setLoadingConvs(true);
       const res = await obtenerConversaciones(currentUserId, empresaId);
       setConversaciones(res);
-    } catch (e: any) {
-      console.error('Error cargando conversaciones:', e.message);
+    } catch (e: unknown) {
+      console.error('Error cargando conversaciones:', (e as Error).message);
     } finally {
       setLoadingConvs(false);
     }
@@ -55,7 +55,7 @@ export default function MensajesScreen() {
       setMensajes(data);
       await marcarMensajesLeidos(currentUserId, otroUserId);
       await cargarConversacionesList();
-    } catch (e: any) {
+    } catch (_: unknown) {
       setMensajes([]);
     } finally {
       setLoadingChat(false);

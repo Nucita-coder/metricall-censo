@@ -8,10 +8,10 @@ import { useErrorDiagnostics } from '../../../context/ErrorDiagnosticsContext';
 import NetInfo from '@react-native-community/netinfo';
 import { uploadImageToSupabase } from '../../../services/uploadImage';
 
-const safeCaptureRef = async (ref: any, options: any) => {
+const safeCaptureRef = async (ref: React.RefObject<View> | unknown, options?: Record<string, unknown>) => {
   if (Platform.OS === 'web') return null;
   const { captureRef } = await import('react-native-view-shot');
-  return captureRef(ref, options);
+  return captureRef(ref as React.RefObject<View>, options);
 };
 
 const generarWatermarkWeb = async (fotoInfo: { uri: string, width: number, height: number, lat: number, lng: number, altitude?: number, accuracy?: number }): Promise<string> => {
@@ -139,7 +139,7 @@ export const GeofotoTool: React.FC<GeofotoToolProps> = ({ onPhotoCaptured, isSav
           accuracy
         });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       showDiagnosticError('ERR-GEO-CAPTURAR', 'No se pudo abrir la cámara o capturar la fotografía.', e, 'GeoFoto');
       setObteniendoGeo(false);
     }
@@ -162,7 +162,7 @@ export const GeofotoTool: React.FC<GeofotoToolProps> = ({ onPhotoCaptured, isSav
         
         onPhotoCaptured(localPath);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       showDiagnosticError('ERR-GEO-SUBIDA', 'Error al procesar o subir la GeoFoto a la nube.', e, 'GeoFoto');
     } finally {
       setFotoTemporalParaMarcar(null);
@@ -207,7 +207,7 @@ export const GeofotoTool: React.FC<GeofotoToolProps> = ({ onPhotoCaptured, isSav
                       return;
                     }
                     await procesarSubidaGeoFoto(capturedUri);
-                  } catch (e: any) {
+                  } catch (e: unknown) {
                     showDiagnosticError('ERR-GEO-WATERMARK', 'Error al generar la marca de agua en la imagen.', e, 'GeoFoto');
                     setFotoTemporalParaMarcar(null);
                     setObteniendoGeo(false);
@@ -218,7 +218,7 @@ export const GeofotoTool: React.FC<GeofotoToolProps> = ({ onPhotoCaptured, isSav
               <View style={{ position: 'absolute', bottom: 15, right: 15, backgroundColor: 'transparent', flexDirection: 'column', alignItems: 'flex-start' }}>
                 <View style={{ marginBottom: -12, zIndex: 10, backgroundColor: 'transparent' }}>
                   <Image
-                    source={require('@/assets/images/logo-seguridad.png')}
+                    source={require('../../../../assets/images/logo-seguridad.png')}
                     style={{ width: 220, height: 60 }}
                     resizeMode="contain"
                   />

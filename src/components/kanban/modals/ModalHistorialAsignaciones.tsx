@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Modal, Platform, StyleSheet, Text, Touchab
 import { Calendar, FileText, History, Package, User, X, CheckCircle, Tag } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { WEB_MODAL_CONTAINER } from '../../../constants/theme';
+import { Tarjeta, TarjetaMaterialItem } from '../../../types/kanban';
 
 export interface AssignmentHistoryItem {
   cardId: string;
@@ -57,10 +58,10 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
       const results: Array<AssignmentHistoryItem & { createdAt: string }> = [];
       const targetName = (miembroNombre || '').trim().toUpperCase();
 
-      data.forEach((row: any) => {
+      (data as unknown as Tarjeta[]).forEach((row) => {
         const v = row.datos_valores || {};
         const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
-        const asignadoA = (v.asignadoA || v.recibidoPor || '').toString().trim().toUpperCase();
+        const asignadoA = (v.asignadoA || (v.recibidoPor as string) || '').toString().trim().toUpperCase();
 
         const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
         const hasAsignadoA = Boolean(v.asignadoA && v.asignadoA.toString().trim() !== '' && v.asignadoA.toString().trim() !== '—');
@@ -72,9 +73,9 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
             const mappedItems: Array<{ codigoMaterial: string; nombreMaterial: string; modeloMaterial: string; serialMaterial?: string; cantidad: number }> = [];
             let cardTotal = 0;
 
-            rawItems.forEach((sub: any) => {
+            (rawItems as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((sub) => {
               const cod = (sub.codigoMaterial || '').trim().toUpperCase();
-              const cant = parseFloat(sub.cantidadRecibida || '0') || 0;
+              const cant = parseFloat(String(sub.cantidadRecibida || '0')) || 0;
               if (cod || cant > 0) {
                 mappedItems.push({
                   codigoMaterial: cod || 'SIN-CÓDIGO',

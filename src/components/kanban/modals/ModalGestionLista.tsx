@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, Pressable, Platform, TextInput, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Pressable, Platform, TextInput, ScrollView, useWindowDimensions, ViewStyle } from 'react-native';
 import { ChevronLeft, X } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { Lista } from '../../../types/kanban';
+import { Lista, TableroDisponible } from '../../../types/kanban';
 
 const TRANSLUCENT_COLORS = [
   '#0052CC', '#172B4D', '#00875A', '#FF991F', '#DE350B',
@@ -23,7 +23,7 @@ interface ModalGestionListaProps {
   setEditListaColor: (val: string) => void;
   handleActualizarLista: () => void;
   handleArchivarLista: () => void;
-  tablerosDisponibles: any[];
+  tablerosDisponibles: TableroDisponible[];
   selectedTableroId: string;
   setSelectedTableroId: (id: string) => void;
   handleMoverListaTablero: () => void;
@@ -61,7 +61,7 @@ export const ModalGestionLista = ({
             borderRadius: 8,
             padding: 12,
             ...Platform.select({ 
-              web: { boxShadow: '0px 0px 10px rgba(0,0,0,0.3)' } as any, 
+              web: { boxShadow: '0px 0px 10px rgba(0,0,0,0.3)' } as unknown as ViewStyle, 
               default: { shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, elevation: 10 } 
             }),
             position: gestionMenuPos ? 'absolute' : 'relative',

@@ -3,10 +3,11 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { SeccionAdicionales } from './venta/SeccionAdicionales';
 import { SeccionDatosCliente } from './venta/SeccionDatosCliente';
 import { SeccionDatosComerciales } from './venta/SeccionDatosComerciales';
+import { TarjetaDatosValores } from '../types/kanban';
 
 interface FormularioVentaProps {
-  formData: any;
-  handleChange?: (campo: string, valor: any) => void;
+  formData: TarjetaDatosValores;
+  handleChange?: (campo: string, valor: unknown) => void;
   isLocating?: boolean;
   onCaptarGPS?: () => void;
   onMapaManual?: () => void;
@@ -21,7 +22,7 @@ export default function FormularioVenta({
   onMapaManual,
   readOnly = false,
 }: FormularioVentaProps) {
-  const update = (key: string, val: any) => {
+  const update = (key: string, val: unknown) => {
     if (readOnly) return;
     if (handleChange) handleChange(key, val);
   };

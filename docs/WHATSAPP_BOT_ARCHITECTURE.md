@@ -38,7 +38,7 @@ graph TD
 
 ### B. Flujo 2: Reporte de Pago (Cobranza en 2 Pasos)
 1. Para evitar inconsistencias de red en WhatsApp al enviar texto e imagen simultáneamente, el flujo se ejecuta en **dos pasos secuenciales**:
-   - **Paso 1 (Datos de Pago)**: El usuario envía los datos en texto (Cédula de identidad, Banco emisor, Monto pagado y Número de referencia).
+   - **Paso 1 (Datos de Pago y Cuentas Destino)**: El bot presenta los datos de Pago Móvil oficiales de Fibex Telecom (Banco: Mercantil 0105, Teléfono: 0412-9637516, RIF: J-30818251-6, Titular: FIBEX TELECOM) y solicita que el usuario envíe los datos de la transacción en texto (Cédula de identidad / Abonado, Banco emisor, Monto pagado y Número de referencia).
    - **Paso 2 (Capture/Comprobante)**: Una vez confirmados los datos mediante botones interactivos (`[ ✅ Confirmar ]` / `[ ❌ Corregir ]`), el bot solicita la foto del comprobante.
 2. **Subida a Storage**: La imagen se descarga de los servidores de Meta y se almacena en el bucket público de Supabase Storage (`evidencias-bot`).
 3. **Registro en Kanban**: Se genera la tarjeta en la lista **REPORTE PAGO** / **COBRANZA** con el badge `PAGO EN REVISIÓN` y la evidencia adjunta para auditoría humana del analista de cobranzas.

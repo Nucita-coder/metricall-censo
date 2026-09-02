@@ -3,6 +3,7 @@ import { extraerDatosSuscripcionConGemini } from '../../../services/geminiServic
 import {
   actualizarEstadoSesion,
   crearTarjetaVentaOnline,
+  enviarFormularioPagoWhatsApp,
   enviarMensajeTextoWhatsApp,
   obtenerEstadoSesion,
 } from '../../../services/whatsappService';
@@ -94,6 +95,17 @@ export async function POST(request: Request) {
 
       await enviarMensajeTextoWhatsApp(from, mensajeInstrucciones);
       return Response.json({ status: 'success', flow: 'instrucciones_enviadas' }, { status: 200 });
+    }
+
+    // 2.1. Si el cliente solicita reporte de pago
+    const esComandoPago =
+      textoLower.includes('pago') ||
+      textoLower.includes('pagar') ||
+      textoLower === '2';
+
+    if (esComandoPago) {
+      await enviarFormularioPagoWhatsApp(from);
+      return Response.json({ status: 'success', flow: 'formulario_pago_enviado' }, { status: 200 });
     }
 
     // 3. Si el cliente responde con sus datos (estado ESPERANDO_DATOS_SUSCRIPCION)

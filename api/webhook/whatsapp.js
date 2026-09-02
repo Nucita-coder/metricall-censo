@@ -291,6 +291,28 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: 'instrucciones_enviadas' });
       }
 
+      // Si el usuario escribe "pago", "pagar", "reportar pago" o "2" desde cualquier estado
+      if (textLower.includes('pago') || textLower.includes('pagar') || textLower === '2') {
+        if (enFlujoActivo) {
+          await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un nuevo Reporte de Pago.');
+        }
+        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
+        await enviarFormularioPago(fromPhone);
+        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Formulario de pago enviado por comando de texto' });
+        return res.status(200).json({ status: 'formulario_pago_enviado' });
+      }
+
+      // Si el usuario escribe "falla", "soporte", "avería" o "3" desde cualquier estado
+      if (textLower.includes('falla') || textLower.includes('averia') || textLower.includes('avería') || textLower.includes('soporte') || textLower === '3') {
+        if (enFlujoActivo) {
+          await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un Reporte de Falla.');
+        }
+        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_FALLA');
+        await enviarFormularioFalla(fromPhone);
+        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Formulario de falla enviado por comando de texto' });
+        return res.status(200).json({ status: 'formulario_falla_enviado' });
+      }
+
       // ── Menú principal (estado INICIO o comando no reconocido) ────────────────
       await enviarMenuPrincipal(fromPhone);
       await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Menú principal enviado' });

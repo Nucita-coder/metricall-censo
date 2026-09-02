@@ -9,6 +9,14 @@ export interface SesionWhatsApp {
   datos_temporales?: Record<string, unknown>;
 }
 
+export const DATOS_PAGO_MOVIL = {
+  tipo: 'PAGO MÓVIL',
+  banco: 'Mercantil (0105)',
+  telefono: '0412-9637516',
+  rif: 'J-30818251-6',
+  titular: 'FIBEX TELECOM',
+};
+
 export async function enviarMensajeTextoWhatsApp(to: string, texto: string): Promise<boolean> {
   const cleanNumber = to.replace(/\D/g, '');
   if (!cleanNumber) return false;
@@ -49,6 +57,25 @@ export async function enviarMensajeTextoWhatsApp(to: string, texto: string): Pro
     });
     return false;
   }
+}
+
+export async function enviarFormularioPagoWhatsApp(to: string): Promise<boolean> {
+  const mensaje =
+    `💰 *REPORTE DE PAGO — Paso 1 de 2*\n\n` +
+    `📲 *DATOS PARA REALIZAR TU PAGO MÓVIL:*\n` +
+    `🏦 *Banco:* ${DATOS_PAGO_MOVIL.banco}\n` +
+    `📱 *Teléfono:* ${DATOS_PAGO_MOVIL.telefono}\n` +
+    `📋 *RIF:* ${DATOS_PAGO_MOVIL.rif}\n` +
+    `🏢 *Titular:* ${DATOS_PAGO_MOVIL.titular}\n\n` +
+    `Una vez realizado tu pago móvil, envíame los datos en *un solo mensaje de texto* con este formato:\n\n` +
+    `💿 *Cédula / Nº Abonado:* [tu cédula]\n` +
+    `🔢 *Referencia (completo):* [número de referencia]\n` +
+    `💵 *Monto:* [monto pagado]\n` +
+    `📱 *Teléfono pago móvil:* [número desde el que pagaste]\n` +
+    `🏦 *Banco emisor:* [nombre de tu banco]\n\n` +
+    `_⚠️ Escribe y envía el texto primero. Luego te pediré la foto del comprobante por separado._`;
+
+  return await enviarMensajeTextoWhatsApp(to, mensaje);
 }
 
 export async function obtenerEstadoSesion(numeroTelefono: string): Promise<SesionWhatsApp> {

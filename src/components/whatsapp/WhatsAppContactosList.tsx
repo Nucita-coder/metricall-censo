@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Search, ShieldAlert, User, MessageSquare, RefreshCw } from 'lucide-react-native';
 import { FiltroEstadoContacto, WhatsAppContacto } from './types';
+import { WhatsAppAvatar } from './WhatsAppAvatar';
 
 interface WhatsAppContactosListProps {
   contactos: WhatsAppContacto[];
@@ -62,7 +63,6 @@ export function WhatsAppContactosList({
 
   const renderContactoItem = ({ item }: { item: WhatsAppContacto }) => {
     const isSelected = item.numero_telefono === contactoSeleccionadoId;
-    const initial = (item.nombre || 'U').trim().charAt(0).toUpperCase();
 
     return (
       <TouchableOpacity
@@ -70,9 +70,7 @@ export function WhatsAppContactosList({
         onPress={() => onSelectContacto(item)}
         activeOpacity={0.7}
       >
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
-        </View>
+        <WhatsAppAvatar nombre={item.nombre} telefono={item.numero_telefono} size={44} />
 
         <View style={styles.itemInfo}>
           <View style={styles.headerRow}>
@@ -82,7 +80,12 @@ export function WhatsAppContactosList({
             <Text style={styles.horaText}>{formatearFechaRelativa(item.ultimo_contacto)}</Text>
           </View>
 
-          <Text style={styles.telefonoText}>+{item.numero_telefono}</Text>
+          <View style={styles.subInfoRow}>
+            <Text style={styles.telefonoText}>+{item.numero_telefono}</Text>
+            {item.cedula ? (
+              <Text style={styles.cedulaText}>• C.I. {item.cedula}</Text>
+            ) : null}
+          </View>
 
           {item.ultimo_mensaje ? (
             <Text style={styles.mensajePreview} numberOfLines={1}>
@@ -96,6 +99,12 @@ export function WhatsAppContactosList({
                 {item.bloqueado ? 'BLOQUEADO' : 'ACTIVO'}
               </Text>
             </View>
+
+            {item.origen_nombre === 'tarjeta' && (
+              <View style={styles.badgeCliente}>
+                <Text style={styles.badgeTextCliente}>CLIENTE</Text>
+              </View>
+            )}
 
             <View style={styles.counterBadge}>
               <MessageSquare size={10} color="#8C9BAB" />
@@ -126,32 +135,17 @@ export function WhatsAppContactosList({
 
       {/* Pestañas de Estado */}
       <View style={styles.filterTabsRow}>
-        <TouchableOpacity
-          style={[styles.filterTab, filtroEstado === 'todos' && styles.filterTabActive]}
-          onPress={() => setFiltroEstado('todos')}
-        >
-          <Text style={[styles.filterTabText, filtroEstado === 'todos' && styles.filterTabTextActive]}>
-            Todos ({contactos.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterTab, filtroEstado === 'activos' && styles.filterTabActive]}
-          onPress={() => setFiltroEstado('activos')}
-        >
-          <Text style={[styles.filterTabText, filtroEstado === 'activos' && styles.filterTabTextActive]}>
-            Activos
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterTab, filtroEstado === 'bloqueados' && styles.filterTabActive]}
-          onPress={() => setFiltroEstado('bloqueados')}
-        >
-          <Text style={[styles.filterTabText, filtroEstado === 'bloqueados' && styles.filterTabTextActive]}>
-            Bloqueados
-          </Text>
-        </TouchableOpacity>
+        {(['todos', 'activos', 'bloqueados'] as const).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.filterTab, filtroEstado === tab && styles.filterTabActive]}
+            onPress={() => setFiltroEstado(tab)}
+          >
+            <Text style={[styles.filterTabText, filtroEstado === tab && styles.filterTabTextActive]}>
+              {tab === 'todos' ? `Todos (${contactos.length})` : tab === 'activos' ? 'Activos' : 'Bloqueados'}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* Lista */}
@@ -253,21 +247,27 @@ const styles = StyleSheet.create({
     borderColor: '#0C66E4',
     backgroundColor: '#1C2B41',
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#2C333A',
-    justifyContent: 'center',
+  subInfoRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#384148',
+    gap: 6,
+    marginBottom: 4,
   },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  cedulaText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8C9BAB',
+  },
+  badgeCliente: {
+    backgroundColor: 'rgba(87, 157, 255, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeTextCliente: {
     color: '#579DFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   itemInfo: {
     flex: 1,

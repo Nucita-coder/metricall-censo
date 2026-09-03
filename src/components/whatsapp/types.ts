@@ -3,6 +3,8 @@
 export interface WhatsAppContacto {
   numero_telefono: string;
   nombre: string;
+  cedula?: string | null;
+  origen_nombre?: string;
   bloqueado: boolean;
   motivo_bloqueo?: string | null;
   total_mensajes: number;

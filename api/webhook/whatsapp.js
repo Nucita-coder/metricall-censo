@@ -58,20 +58,24 @@ export default async function handler(req, res) {
     try {
       const body = req.body;
 
-      await insertarLog({ tipo: 'raw_incoming', mensaje_texto: 'Evento recibido de Meta', contenido: body });
-
       const value   = body?.entry?.[0]?.changes?.[0]?.value;
       const message = value?.messages?.[0];
+      const contact = value?.contacts?.[0];
+      const profileName = contact?.profile?.name || '';
+      const fromPhone   = message?.from || contact?.wa_id || null;
+
+      await insertarLog({
+        tipo: 'raw_incoming',
+        numero_telefono: fromPhone,
+        mensaje_texto: 'Evento recibido de Meta',
+        contenido: { profileName, ...body }
+      });
 
       if (!message) {
-        await insertarLog({ tipo: 'info', mensaje_texto: 'Evento sin mensaje (status update o notificación)', contenido: value || {} });
+        await insertarLog({ tipo: 'info', numero_telefono: fromPhone, mensaje_texto: 'Evento sin mensaje (status update o notificación)', contenido: value || {} });
         return res.status(200).json({ status: 'no_message' });
       }
 
-      const contact = value?.contacts?.[0];
-      const profileName = contact?.profile?.name || 'Usuario WhatsApp';
-
-      const fromPhone   = message.from;
       const messageType = message.type;
       const textBody    = (message.text?.body || '').trim();
 
@@ -187,7 +191,7 @@ export default async function handler(req, res) {
         tipo: 'incoming',
         numero_telefono: fromPhone,
         mensaje_texto: textBody || `[${messageType.toUpperCase()}]`,
-        contenido: { messageType, textBody }
+        contenido: { messageType, textBody, profileName, pushName: profileName }
       });
 
       // ── ESTADO: ESPERANDO_DATOS_FALLA ─ Paso 1 de Falla: recibe texto con datos ──
@@ -313,9 +317,7 @@ export default async function handler(req, res) {
 
       // Si el usuario escribe "pago", "pagar", "reportar pago" o "2" desde cualquier estado
       if (textLower.includes('pago') || textLower.includes('pagar') || textLower === '2') {
-        if (enFlujoActivo) {
-          await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un nuevo Reporte de Pago.');
-        }
+        if (enFlujoActivo) await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un nuevo Reporte de Pago.');
         await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
         await enviarFormularioPago(fromPhone);
         await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Formulario de pago enviado por comando de texto' });
@@ -324,9 +326,7 @@ export default async function handler(req, res) {
 
       // Si el usuario escribe "falla", "soporte", "avería" o "3" desde cualquier estado
       if (textLower.includes('falla') || textLower.includes('averia') || textLower.includes('avería') || textLower.includes('soporte') || textLower === '3') {
-        if (enFlujoActivo) {
-          await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un Reporte de Falla.');
-        }
+        if (enFlujoActivo) await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un Reporte de Falla.');
         await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_FALLA');
         await enviarFormularioFalla(fromPhone);
         await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Formulario de falla enviado por comando de texto' });

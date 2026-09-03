@@ -12,6 +12,7 @@ import {
 import { ArrowLeft, Calendar, Clock, ShieldAlert, ShieldCheck } from 'lucide-react-native';
 import { FiltroTemporalChat, WhatsAppContacto, WhatsAppMensaje } from './types';
 import { WhatsAppChatBubble } from './WhatsAppChatBubble';
+import { WhatsAppAvatar } from './WhatsAppAvatar';
 
 interface WhatsAppConversacionViewerProps {
   contacto: WhatsAppContacto;
@@ -88,15 +89,20 @@ export function WhatsAppConversacionViewer({
           </TouchableOpacity>
         )}
 
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{(contacto.nombre || 'U').charAt(0).toUpperCase()}</Text>
-        </View>
+        <WhatsAppAvatar nombre={contacto.nombre} telefono={contacto.numero_telefono} size={40} />
 
         <View style={styles.headerInfo}>
           <Text style={styles.nombreHeader} numberOfLines={1}>
             {contacto.nombre || 'Desconocido'}
           </Text>
-          <Text style={styles.telefonoHeader}>+{contacto.numero_telefono}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.telefonoHeader}>+{contacto.numero_telefono}</Text>
+            {contacto.cedula ? (
+              <Text style={{ fontSize: 11, color: '#579DFF', fontWeight: 'bold' }}>
+                • C.I. {contacto.cedula}
+              </Text>
+            ) : null}
+          </View>
         </View>
 
         {/* Botón de Moderación */}

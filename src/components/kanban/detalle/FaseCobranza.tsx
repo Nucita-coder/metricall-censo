@@ -6,6 +6,7 @@ import { FaseProps, findListaTarget } from './types';
 import { PhoneCall, CheckCircle2, History, XCircle, Hourglass } from 'lucide-react-native';
 import { TarjetaDatosValores } from '../../../types/kanban';
 import { notificarPagoProcesado, notificarPagoRechazado } from '../../../services/whatsappNotificacionesService';
+import { ModalRechazarPago } from './ModalRechazarPago';
 
 export const OPCIONES_TIPO_CONTACTO_COBRANZA = [
   'LLAMADA TELEFONICA',
@@ -67,6 +68,7 @@ export function FaseCobranza({
   const [resultado, setResultado] = useState<string>(
     datos.resultadoContacto || datos.resultado || datos['RESULTADO'] || ''
   );
+  const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
 
   const gestionesPrevias: Array<Record<string, unknown>> = (datos.gestionesCobranza as Array<Record<string, unknown>>) || [];
 
@@ -148,12 +150,14 @@ export function FaseCobranza({
 
   const estadoPagoActual = datos.estadoCobranza || 'Pago Pendiente Revisión';
 
-  const handleCambiarEstadoPago = async (nuevoEstado: string) => {
+  const handleCambiarEstadoPago = async (nuevoEstado: string, motivoRechazo?: string) => {
     setIsSaving(true);
     try {
       await onUpdateTarjeta({
         estadoCobranza: nuevoEstado,
         estadoGestion: nuevoEstado.toLowerCase().replace(/\s+/g, '_'),
+        motivoRechazoPago: motivoRechazo || null,
+        motivo_rechazo: motivoRechazo || null,
         fechaUltimaGestionPago: new Date().toISOString(),
       });
 
@@ -168,9 +172,9 @@ export function FaseCobranza({
           mensajeResultado += `\n\n⚠️ (No se pudo entregar el mensaje por WhatsApp: ${notif.error || 'Error de conexión'}).`;
         }
       } else if (nuevoEstado === 'Pago Rechazado') {
-        const notif = await notificarPagoRechazado(tarjeta);
+        const notif = await notificarPagoRechazado(tarjeta, motivoRechazo);
         if (notif.success) {
-          mensajeResultado += '\n\n📲 Se notificó al cliente sobre el rechazo del pago por WhatsApp.';
+          mensajeResultado += `\n\n📲 Se notificó la causa del rechazo al cliente por WhatsApp:\n"${motivoRechazo}"`;
         } else if (notif.noPhone) {
           mensajeResultado += '\n\nℹ️ (La tarjeta no tiene número telefónico registrado para enviar WhatsApp).';
         } else {
@@ -183,6 +187,7 @@ export function FaseCobranza({
       Alert.alert('Error', 'No se pudo cambiar el estado de pago: ' + ((e as Error)?.message || String(e)));
     } finally {
       setIsSaving(false);
+      setMostrarModalRechazo(false);
     }
   };
 
@@ -274,7 +279,7 @@ export function FaseCobranza({
                 gap: 8,
                 opacity: isSaving ? 0.6 : 1,
               }}
-              onPress={() => handleCambiarEstadoPago('Pago Rechazado')}
+              onPress={() => setMostrarModalRechazo(true)}
               disabled={isSaving}
             >
               <XCircle size={16} color="#EF4444" />
@@ -386,6 +391,18 @@ export function FaseCobranza({
           ))}
         </View>
       )}
+
+      {/* Modal obligatorio para especificar la causa de rechazo de pago y notificar al cliente */}
+      <ModalRechazarPago
+        visible={mostrarModalRechazo}
+        onClose={() => setMostrarModalRechazo(false)}
+        onConfirmar={async (motivo) => {
+          await handleCambiarEstadoPago('Pago Rechazado', motivo);
+        }}
+        isSaving={isSaving}
+        clienteNombre={String(datos.nombreApellido || datos.nombre || '')}
+        referencia={String(datos.referencia || datos.nroReferencia || '')}
+      />
     </View>
   );
 }

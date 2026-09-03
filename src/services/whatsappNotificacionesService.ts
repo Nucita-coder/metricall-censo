@@ -148,13 +148,28 @@ export async function notificarPagoRechazado(
     'No se pudo verificar la transacción con los datos bancarios suministrados o el comprobante adjunto.';
 
   const mensaje =
-    `⚠️ *REPORTE DE PAGO NO PROCESADO* ❌\n\n` +
-    `Estimado(a) *${nombre}*, le informamos que no pudimos validar su reporte de pago con referencia *${referencia}*.\n\n` +
-    `📌 *Motivo:* ${motivoTexto}\n\n` +
-    `Por favor verifique los datos del comprobante o comuníquese con atención al cliente para solventar su caso a la brevedad.\n\n` +
+    `⚠️ *REPORTE DE PAGO NO PROCESADO*\n\n` +
+    `Estimado(a) *${nombre}*, le informamos que su reporte de pago con referencia *${referencia}* no pudo ser validado.\n\n` +
+    `📌 *Causa:* ${motivoTexto}\n\n` +
+    `Por favor, vuelva a enviar los datos y comprobante de su pago con la corrección indicada para procesar su solicitud.\n\n` +
     `*Fibex Telecom Anaco*`;
 
   const sent = await enviarMensajeWhatsAppAPI(cleanPhone, mensaje);
+
+  // Resetear la sesión de WhatsApp del cliente para que pueda reportar de nuevo inmediatamente
+  try {
+    await supabase
+      .from('whatsapp_sesiones')
+      .upsert({
+        numero_telefono: cleanPhone,
+        estado: 'INICIO',
+        datos_temporales: {},
+        updated_at: new Date().toISOString(),
+      });
+  } catch {
+    // Ignorar si no existe tabla o falla de red
+  }
+
   return {
     success: sent,
     phoneUsed: cleanPhone,

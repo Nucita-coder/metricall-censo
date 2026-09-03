@@ -10,6 +10,7 @@ import { FormularioConversionVenta } from './FormularioConversionVenta';
 import { KANBAN_COLORS } from '../../../constants/theme';
 import { uploadImageToSupabase } from '../../../services/uploadImage';
 import { notificarPagoProcesado, notificarPagoRechazado } from '../../../services/whatsappNotificacionesService';
+import { ModalRechazarPago } from './ModalRechazarPago';
 
 /**
  * FaseGestionOnline
@@ -34,6 +35,7 @@ export const FaseGestionOnline = ({
   const [confirmandoCompraraLuego, setConfirmandoCompraraLuego] = useState(false);
   const [mostrarFormularioVenta, setMostrarFormularioVenta] = useState(false);
   const [isSavingVenta, setIsSavingVenta] = useState(false);
+  const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
 
   // 1. Handler: Sector sin caja (Mueve a LIBERADA en Ventas/Instalaciones)
   const handleSectorSinCaja = async () => {
@@ -231,12 +233,14 @@ export const FaseGestionOnline = ({
   );
   const estadoPagoActual = datosValores.estadoCobranza || 'Pago Pendiente Revisión';
 
-  const handleCambiarEstadoPago = async (nuevoEstado: string) => {
+  const handleCambiarEstadoPago = async (nuevoEstado: string, motivoRechazo?: string) => {
     setIsSaving(true);
     try {
       await onUpdateTarjeta({
         estadoCobranza: nuevoEstado,
         estadoGestion: nuevoEstado.toLowerCase().replace(/\s+/g, '_'),
+        motivoRechazoPago: motivoRechazo || null,
+        motivo_rechazo: motivoRechazo || null,
         fechaUltimaGestionPago: new Date().toISOString(),
       });
 
@@ -251,9 +255,9 @@ export const FaseGestionOnline = ({
           mensajeResultado += `\n\n⚠️ (No se pudo entregar el mensaje por WhatsApp: ${notif.error || 'Error de conexión'}).`;
         }
       } else if (nuevoEstado === 'Pago Rechazado') {
-        const notif = await notificarPagoRechazado(tarjeta);
+        const notif = await notificarPagoRechazado(tarjeta, motivoRechazo);
         if (notif.success) {
-          mensajeResultado += '\n\n📲 Se notificó al cliente sobre el rechazo del pago por WhatsApp.';
+          mensajeResultado += `\n\n📲 Se notificó la causa del rechazo al cliente por WhatsApp:\n"${motivoRechazo}"`;
         } else if (notif.noPhone) {
           mensajeResultado += '\n\nℹ️ (La tarjeta no tiene número telefónico registrado para enviar WhatsApp).';
         } else {
@@ -271,6 +275,7 @@ export const FaseGestionOnline = ({
       );
     } finally {
       setIsSaving(false);
+      setMostrarModalRechazo(false);
     }
   };
 
@@ -498,7 +503,7 @@ export const FaseGestionOnline = ({
                 gap: 8,
                 opacity: isSaving ? 0.6 : 1,
               }}
-              onPress={() => handleCambiarEstadoPago('Pago Rechazado')}
+              onPress={() => setMostrarModalRechazo(true)}
               disabled={isSaving}
             >
               <XCircle size={16} color="#EF4444" />
@@ -957,6 +962,18 @@ export const FaseGestionOnline = ({
       </Modal>
         </>
       )}
+
+      {/* Modal obligatorio para especificar la causa de rechazo de pago y notificar al cliente */}
+      <ModalRechazarPago
+        visible={mostrarModalRechazo}
+        onClose={() => setMostrarModalRechazo(false)}
+        onConfirmar={async (motivo) => {
+          await handleCambiarEstadoPago('Pago Rechazado', motivo);
+        }}
+        isSaving={isSaving}
+        clienteNombre={String(datosValores.nombreApellido || datosValores.nombre || '')}
+        referencia={String(datosValores.referencia || datosValores.nroReferencia || '')}
+      />
     </View>
   ));
 };

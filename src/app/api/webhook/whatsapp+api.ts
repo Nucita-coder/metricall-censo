@@ -60,6 +60,37 @@ export async function POST(request: Request) {
       mensajeTexto = message.button?.text || message.button?.payload || '';
     }
 
+    const contact = change?.contacts?.[0];
+    const profileName = contact?.profile?.name || 'Usuario WhatsApp';
+
+    // Moderación: verificar si el remitente se encuentra bloqueado
+    const { data: contactoData } = await supabase
+      .from('whatsapp_contactos')
+      .select('bloqueado')
+      .eq('numero_telefono', from)
+      .single();
+
+    if (contactoData?.bloqueado) {
+      await supabase.from('whatsapp_webhook_logs').insert({
+        tipo: 'blocked',
+        numero_telefono: from,
+        mensaje_texto: `Mensaje bloqueado de usuario suspendido: ${mensajeTexto}`,
+        contenido: { from, profileName },
+      });
+      return Response.json({ status: 'contacto_bloqueado' }, { status: 200 });
+    }
+
+    // Actualizar actividad en whatsapp_contactos
+    supabase
+      .from('whatsapp_contactos')
+      .upsert({
+        numero_telefono: from,
+        nombre: profileName,
+        ultimo_mensaje: mensajeTexto.slice(0, 300),
+        ultimo_contacto: new Date().toISOString(),
+      })
+      .then(() => {});
+
     // Registrar log entrante
     await supabase.from('whatsapp_webhook_logs').insert({
       tipo: 'incoming',

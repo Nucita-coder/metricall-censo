@@ -15,7 +15,9 @@ import {
   crearTarjetaVentaOnlineRest,
   crearTarjetaCobranzaRest,
   crearTarjetaFallaRest,
-  procesarImagenWhatsApp
+  procesarImagenWhatsApp,
+  verificarContactoBloqueado,
+  registrarContactoWhatsApp
 } from '../services/whatsapp.js';
 import { extraerDatosSuscripcion, extraerDatosPago, extraerDatosFalla } from '../services/gemini.js';
 import { insertarLog } from '../services/logger.js';
@@ -66,9 +68,27 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: 'no_message' });
       }
 
+      const contact = value?.contacts?.[0];
+      const profileName = contact?.profile?.name || 'Usuario WhatsApp';
+
       const fromPhone   = message.from;
       const messageType = message.type;
       const textBody    = (message.text?.body || '').trim();
+
+      // Moderación de seguridad: verificar si el remitente está bloqueado
+      const estaBloqueado = await verificarContactoBloqueado(fromPhone);
+      if (estaBloqueado) {
+        await insertarLog({
+          tipo: 'blocked',
+          numero_telefono: fromPhone,
+          mensaje_texto: `Mensaje bloqueado de usuario suspendido: ${textBody || messageType}`,
+          contenido: { fromPhone, profileName, messageType }
+        });
+        return res.status(200).json({ status: 'contacto_bloqueado' });
+      }
+
+      // Registrar o actualizar datos del contacto de forma asíncrona
+      registrarContactoWhatsApp(fromPhone, profileName, textBody || messageType).catch(() => {});
 
       // 1. Obtener estado de la conversación PRIMERO (con timeout automático de 5 min)
       const sesion = await obtenerEstadoSesionRest(fromPhone);

@@ -3,3 +3,4 @@
 
 export * from './whatsappMessages.js';
 export * from './whatsappDb.js';
+export * from './whatsappContactos.js';

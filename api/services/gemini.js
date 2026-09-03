@@ -16,13 +16,15 @@ Debes devolver EXCLUSIVAMENTE un objeto JSON válido con los siguientes campos:
 }
 `;
 
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+
 export async function extraerDatosConGemini(userText, imageBase64Data = null) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error('[GEMINI ERROR]: GEMINI_API_KEY no está configurada en las variables de entorno.');
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
   const parts = [
     { text: SYSTEM_PROMPT },
@@ -82,7 +84,7 @@ export async function extraerDatosConGemini(userText, imageBase64Data = null) {
 // ─── Respuesta conversacional libre (modo prueba) ────────────────────────────
 export async function generarRespuestaConversacional(userText) {
   const apiKey = process.env.GEMINI_API_KEY;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
   const prompt = `Eres MetricallBot, un asistente simpático, directo y con humor venezolano que trabaja en un sistema de inventario llamado Metricall.
 El usuario te escribió: "${userText}"
@@ -144,7 +146,7 @@ export async function extraerDatosSuscripcion(userText, numeroEmisor) {
     return extraerDatosBasicosJS(userText, numeroEmisor);
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
   const prompt = `Un cliente envió el siguiente mensaje para suscribirse a un servicio de internet.
 Extrae la información y responde ÚNICAMENTE con un JSON plano (sin formato markdown ni \`\`\`json) con la siguiente estructura:
 
@@ -169,7 +171,7 @@ Mensaje del cliente:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 250 }
+        generationConfig: { temperature: 0.1, maxOutputTokens: 1000 }
       })
     });
 
@@ -229,26 +231,45 @@ export async function extraerDatosPago(userText, numeroEmisor) {
     let monto = null;
     let banco = null;
 
+    // Lista exhaustiva de bancos venezolanos y billeteras electrónicas
+    const BANCOS_REGEX = /(banesco|mercantil|provincial|bbva|venezuela|bdv|bancamiga|bicentenario|bdt|tesoro|bnc|bancaribe|exterior|activo|caroni|caroní|banplus|plaza|sofitasa|delsur|del\s+sur|100%\s*banco|bfc|fondo\s*común|fondo\s*comun|agricola|agrícola|bvc|venezolano\s*de\s*crédito|mi\s*banco|mibanco|bod|zelle|binance|zinli|wally)/i;
+
     // 1. Coincidencia explícita con etiquetas
     const cedulaMatch = txt.match(/(?:cedula|cédula|abonado|ci|v-?)\s*:?\s*([VvEeJjPp]?-?\d{6,9})/i);
     const refMatch = txt.match(/(?:ref|referencia|num|nro|#)\s*:?\s*(\d{6,14})/i);
     const montoMatch = txt.match(/(?:monto|\$|usd|bs|\$bs)\s*:?\s*(\d+(?:[.,]\d{1,2})?\s*(?:\$|usd|bs)?)/i);
-    const bancoMatch = txt.match(/(banesco|mercantil|provincial|venezuela|bancamiga|bvc|bnc|bod|exterior|sofitasa|plaza)/i);
+    const bancoMatch = txt.match(BANCOS_REGEX);
+    const bancoEtiquetaMatch = txt.match(/(?:banco|bco|entidad)\s*:?\s*([a-záéíóúñ0-9% ]+?)(?=\s+(?:cedula|cédula|ref|referencia|monto|tlf|teléfono|telefono|\d{6,})|$)/i);
 
     if (cedulaMatch) cedula = cedulaMatch[1];
     if (refMatch) referencia = refMatch[1];
     if (montoMatch) monto = montoMatch[1];
-    if (bancoMatch) banco = bancoMatch[0].toUpperCase();
+    if (bancoMatch) banco = bancoMatch[0];
+    else if (bancoEtiquetaMatch && bancoEtiquetaMatch[1].trim()) banco = bancoEtiquetaMatch[1].trim();
 
     // 2. Extracción por posición si los tokens fueron enviados en lista (ej: "30953712 11111111 28.029.33 04123757313 mercantil")
     const subTokens = txt.split(/[\s,;\n]+/).filter(Boolean);
     const numeros = subTokens.filter(t => /^\d+([.,]\d+)*$/.test(t) || /^[VvEeJjPp]-\d+$/.test(t));
-    const bancoToken = subTokens.find(t => /(banesco|mercantil|provincial|venezuela|bancamiga|bvc|bnc|bod|exterior|sofitasa|plaza)/i.test(t));
+    const bancoToken = subTokens.find(t => BANCOS_REGEX.test(t));
 
     if (!cedula && numeros[0]) cedula = numeros[0];
     if (!referencia && numeros[1]) referencia = numeros[1];
     if (!monto && numeros[2]) monto = numeros[2];
-    if (!banco && bancoToken) banco = bancoToken.toUpperCase();
+    if (!banco && bancoToken) banco = bancoToken;
+
+    // 3. Fallback: buscar cualquier token que sea texto válido y no sea un número ni etiqueta reservada
+    if (!banco) {
+      const STOPWORDS = new Set(['cedula', 'cédula', 'ci', 'ref', 'referencia', 'nro', 'num', 'monto', 'bs', 'usd', 'banco', 'de', 'del', 'el', 'la', 'pago', 'movil', 'pagomovil', 'transferencia', 'abono', 'foto', 'captura', 'comprobante']);
+      const posibleBanco = subTokens.find(t => {
+        const clean = t.toLowerCase().replace(/[^a-záéíóúñ]/g, '');
+        return clean.length >= 3 && !STOPWORDS.has(clean) && !numeros.includes(t);
+      });
+      if (posibleBanco) banco = posibleBanco;
+    }
+
+    if (banco) {
+      banco = banco.trim().charAt(0).toUpperCase() + banco.trim().slice(1).toLowerCase();
+    }
 
     return {
       cedula:     cedula     || 'No especificada',
@@ -268,7 +289,7 @@ export async function extraerDatosPago(userText, numeroEmisor) {
     return extraerBasicosPago(userText);
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
   const prompt = `Un cliente de internet envió un reporte de pago por WhatsApp.
 Extrae la información requerida y responde ÚNICAMENTE con un JSON plano (sin formato markdown ni \`\`\`json):
 
@@ -296,7 +317,7 @@ Mensaje del cliente:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 250 }
+        generationConfig: { temperature: 0.1, maxOutputTokens: 1000 }
       })
     });
 
@@ -381,7 +402,7 @@ export async function extraerDatosFalla(userText, numeroEmisor) {
   if (!userText || !userText.trim()) return extraerBasicosFalla('');
   if (!apiKey) return extraerBasicosFalla(userText);
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
   const prompt = `Un cliente envió sus datos para reportar una falla técnica de internet por WhatsApp.
 Extrae la información requerida y responde ÚNICAMENTE con un JSON plano (sin formato markdown ni \`\`\`json):
 
@@ -404,7 +425,7 @@ Mensaje del cliente:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 250 }
+        generationConfig: { temperature: 0.1, maxOutputTokens: 1000 }
       })
     });
 

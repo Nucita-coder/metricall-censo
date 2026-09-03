@@ -5,6 +5,7 @@ import { KANBAN_COLORS, getResultadoColor } from '../../../constants/theme';
 import { FaseProps, findListaTarget } from './types';
 import { PhoneCall, CheckCircle2, History, XCircle, Hourglass } from 'lucide-react-native';
 import { TarjetaDatosValores } from '../../../types/kanban';
+import { notificarPagoProcesado, notificarPagoRechazado } from '../../../services/whatsappNotificacionesService';
 
 export const OPCIONES_TIPO_CONTACTO_COBRANZA = [
   'LLAMADA TELEFONICA',
@@ -155,7 +156,29 @@ export function FaseCobranza({
         estadoGestion: nuevoEstado.toLowerCase().replace(/\s+/g, '_'),
         fechaUltimaGestionPago: new Date().toISOString(),
       });
-      Alert.alert('Estatus Actualizado', `El pago ahora está marcado como: ${nuevoEstado}`);
+
+      let mensajeResultado = `El pago ahora está marcado como: ${nuevoEstado}`;
+      if (nuevoEstado === 'Pago Procesado') {
+        const notif = await notificarPagoProcesado(tarjeta);
+        if (notif.success) {
+          mensajeResultado += '\n\n📲 Se envió la notificación de confirmación al cliente por WhatsApp.';
+        } else if (notif.noPhone) {
+          mensajeResultado += '\n\nℹ️ (La tarjeta no tiene número telefónico registrado para enviar WhatsApp).';
+        } else {
+          mensajeResultado += `\n\n⚠️ (No se pudo entregar el mensaje por WhatsApp: ${notif.error || 'Error de conexión'}).`;
+        }
+      } else if (nuevoEstado === 'Pago Rechazado') {
+        const notif = await notificarPagoRechazado(tarjeta);
+        if (notif.success) {
+          mensajeResultado += '\n\n📲 Se notificó al cliente sobre el rechazo del pago por WhatsApp.';
+        } else if (notif.noPhone) {
+          mensajeResultado += '\n\nℹ️ (La tarjeta no tiene número telefónico registrado para enviar WhatsApp).';
+        } else {
+          mensajeResultado += `\n\n⚠️ (No se pudo entregar el mensaje por WhatsApp: ${notif.error || 'Error de conexión'}).`;
+        }
+      }
+
+      Alert.alert('Estatus Actualizado', mensajeResultado);
     } catch (e: unknown) {
       Alert.alert('Error', 'No se pudo cambiar el estado de pago: ' + ((e as Error)?.message || String(e)));
     } finally {

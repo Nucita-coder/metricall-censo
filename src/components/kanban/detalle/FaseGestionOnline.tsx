@@ -9,6 +9,7 @@ import { supabase } from '../../../lib/supabase';
 import { FormularioConversionVenta } from './FormularioConversionVenta';
 import { KANBAN_COLORS } from '../../../constants/theme';
 import { uploadImageToSupabase } from '../../../services/uploadImage';
+import { notificarPagoProcesado, notificarPagoRechazado } from '../../../services/whatsappNotificacionesService';
 
 /**
  * FaseGestionOnline
@@ -238,6 +239,29 @@ export const FaseGestionOnline = ({
         estadoGestion: nuevoEstado.toLowerCase().replace(/\s+/g, '_'),
         fechaUltimaGestionPago: new Date().toISOString(),
       });
+
+      let mensajeResultado = `El pago ahora está marcado como: ${nuevoEstado}`;
+      if (nuevoEstado === 'Pago Procesado') {
+        const notif = await notificarPagoProcesado(tarjeta);
+        if (notif.success) {
+          mensajeResultado += '\n\n📲 Se envió la notificación de confirmación al cliente por WhatsApp.';
+        } else if (notif.noPhone) {
+          mensajeResultado += '\n\nℹ️ (La tarjeta no tiene número telefónico registrado para enviar WhatsApp).';
+        } else {
+          mensajeResultado += `\n\n⚠️ (No se pudo entregar el mensaje por WhatsApp: ${notif.error || 'Error de conexión'}).`;
+        }
+      } else if (nuevoEstado === 'Pago Rechazado') {
+        const notif = await notificarPagoRechazado(tarjeta);
+        if (notif.success) {
+          mensajeResultado += '\n\n📲 Se notificó al cliente sobre el rechazo del pago por WhatsApp.';
+        } else if (notif.noPhone) {
+          mensajeResultado += '\n\nℹ️ (La tarjeta no tiene número telefónico registrado para enviar WhatsApp).';
+        } else {
+          mensajeResultado += `\n\n⚠️ (No se pudo entregar el mensaje por WhatsApp: ${notif.error || 'Error de conexión'}).`;
+        }
+      }
+
+      Alert.alert('Estatus Actualizado', mensajeResultado);
     } catch (e: unknown) {
       showDiagnosticError(
         'ERR-GESTION-PAGO-ESTADO',

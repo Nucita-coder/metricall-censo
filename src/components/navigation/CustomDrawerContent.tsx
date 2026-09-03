@@ -23,11 +23,12 @@ export function CustomDrawerContent(props: CustomDrawerContentProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { isDesktop, userRol } = props;
-  const { userRol: authRol, isDeveloper } = useAuth();
+  const { userRol: authRol, isDeveloper, etiquetas = [] } = useAuth();
   const currentRol = (userRol || authRol || '').toLowerCase();
   const isDevUser = isDeveloper || currentRol === 'developer' || currentRol === 'desarrollador';
-  const isAdmin = isDevUser || ['admin', 'lider', 'administrador', 'supervisor'].includes(currentRol);
-  const canSeeTeam = isDevUser || (currentRol !== 'empleado');
+  const isLiderEtiqueta = (etiquetas || []).some((e) => e.toLowerCase() === 'líder' || e.toLowerCase() === 'lider');
+  const isAdmin = isDevUser || isLiderEtiqueta || ['admin', 'lider', 'administrador', 'supervisor'].includes(currentRol);
+  const canSeeTeam = isDevUser || isLiderEtiqueta || (currentRol !== 'empleado');
 
   const insets = useSafeAreaInsets();
   const { triggerSoporteModal, triggerArchivadosModal } = useGlobalUi();

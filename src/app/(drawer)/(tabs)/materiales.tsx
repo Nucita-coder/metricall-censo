@@ -52,9 +52,10 @@ export interface MovimientoItem {
 }
 
 export default function MaterialesScreen() {
-  const { empresaId, nombreCompleto, userRol, isDeveloper } = useAuth();
+  const { empresaId, nombreCompleto, userRol, isDeveloper, etiquetas = [] } = useAuth();
   const rolLower = (userRol || '').toLowerCase();
-  const canSeeAdmin = isDeveloper || ['admin', 'lider', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
+  const isLiderEtiqueta = (etiquetas || []).some((e) => e.toLowerCase() === 'líder' || e.toLowerCase() === 'lider');
+  const canSeeAdmin = isDeveloper || isLiderEtiqueta || ['admin', 'lider', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
 
   if (!canSeeAdmin) {
     return <Redirect href="/(drawer)/(tabs)" />;

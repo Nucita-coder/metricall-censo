@@ -12,6 +12,7 @@ interface PermisosAccionesVisibilidadProps<T extends PermisosConfig = PermisosCo
   etiquetas: string[];
   setEtiquetas: React.Dispatch<React.SetStateAction<string[]>>;
   opcionesEtiquetas: string[];
+  onToggleEtiqueta?: (tag: string) => void;
 }
 
 export function PermisosAccionesVisibilidad<T extends PermisosConfig>({
@@ -20,6 +21,7 @@ export function PermisosAccionesVisibilidad<T extends PermisosConfig>({
   etiquetas,
   setEtiquetas,
   opcionesEtiquetas,
+  onToggleEtiqueta,
 }: PermisosAccionesVisibilidadProps<T>) {
   return (
     <>
@@ -92,7 +94,9 @@ export function PermisosAccionesVisibilidad<T extends PermisosConfig>({
                   backgroundColor: isActive ? '#B6C2CF' : '#1D2125',
                 }}
                 onPress={() => {
-                  if (isActive) {
+                  if (onToggleEtiqueta) {
+                    onToggleEtiqueta(tag);
+                  } else if (isActive) {
                     setEtiquetas((prev) => prev.filter((t) => t !== tag));
                   } else {
                     setEtiquetas((prev) => [...prev, tag]);

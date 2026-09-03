@@ -20,9 +20,10 @@ export function TarjetaInfoOrganizacion({
   inviteCode,
   userRol,
 }: TarjetaInfoOrganizacionProps) {
-  const { isDeveloper } = useAuth();
+  const { isDeveloper, etiquetas = [] } = useAuth();
   const rolLower = (userRol || '').toLowerCase();
-  const canEdit = isDeveloper || ['lider', 'admin', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
+  const isLiderEtiqueta = (etiquetas || []).some((e) => e.toLowerCase() === 'líder' || e.toLowerCase() === 'lider');
+  const canEdit = isDeveloper || isLiderEtiqueta || ['lider', 'admin', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(rolLower);
   const [savingName, setSavingName] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 

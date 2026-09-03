@@ -15,9 +15,10 @@ interface SolicitudRow extends EquipoMemberItem {
 }
 
 export default function EquipoScreen() {
-  const { userRol } = useAuth();
+  const { userRol, etiquetas = [] } = useAuth();
+  const isLiderDelegado = (etiquetas || []).some(e => e.toLowerCase() === 'líder' || e.toLowerCase() === 'lider');
 
-  if (userRol === 'empleado') {
+  if (userRol === 'empleado' && !isLiderDelegado) {
     return <Redirect href="/(drawer)/(tabs)" />;
   }
 
@@ -38,14 +39,9 @@ export default function EquipoScreen() {
   const [guardando, setGuardando] = useState(false);
 
   const [fotoPerfilModalVisible, setFotoPerfilModalVisible] = useState(false);
-  const [fotoPerfilData, setFotoPerfilData] = useState<{
-    avatarUrl?: string | null;
-    nombre?: string | null;
-    rol?: string | null;
-    mensaje?: string | null;
-  } | null>(null);
+  const [fotoPerfilData, setFotoPerfilData] = useState<{ avatarUrl?: string | null; nombre?: string | null; rol?: string | null; mensaje?: string | null } | null>(null);
 
-  const OPCIONES_ETIQUETAS = ["Supervisor", "Técnico", "Asesor"];
+  const OPCIONES_ETIQUETAS = ["Líder", "Supervisor", "Técnico", "Asesor"];
 
   const handleVerFotoPerfil = (data: { avatarUrl?: string | null; nombre?: string | null; rol?: string | null; mensaje?: string | null }) => {
     setFotoPerfilData(data);
@@ -156,8 +152,18 @@ export default function EquipoScreen() {
 
       if (error) throw error;
 
-      if (selectedEtiquetas.length > 0 && solicitudEnProceso.usuario_id) {
-        await supabase.from('perfiles').update({ etiquetas: selectedEtiquetas }).eq('id', solicitudEnProceso.usuario_id);
+      if (solicitudEnProceso.usuario_id) {
+        const esLider = selectedEtiquetas.some(e => e.toLowerCase() === 'líder' || e.toLowerCase() === 'lider');
+        const updatePayload: Record<string, unknown> = { etiquetas: selectedEtiquetas };
+        if (esLider) {
+          updatePayload.permisos_especiales = {
+            sucursales_permitidas: [selectedSucursal],
+            tableros_permitidos: selectedTableros,
+            tarjetas_visibilidad: 'todas',
+            acciones: { crear: true, editar: true, borrar: true },
+          };
+        }
+        await supabase.from('perfiles').update(updatePayload).eq('id', solicitudEnProceso.usuario_id);
       }
 
       Alert.alert('¡Aceptado!', 'El empleado ha sido integrado al equipo.');

@@ -30,7 +30,7 @@ export default function EditPermisosScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [empleadoNombre, setEmpleadoNombre] = useState('');
   
-  const OPCIONES_ETIQUETAS = ["Supervisor", "Técnico", "Asesor"];
+  const OPCIONES_ETIQUETAS = ["Líder", "Supervisor", "Técnico", "Asesor"];
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
   
   const [jerarquia, setJerarquia] = useState<Sucursal[]>([]);
@@ -208,6 +208,51 @@ export default function EditPermisosScreen() {
     });
   };
 
+  const aplicarPermisosLiderDeBase = () => {
+    const todasSucursales = jerarquia.map((s) => s.id);
+    const todosTableros: string[] = [];
+    const fullPermisosListas: Record<string, PermisoListaRelacional> = {};
+
+    jerarquia.forEach((s) => {
+      s.tableros?.forEach((t) => {
+        todosTableros.push(t.id);
+        t.listas?.forEach((l) => {
+          fullPermisosListas[l.id] = {
+            lista_id: l.id,
+            puede_ver: true,
+            puede_crear: true,
+            puede_editar: true,
+            puede_borrar: true,
+          };
+        });
+      });
+    });
+
+    setPermisos({
+      sucursales_permitidas: todasSucursales,
+      tableros_permitidos: todosTableros,
+      tarjetas_visibilidad: 'todas',
+      acciones: { crear: true, editar: true, borrar: true },
+    });
+
+    setPermisosListas((prev) => ({
+      ...prev,
+      ...fullPermisosListas,
+    }));
+  };
+
+  const handleToggleEtiqueta = (tag: string) => {
+    const isActive = etiquetas.includes(tag);
+    if (isActive) {
+      setEtiquetas((prev) => prev.filter((t) => t !== tag));
+    } else {
+      setEtiquetas((prev) => [...prev, tag]);
+      if (tag.toLowerCase() === 'líder' || tag.toLowerCase() === 'lider') {
+        aplicarPermisosLiderDeBase();
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -238,6 +283,7 @@ export default function EditPermisosScreen() {
           etiquetas={etiquetas}
           setEtiquetas={setEtiquetas}
           opcionesEtiquetas={OPCIONES_ETIQUETAS}
+          onToggleEtiqueta={handleToggleEtiqueta}
         />
 
         <PermisosJerarquiaTree

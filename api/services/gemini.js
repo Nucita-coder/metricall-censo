@@ -331,21 +331,18 @@ Mensaje del cliente:
 
     const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleanJson);
-
-    // Fallback a extracción posicional si Gemini colocó el mismo número en cédula, ref y monto
-    if (parsed.cedula && parsed.cedula === parsed.referencia && parsed.cedula === parsed.monto) {
-      return extraerBasicosPago(userText);
-    }
+    console.log('[GEMINI PAGO] Datos extraídos con éxito vía Gemini IA (gemini-3.6-flash):', parsed);
 
     return {
       cedula:     parsed.cedula     || 'No especificada',
       referencia: parsed.referencia || 'S/N',
       monto:      parsed.monto      || 'Por verificar',
       banco:      parsed.banco      || 'No especificado',
-      telefono:   numeroEmisor
+      telefono:   numeroEmisor,
+      motor:      'gemini-ia'
     };
   } catch (err) {
-    console.error('[GEMINI PAGO ERROR]:', err);
+    console.warn('[GEMINI PAGO ERROR]: Falló llamada a Gemini API, usando salvavidas local:', err?.message || err);
     return extraerBasicosPago(userText);
   }
 }

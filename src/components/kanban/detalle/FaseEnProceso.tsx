@@ -1,17 +1,13 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, ImageBackground, Alert, Image } from 'react-native';
-import { ChevronDown, MapPin, Image as ImageIcon } from 'lucide-react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
-import { captureRef } from 'react-native-view-shot';
-import { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { AlertTriangle } from 'lucide-react-native';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { FaseProps, findListaTarget, getAtencionFallasListaId } from './types';
 import { renderSection } from './SeccionRegistro';
-import { uploadImageToSupabase } from '../../../services/uploadImage';
-import { GeofotoTool } from './GeofotoTool';
 import { Tarjeta, TarjetaMaterialItem } from '../../../types/kanban';
+import { SeccionMaterialesEnProceso } from './SeccionMaterialesEnProceso';
+import { SeccionGeolocalizacionEnProceso } from './SeccionGeolocalizacionEnProceso';
 
 export const FaseEnProceso = ({
   tarjeta,
@@ -47,12 +43,9 @@ export const FaseEnProceso = ({
   const [potenciaNap, setPotenciaNap] = useState(data.potenciaNap || '');
   const [potenciaCasa, setPotenciaCasa] = useState(data.potencia_casa || '');
   const [cableDrop, setCableDrop] = useState(data.cable_drop || '');
-  const [mostrarDropdownCable, setMostrarDropdownCable] = useState(false);
   const [geoNap, setGeoNap] = useState<{ lat: number; lng: number } | null>((data.geo_nap && typeof data.geo_nap.lat === 'number' && typeof data.geo_nap.lng === 'number') ? { lat: data.geo_nap.lat, lng: data.geo_nap.lng } : null);
   const [geoCasa, setGeoCasa] = useState<{ lat: number; lng: number } | null>((data.geo_casa && typeof data.geo_casa.lat === 'number' && typeof data.geo_casa.lng === 'number') ? { lat: data.geo_casa.lat, lng: data.geo_casa.lng } : null);
   const [geoFotos, setGeoFotos] = useState<string[]>(data.geofotos || []);
-  const [obteniendoGeoNap, setObteniendoGeoNap] = useState(false);
-  const [obteniendoGeoCasa, setObteniendoGeoCasa] = useState(false);
 
   const [materiales, setMateriales] = useState<Record<string, string>>((data.materiales as Record<string, string>) || {
     tensorPlastico: '',
@@ -145,6 +138,37 @@ export const FaseEnProceso = ({
 
   return renderSection("Informe de Atención Técnica", (
     <View>
+        {/* Banner de Advertencia si la instalación fue devuelta desde Por Activar */}
+        {Boolean(data.motivoRetorno || data.ultimoMotivoRetorno) && (
+          <View
+            style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+              borderLeftWidth: 4,
+              borderLeftColor: '#EF4444',
+              padding: 12,
+              borderRadius: 8,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: '#7F1D1D',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <AlertTriangle size={16} color="#EF4444" />
+              <Text style={{ color: '#F87171', fontWeight: 'bold', fontSize: 12, textTransform: 'uppercase' }}>
+                Instalación Devuelta / No Activada
+              </Text>
+            </View>
+            <Text style={{ color: '#E2E8F0', fontSize: 13, lineHeight: 18 }}>
+              {String(data.motivoRetorno || data.ultimoMotivoRetorno)}
+            </Text>
+            {Boolean(data.retornadoPor) && (
+              <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 4, fontStyle: 'italic' }}>
+                Devuelto por: {String(data.retornadoPor)}
+              </Text>
+            )}
+          </View>
+        )}
+
         <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8, textTransform: 'uppercase' }}>TIPO DE INSTALACIÓN / ATENCIÓN</Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           {['fibra', 'inalambrico'].map(tipo => (
@@ -170,105 +194,14 @@ export const FaseEnProceso = ({
           </View>
         </View>
 
-        <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8, textTransform: 'uppercase' }}>
-          {readOnly ? 'MATERIALES REGISTRADOS Y UTILIZADOS' : 'MATERIALES UTILIZADOS (SE DESCONTARÁN DE CUSTODIA)'}
-        </Text>
-        <View style={{ flexWrap: 'wrap', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-          {[
-            { key: 'tensorPlastico', label: 'Tensor Plástico', cod: 'MAT-TENSOR-PLASTICO' },
-            { key: 'tensorHierro', label: 'Tensor Hierro', cod: 'MAT-TENSOR-HIERRO' },
-            { key: 'grapas', label: 'Grapas', cod: 'MAT-GRAPAS' },
-            { key: 'tirrap', label: 'Tirrap', cod: 'MAT-TIRRAP' },
-            { key: 'pachCordApc', label: 'Pach Cord APC', cod: 'MAT-PACH-APC' },
-            { key: 'pachCordUpc', label: 'Pach Cord UPC', cod: 'MAT-PACH-UPC' },
-            { key: 'pachCordApcUpc', label: 'Pach Cord APC/UPC', cod: 'MAT-PACH-APC-UPC' },
-            { key: 'cajaTerminalCon', label: 'Caja Term. Con Accesorios', cod: 'MAT-CAJA-TERM-CON' },
-            { key: 'cajaTerminalSin', label: 'Caja Term. Sin Accesorios', cod: 'MAT-CAJA-TERM-SIN' },
-            { key: 'conectorAcople', label: 'Conector/Acople H-H', cod: 'MAT-CONECTOR-ACOPLE-HH' },
-            { key: 'conectorMecanicoApc', label: 'Conector Mecánico APC', cod: 'MAT-CONECTOR-MEC-APC' },
-            { key: 'conectorMecanicoUpc', label: 'Conector Mecánico UPC', cod: 'MAT-CONECTOR-MEC-UPC' },
-            { key: 'precinto', label: 'Precinto', cod: 'MAT-PRECINTO' },
-          ].map(item => {
-            const disp = stockCustodia[item.cod] !== undefined ? stockCustodia[item.cod] : (stockCustodia[item.label.toUpperCase()] || 0);
-            const numVal = parseFloat(materiales[item.key as keyof typeof materiales] || '0') || 0;
-            return (
-              <View key={item.key} style={{ width: '48%', marginBottom: 12 }}>
-                <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' }}>{item.label}</Text>
-                <TextInput
-                  style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: numVal > disp && disp > 0 ? '#F87171' : '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }}
-                  keyboardType="numeric"
-                  value={String(materiales[item.key as keyof typeof materiales] || '')}
-                  onChangeText={val => {
-                    const cleaned = val.replace(/[^0-9]/g, '');
-                    if (!cleaned) {
-                      setMateriales((p) => ({ ...p, [item.key]: '' }));
-                      return;
-                    }
-                    const inputNum = parseInt(cleaned, 10);
-                    if (inputNum > 0 && inputNum > disp) {
-                      Alert.alert(
-                        "Acción no permitida",
-                        `No posees suficiente stock de ${item.label} en tu custodia (Disponible: ${disp} und.). Solicita una carga a Almacén.`
-                      );
-                      setMateriales((p) => ({ ...p, [item.key]: '' }));
-                      return;
-                    }
-                    setMateriales((p) => ({ ...p, [item.key]: cleaned }));
-                  }}
-                  editable={!readOnly && !isSaving}
-                />
-                {!readOnly && (disp > 0 ? (
-                  <Text style={{ fontSize: 9, color: numVal > disp ? '#F87171' : '#4ADE80', marginTop: 2, fontWeight: numVal > disp ? 'bold' : 'normal' }}>
-                    {numVal > disp ? `⚠️ Excede tu stock (${disp} und.)` : `✓ En custodia: ${disp} und.`}
-                  </Text>
-                ) : (
-                  <Text style={{ fontSize: 9, color: '#8C9BAB', marginTop: 2, fontStyle: 'italic' }}>Sin stock asignado</Text>
-                ))}
-              </View>
-            );
-          })}
-        </View>
-
-        <View style={{ marginBottom: 16 }}>
-          <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' }}>Cable Preconectorizado</Text>
-          <TouchableOpacity
-            style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-            onPress={() => !readOnly && !isSaving && setMostrarDropdownCable(!mostrarDropdownCable)}
-            disabled={readOnly || isSaving}
-          >
-            <Text style={{ color: materiales.cablePreconectorizado ? '#B6C2CF' : '#8C9BAB' }}>
-              {materiales.cablePreconectorizado || 'Seleccionar...'}
-            </Text>
-            {!readOnly && <ChevronDown size={16} color="#8C9BAB" />}
-          </TouchableOpacity>
-
-          {mostrarDropdownCable && !readOnly && !isSaving && (
-            <View style={{ backgroundColor: '#2C333A', borderWidth: 1, borderColor: '#384148', borderRadius: 8, marginTop: 4, overflow: 'hidden' }}>
-              {['50', '70', '100'].map(opcion => (
-                <TouchableOpacity
-                  key={opcion}
-                  style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#384148' }}
-                  onPress={() => {
-                    const dispCable = stockCustodia['MAT-CABLE-PRECONECTORIZADO'] !== undefined ? stockCustodia['MAT-CABLE-PRECONECTORIZADO'] : (stockCustodia['CABLE PRECONECTORIZADO'] || 0);
-                    const cantCable = parseFloat(opcion) || 0;
-                    if (cantCable > dispCable) {
-                      Alert.alert(
-                        "Acción no permitida",
-                        `No posees suficiente stock de Cable Preconectorizado de ${opcion}m en tu custodia (Disponible: ${dispCable} und.).`
-                      );
-                      setMostrarDropdownCable(false);
-                      return;
-                    }
-                    setMateriales((p) => ({ ...p, cablePreconectorizado: opcion }));
-                    setMostrarDropdownCable(false);
-                  }}
-                >
-                  <Text style={{ color: '#B6C2CF' }}>{opcion}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
+        {/* Sección Modularizada de Materiales */}
+        <SeccionMaterialesEnProceso
+          materiales={materiales}
+          setMateriales={setMateriales}
+          stockCustodia={stockCustodia}
+          readOnly={readOnly}
+          isSaving={isSaving}
+        />
 
         <View style={{ marginBottom: 16 }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
@@ -300,97 +233,15 @@ export const FaseEnProceso = ({
         </View>
 
         {!isFalla && !readOnly && (
-          <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8, textTransform: 'uppercase' }}>GEO NAP Y CASA</Text>
-            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-              <View style={{ flex: 1, alignItems: 'center' }}>
-                <TouchableOpacity
-                  style={{ width: '100%', backgroundColor: geoNap ? '#48BB78' : '#3182CE', padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
-                  onPress={async () => {
-                    setObteniendoGeoNap(true);
-                    try {
-                      const { status } = await Location.requestForegroundPermissionsAsync();
-                      if (status !== 'granted') {
-                         Alert.alert('Permiso denegado', 'Se necesita acceso al GPS.');
-                        return;
-                      }
-                      const loc = await Location.getCurrentPositionAsync({});
-                      setGeoNap({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-                      Alert.alert('Éxito', 'Coordenadas NAP capturadas.');
-                    } catch (e) {
-                      Alert.alert('Error', 'No se pudo obtener ubicación');
-                    } finally {
-                      setObteniendoGeoNap(false);
-                    }
-                  }}
-                  disabled={obteniendoGeoNap || isSaving}
-                >
-                  {obteniendoGeoNap ? <ActivityIndicator color="#FFF" size="small" /> : <MapPin size={16} color="#FFF" style={{ marginRight: 8 }} />}
-                  <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 12 }}>{geoNap ? 'NAP Listo' : 'Capturar NAP'}</Text>
-                </TouchableOpacity>
-                {geoNap && (
-                  <Text style={{ color: '#8C9BAB', fontSize: 10, marginTop: 4 }}>
-                    {geoNap.lat.toFixed(5)}, {geoNap.lng.toFixed(5)}
-                  </Text>
-                )}
-              </View>
-
-              <View style={{ flex: 1, alignItems: 'center' }}>
-                <TouchableOpacity
-                  style={{ width: '100%', backgroundColor: geoCasa ? '#48BB78' : '#805AD5', padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
-                  onPress={async () => {
-                    setObteniendoGeoCasa(true);
-                    try {
-                      const { status } = await Location.requestForegroundPermissionsAsync();
-                      if (status !== 'granted') {
-                        Alert.alert('Permiso denegado', 'Se necesita acceso al GPS.');
-                        return;
-                      }
-                      const loc = await Location.getCurrentPositionAsync({});
-                      setGeoCasa({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-                      Alert.alert('Éxito', 'Coordenadas Casa capturadas.');
-                    } catch (e) {
-                      Alert.alert('Error', 'No se pudo obtener ubicación');
-                    } finally {
-                      setObteniendoGeoCasa(false);
-                    }
-                  }}
-                  disabled={obteniendoGeoCasa || isSaving}
-                >
-                  {obteniendoGeoCasa ? <ActivityIndicator color="#FFF" size="small" /> : <MapPin size={16} color="#FFF" style={{ marginRight: 8 }} />}
-                  <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 12 }}>{geoCasa ? 'Casa Lista' : 'Capturar Casa'}</Text>
-                </TouchableOpacity>
-                {geoCasa && (
-                  <Text style={{ color: '#8C9BAB', fontSize: 10, marginTop: 4 }}>
-                    {geoCasa.lat.toFixed(5)}, {geoCasa.lng.toFixed(5)}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8, marginTop: 8, textTransform: 'uppercase' }}>EVIDENCIA FOTOGRÁFICA MÚLTIPLE</Text>
-            <GeofotoTool 
-              onPhotoCaptured={(url) => setGeoFotos(prev => [...prev, url])} 
-              isSaving={isSaving} 
-            />
-
-            {geoFotos.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 12 }}>
-                {geoFotos.map((url: string, index: number) => (
-                  <View key={index} style={{ marginRight: 12, position: 'relative' }}>
-                    <ImageBackground source={{ uri: url }} style={{ width: 100, height: 100, borderRadius: 8, overflow: 'hidden' }} />
-                    <TouchableOpacity
-                      style={{ position: 'absolute', top: -8, right: -8, backgroundColor: '#E53E3E', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center', elevation: 2 }}
-                      onPress={() => setGeoFotos(prev => prev.filter((_, i) => i !== index))}
-                      disabled={isSaving}
-                    >
-                      <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 12 }}>X</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-          </View>
+          <SeccionGeolocalizacionEnProceso
+            geoNap={geoNap}
+            setGeoNap={setGeoNap}
+            geoCasa={geoCasa}
+            setGeoCasa={setGeoCasa}
+            geoFotos={geoFotos}
+            setGeoFotos={setGeoFotos}
+            isSaving={isSaving}
+          />
         )}
 
         {!readOnly && (
@@ -418,7 +269,8 @@ export const FaseEnProceso = ({
                   puertos_disponibles: puertosDisponibles,
                   nap: nroNap,
                   serial_onu: serialEquipo,
-                  tecnico: data.tecnicoAsignado || tarjeta.asignado_a || ''
+                  tecnico: data.tecnicoAsignado || tarjeta.asignado_a || '',
+                  motivoRetorno: null,
                 });
 
                 let destId: string | undefined = undefined;

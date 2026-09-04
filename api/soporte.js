@@ -116,18 +116,33 @@ export default async function handler(req, res) {
     }
 
     const contents = [];
-    const ultimos = Array.isArray(historial) ? historial.slice(-8) : [];
+    // El historial que llega ya contiene el mensaje actual del usuario al final.
+    // Excluimos el último para no duplicarlo como turno actual.
+    const ultimos = Array.isArray(historial) ? historial.slice(0, -1).slice(-8) : [];
     for (const m of ultimos) {
-      contents.push({
-        role: m.rol === 'usuario' ? 'user' : 'model',
-        parts: [{ text: m.texto || '' }],
-      });
+      const geminiRole = m.rol === 'usuario' ? 'user' : 'model';
+      const ultimo = contents[contents.length - 1];
+      if (ultimo && ultimo.role === geminiRole) {
+        // Fusionar para evitar turnos consecutivos del mismo rol
+        ultimo.parts[0].text += `\n${m.texto || ''}`;
+      } else {
+        contents.push({
+          role: geminiRole,
+          parts: [{ text: m.texto || '' }],
+        });
+      }
     }
 
-    contents.push({
-      role: 'user',
-      parts: [{ text: `${saludoContextual}${pregunta}` }],
-    });
+    // Turno actual del usuario (siempre al final y siempre 'user')
+    const ultimoContent = contents[contents.length - 1];
+    if (ultimoContent && ultimoContent.role === 'user') {
+      ultimoContent.parts[0].text += `\n${saludoContextual}${pregunta}`;
+    } else {
+      contents.push({
+        role: 'user',
+        parts: [{ text: `${saludoContextual}${pregunta}` }],
+      });
+    }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 

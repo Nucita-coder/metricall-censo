@@ -144,22 +144,39 @@ export async function consultarSoporteIa(
     parts: GeminiPart[];
   }
 
+  // El historial incluye ya el mensaje actual del usuario al final.
+  // Excluimos el último elemento para no duplicarlo como turno actual.
+  const mensajesPrevios = historial.slice(0, -1).slice(-8);
+
   const contents: GeminiContent[] = [];
 
-  // Mensajes previos de la conversación
-  const ultimosMensajes = historial.slice(-8); // Mantenemos los últimos turnos para contexto conversacional
-  for (const m of ultimosMensajes) {
-    contents.push({
-      role: m.rol === 'usuario' ? 'user' : 'model',
-      parts: [{ text: m.texto }],
-    });
+  // Agregar mensajes previos garantizando alternancia user/model
+  // (Gemini rechaza turnos consecutivos del mismo rol)
+  for (const m of mensajesPrevios) {
+    const geminiRole: 'user' | 'model' = m.rol === 'usuario' ? 'user' : 'model';
+    const ultimo = contents[contents.length - 1];
+    if (ultimo && ultimo.role === geminiRole) {
+      // Fusionar texto al turno anterior para evitar turnos duplicados
+      ultimo.parts[0].text += `\n${m.texto}`;
+    } else {
+      contents.push({
+        role: geminiRole,
+        parts: [{ text: m.texto }],
+      });
+    }
   }
 
-  // Turno actual del usuario
-  contents.push({
-    role: 'user',
-    parts: [{ text: `${saludoContextual}${preguntaUsuario}` }],
-  });
+  // Turno actual del usuario (siempre debe ser 'user' y ser el último)
+  const ultimoContent = contents[contents.length - 1];
+  if (ultimoContent && ultimoContent.role === 'user') {
+    // Si el último ya es user, fusionamos en vez de agregar
+    ultimoContent.parts[0].text += `\n${saludoContextual}${preguntaUsuario}`;
+  } else {
+    contents.push({
+      role: 'user',
+      parts: [{ text: `${saludoContextual}${preguntaUsuario}` }],
+    });
+  }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 

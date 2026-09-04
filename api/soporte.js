@@ -1,18 +1,5 @@
-// Servicio de Soporte Técnico con IA (Google Gemini) para Metricall
-// Proporciona orientación operativa y técnica con contexto integral del sistema.
-
-export interface MensajeIa {
-  id: string;
-  rol: 'usuario' | 'asistente';
-  texto: string;
-  fecha: string;
-}
-
-export interface ContextoUsuarioIa {
-  nombre?: string;
-  rol?: string;
-  empresa?: string;
-}
+// Endpoint Serverless en Vercel para Soporte Técnico con IA en Metricall
+// Utiliza GEMINI_API_KEY configurada en las variables de entorno del servidor Vercel
 
 const SYSTEM_PROMPT_SOPORTE = `
 Eres "MetricallBot Soporte Técnico IA", el asistente inteligente oficial de la plataforma Metricall.
@@ -84,86 +71,66 @@ Plataforma operativa integral (CRM, ERP y WMS) diseñada para erradicar el texto
 - Responde siempre en español, con un tono profesional, empático, claro, pedagógico y resolutivo.
 - Estructura las respuestas con viñetas o pasos numerados legibles en pantalla móvil.
 - Si el usuario describe un problema en campo (ej. potencia alta, no sabe cómo cargar un LCH, duda con un material, o un censo), guíalo paso a paso indicando exactamente qué botón presionar o qué procedimiento técnico ejecutar.
-- Si el usuario te hace una pregunta casual, de cultura general o entretenimiento (ej. anime, historia, etc.), respóndele con agrado y concisión, invitándolo cordialmente a consultarte sobre Metricall cuando lo necesite.
+- Si el usuario te hace una pregunta casual, de cultura general o entretenimiento (ej. anime, Dragon Ball, historia, etc.), respóndele con agrado y concisión, invitándolo cordialmente a consultarte sobre Metricall cuando lo necesite.
 - Sé conciso y directo, evitando rodeos innecesarios.
 `;
 
-import { Platform } from 'react-native';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
-const GEMINI_MODEL = process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.6-flash';
+export default async function handler(req, res) {
+  // Configuración de CORS para permitir solicitudes desde el frontend web
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
 
-export async function consultarSoporteIa(
-  historial: MensajeIa[],
-  preguntaUsuario: string,
-  contexto?: ContextoUsuarioIa
-): Promise<string> {
-  // 1. En entorno Web (ej. Vercel), priorizamos el endpoint serverless para usar GEMINI_API_KEY del servidor
-  if (Platform.OS === 'web') {
-    try {
-      const serverlessRes = await fetch('/api/soporte', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pregunta: preguntaUsuario,
-          historial,
-          contexto,
-        }),
-      });
-
-      if (serverlessRes.ok) {
-        const data = (await serverlessRes.json()) as { respuesta?: string };
-        if (data?.respuesta) return data.respuesta;
-      }
-    } catch {
-      // Fallback a llamada directa de cliente si el endpoint local no está activo
-    }
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  // 2. Llamada directa de cliente (Móvil / Expo Go / Fallback)
-  const apiKey =
-    process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
-    process.env.GEMINI_API_KEY ||
-    '';
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Método no permitido. Solo se admite POST.' });
+  }
 
+  const apiKey = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
   if (!apiKey) {
-    return 'La clave de Gemini no está disponible en este momento. Si estás en Vercel, asegúrate de que el despliegue haya finalizado con la última actualización de /api/soporte, o que GEMINI_API_KEY esté configurada en las Variables de Entorno de Vercel.';
-  }
-
-  // Armamos el contexto inicial del usuario si está disponible
-  let saludoContextual = '';
-  if (contexto?.nombre) {
-    saludoContextual = `[Contexto del usuario actual: Nombre: "${contexto.nombre}", Rol: "${contexto.rol || 'Colaborador'}", Empresa: "${contexto.empresa || 'Empresa'}"].\n\n`;
-  }
-
-  // Preparamos el historial en el formato de Gemini (Contents)
-  interface GeminiPart {
-    text: string;
-  }
-  interface GeminiContent {
-    role: 'user' | 'model';
-    parts: GeminiPart[];
-  }
-
-  const contents: GeminiContent[] = [];
-
-  // Mensajes previos de la conversación
-  const ultimosMensajes = historial.slice(-8); // Mantenemos los últimos turnos para contexto conversacional
-  for (const m of ultimosMensajes) {
-    contents.push({
-      role: m.rol === 'usuario' ? 'user' : 'model',
-      parts: [{ text: m.texto }],
+    console.error('[GEMINI VERCEL ERROR]: GEMINI_API_KEY no encontrada en las variables de Vercel.');
+    return res.status(500).json({
+      error: 'La variable GEMINI_API_KEY no está configurada en Vercel. Por favor agrégala en los ajustes de entorno de Vercel.'
     });
   }
 
-  // Turno actual del usuario
-  contents.push({
-    role: 'user',
-    parts: [{ text: `${saludoContextual}${preguntaUsuario}` }],
-  });
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-
   try {
+    const { pregunta, historial = [], contexto = {} } = req.body || {};
+
+    if (!pregunta || typeof pregunta !== 'string') {
+      return res.status(400).json({ error: 'Se requiere el parámetro "pregunta" en el cuerpo de la petición.' });
+    }
+
+    let saludoContextual = '';
+    if (contexto.nombre) {
+      saludoContextual = `[Contexto del usuario actual: Nombre: "${contexto.nombre}", Rol: "${contexto.rol || 'Colaborador'}", Empresa: "${contexto.empresa || 'Empresa'}"].\n\n`;
+    }
+
+    const contents = [];
+    const ultimos = Array.isArray(historial) ? historial.slice(-8) : [];
+    for (const m of ultimos) {
+      contents.push({
+        role: m.rol === 'usuario' ? 'user' : 'model',
+        parts: [{ text: m.texto || '' }],
+      });
+    }
+
+    contents.push({
+      role: 'user',
+      parts: [{ text: `${saludoContextual}${pregunta}` }],
+    });
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -180,47 +147,25 @@ export async function consultarSoporteIa(
     });
 
     if (!response.ok) {
-      // Fallback a modelo alternativo si es necesario
-      const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-      const fallbackRes = await fetch(fallbackUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT_SOPORTE }] },
-          contents,
-          generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
-        }),
+      const errText = await response.text();
+      console.error('[GEMINI VERCEL HTTP ERROR]:', response.status, errText);
+      return res.status(500).json({
+        error: 'Error al consultar la API de Gemini desde el servidor.',
+        detalles: errText
       });
-
-      if (!fallbackRes.ok) {
-        const errText = await fallbackRes.text();
-        console.error('[GEMINI SOPORTE ERROR]:', fallbackRes.status, errText);
-        return 'No pude procesar tu solicitud en este momento. Por favor verifica tu conexión o intenta nuevamente en unos segundos.';
-      }
-
-      const fbData = (await fallbackRes.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      };
-      return (
-        fbData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
-        'No recibí respuesta del asistente. Intenta reformular tu pregunta.'
-      );
     }
 
-    const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-
+    const data = await response.json();
     const textoRespuesta =
-      data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+      'No recibí respuesta del asistente. Intenta reformular tu pregunta.';
 
-    if (!textoRespuesta) {
-      return 'No pude generar una respuesta clara. ¿Podrías detallar un poco más tu consulta sobre el sistema o la falla técnica?';
-    }
-
-    return textoRespuesta;
-  } catch (error: unknown) {
-    console.error('[GEMINI SOPORTE EXCEPTION]:', (error as Error).message);
-    return 'Ocurrió un inconveniente de red al comunicar con el asistente de IA. Por favor, intenta de nuevo.';
+    return res.status(200).json({ respuesta: textoRespuesta });
+  } catch (error) {
+    console.error('[GEMINI VERCEL EXCEPTION]:', error);
+    return res.status(500).json({
+      error: 'Excepción al procesar consulta con IA.',
+      mensaje: error.message
+    });
   }
 }

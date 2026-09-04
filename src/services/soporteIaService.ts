@@ -84,6 +84,7 @@ Plataforma operativa integral (CRM, ERP y WMS) diseñada para erradicar el texto
 - Responde siempre en español, con un tono profesional, empático, claro, pedagógico y resolutivo.
 - Estructura las respuestas con viñetas o pasos numerados legibles en pantalla móvil.
 - Si el usuario describe un problema en campo (ej. potencia alta, no sabe cómo cargar un LCH, duda con un material, o un censo), guíalo paso a paso indicando exactamente qué botón presionar o qué procedimiento técnico ejecutar.
+- Si el usuario te hace una pregunta casual, de cultura general o entretenimiento (ej. anime, historia, etc.), respóndele con agrado y concisión, invitándolo cordialmente a consultarte sobre Metricall cuando lo necesite.
 - Sé conciso y directo, evitando rodeos innecesarios.
 `;
 
@@ -100,7 +101,7 @@ export async function consultarSoporteIa(
     '';
 
   if (!apiKey) {
-    return 'Lo siento, la clave de API de Gemini no está configurada en el entorno. Por favor, contacta al administrador del sistema.';
+    return 'La clave de Gemini no está cargada en tu sesión activa de Expo. Como agregamos EXPO_PUBLIC_GEMINI_API_KEY a .env recientemente, debes reiniciar el servidor de desarrollo en tu terminal (detén el proceso con Ctrl+C y vuelve a ejecutar "npm run web" o "npx expo start -c") para que el empaquetador Metro la reconozca.';
   }
 
   // Armamos el contexto inicial del usuario si está disponible

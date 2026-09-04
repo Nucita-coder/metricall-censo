@@ -14,6 +14,13 @@ export interface ContextoUsuarioIa {
   empresa?: string;
 }
 
+export const MENSAJE_BIENVENIDA: MensajeIa = {
+  id: 'bienvenida',
+  rol: 'asistente',
+  texto: '¡Hola! Soy **MetricallBot**, tu asistente de soporte técnico.\n\n¿En qué puedo ayudarte hoy?',
+  fecha: new Date().toISOString(),
+};
+
 const SYSTEM_PROMPT_SOPORTE = `
 Eres "MetricallBot Soporte Técnico IA", el asistente inteligente oficial de la plataforma Metricall.
 Tu función es orientar, capacitar y resolver dudas técnicas y operativas a los colaboradores de empresas de telecomunicaciones (ISPs de fibra óptica FTTH) que utilizan Metricall: técnicos instaladores de campo, cuadrillas, censadores, asesores de venta, analistas de almacén y supervisores.

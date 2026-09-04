@@ -168,3 +168,49 @@ export const styles = StyleSheet.create({
     opacity: 0.4,
   },
 });
+
+// Estilos para react-native-markdown-display (respuestas del bot)
+export const markdownStyles = {
+  body: {
+    color: '#B6C2CF',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  strong: {
+    color: '#CDD2D7',
+    fontWeight: 'bold' as const,
+  },
+  bullet_list: {
+    marginVertical: 4,
+  },
+  ordered_list: {
+    marginVertical: 4,
+  },
+  list_item: {
+    color: '#B6C2CF',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  code_inline: {
+    backgroundColor: '#1D2125',
+    color: '#579DFF',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+  },
+  fence: {
+    backgroundColor: '#1D2125',
+    borderRadius: 6,
+    padding: 10,
+    marginVertical: 6,
+  },
+  code_block: {
+    backgroundColor: '#1D2125',
+    color: '#579DFF',
+    borderRadius: 6,
+    padding: 10,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 4,
+  },
+};

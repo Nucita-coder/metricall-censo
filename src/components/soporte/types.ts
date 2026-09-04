@@ -1,3 +1,5 @@
+import { Dispatch, SetStateAction } from 'react';
+
 export interface MensajeSoporte {
   id: string;
   empresa_id: string;
@@ -22,3 +24,8 @@ export interface ModalSoporteTecnicoProps {
 }
 
 export type TabSoporte = 'ia' | 'humano';
+
+export interface ChatSoporteIaProps {
+  mensajes: import('../../../services/soporteIaService').MensajeIa[];
+  setMensajes: Dispatch<SetStateAction<import('../../../services/soporteIaService').MensajeIa[]>>;
+}

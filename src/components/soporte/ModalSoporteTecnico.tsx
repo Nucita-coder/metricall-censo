@@ -12,11 +12,15 @@ import { styles } from './ModalSoporteTecnico.styles';
 import { ChatSoporteIa } from './ChatSoporteIa';
 import { ChatSoporteHumano } from './ChatSoporteHumano';
 import { ModalSoporteTecnicoProps, TabSoporte } from './types';
+import { MensajeIa, MENSAJE_BIENVENIDA } from '../../services/soporteIaService';
 
 export function ModalSoporteTecnico({ visible, onClose }: ModalSoporteTecnicoProps) {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const [tabActivo, setTabActivo] = useState<TabSoporte>('ia');
+
+  // Estado elevado aquí: persiste entre cierres del modal (hooks corren antes del early return)
+  const [mensajes, setMensajes] = useState<MensajeIa[]>([MENSAJE_BIENVENIDA]);
 
   if (!visible) return null;
 
@@ -62,7 +66,11 @@ export function ModalSoporteTecnico({ visible, onClose }: ModalSoporteTecnicoPro
           </View>
 
           {/* Contenido según la pestaña activa */}
-          {tabActivo === 'ia' ? <ChatSoporteIa /> : <ChatSoporteHumano />}
+          {tabActivo === 'ia' ? (
+            <ChatSoporteIa mensajes={mensajes} setMensajes={setMensajes} />
+          ) : (
+            <ChatSoporteHumano />
+          )}
         </View>
       </View>
     </Modal>

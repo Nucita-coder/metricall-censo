@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,22 +7,16 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import { Send, Bot, RotateCcw, User } from 'lucide-react-native';
-import { consultarSoporteIa, MensajeIa } from '../../services/soporteIaService';
+import { consultarSoporteIa, MensajeIa, MENSAJE_BIENVENIDA } from '../../services/soporteIaService';
 import { useAuth } from '../../context/AuthContext';
-import { styles } from './ChatSoporteIa.styles';
+import { styles, markdownStyles } from './ChatSoporteIa.styles';
+import { ChatSoporteIaProps } from './types';
+import { useState } from 'react';
 
-const MENSAJE_BIENVENIDA: MensajeIa = {
-  id: 'bienvenida',
-  rol: 'asistente',
-  texto:
-    '¡Hola! Soy tu asistente de Soporte Técnico con Inteligencia Artificial.\n\nTengo el contexto completo de cómo funciona Metricall y las operaciones de campo:\n• Flujos de tableros (Venta, Factibilidad con LCH, Por Instalar, En Proceso, Por Activar, Liberada).\n• Parámetros ópticos de fibra (dBm en NAP y casa, atenuación, luz roja/LOS).\n• Censo comercial y conversión a venta.\n• Almacén, custodia de materiales y devoluciones.\n\n¿En qué te puedo orientar hoy?',
-  fecha: new Date().toISOString(),
-};
-
-export function ChatSoporteIa() {
+export function ChatSoporteIa({ mensajes, setMensajes }: ChatSoporteIaProps) {
   const { nombreCompleto, userRol, empresaId } = useAuth();
-  const [mensajes, setMensajes] = useState<MensajeIa[]>([MENSAJE_BIENVENIDA]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -69,8 +63,7 @@ export function ChatSoporteIa() {
       const errorIa: MensajeIa = {
         id: (Date.now() + 1).toString(),
         rol: 'asistente',
-        texto:
-          'Ocurrió un error inesperado al procesar tu consulta. Por favor, intenta de nuevo.',
+        texto: 'Ocurrió un error inesperado al procesar tu consulta. Por favor, intenta de nuevo.',
         fecha: new Date().toISOString(),
       };
       setMensajes((prev) => [...prev, errorIa]);
@@ -150,14 +143,13 @@ export function ChatSoporteIa() {
                   esUsuario ? styles.bubbleUsuario : styles.bubbleAsistente,
                 ]}
               >
-                <Text
-                  style={[
-                    styles.bubbleText,
-                    esUsuario ? styles.textUsuario : styles.textAsistente,
-                  ]}
-                >
-                  {m.texto}
-                </Text>
+                {esUsuario ? (
+                  <Text style={[styles.bubbleText, styles.textUsuario]}>
+                    {m.texto}
+                  </Text>
+                ) : (
+                  <Markdown style={markdownStyles}>{m.texto}</Markdown>
+                )}
                 <Text
                   style={[
                     styles.timeText,

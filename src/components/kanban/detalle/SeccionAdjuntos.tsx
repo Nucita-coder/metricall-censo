@@ -145,8 +145,8 @@ export const SeccionAdjuntos = ({ tarjeta, onUpdateTarjeta, setImagenExpandida }
                 }}>
                   {isPdf ? (
                     <View style={{ width: 80, height: 80, borderRadius: 8, backgroundColor: '#1E232A', borderWidth: 1, borderColor: '#384148', alignItems: 'center', justifyContent: 'center', padding: 6 }}>
-                      <FileText size={28} color="#F59E0B" />
-                      <Text style={{ color: '#FBBF24', fontSize: 10, fontWeight: 'bold', marginTop: 4, textAlign: 'center' }} numberOfLines={1}>
+                      <FileText size={28} color="#8C9BAB" />
+                      <Text style={{ color: '#B6C2CF', fontSize: 10, fontWeight: 'bold', marginTop: 4, textAlign: 'center' }} numberOfLines={1}>
                         PDF Orden
                       </Text>
                     </View>

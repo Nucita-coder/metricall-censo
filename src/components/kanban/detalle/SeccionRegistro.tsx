@@ -53,7 +53,7 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
 
   const IGNORE_KEYS = [
     'latitud', 'longitud', 'adjuntos', 'estadoLiberacion', 'motivoLiberacion', 
-    'geo_nap', 'geo_casa', 'geofotos', 'lch_imagen', 'historial_auditoria', 
+    'geo_nap', 'geo_casa', 'geofotos', 'lch_imagen', 'lch_numero', 'lchNumero', 'nro_lch', 'historial_auditoria', 
     'comentarios', 'gestiones'
   ];
 
@@ -257,16 +257,26 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
         </View>
       )}
 
-      {data.lch_imagen && (
+      {(Boolean(data.lch_imagen) || Boolean(data.lch_numero || data.lchNumero || data.nro_lch)) && (
         <View style={{ flexDirection: 'column', borderBottomWidth: 1, borderBottomColor: '#384148', paddingBottom: 8 }}>
           <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '500', marginBottom: 6, textTransform: 'uppercase' }}>Evidencia LCH</Text>
-          <TouchableOpacity onPress={() => setImagenExpandida && setImagenExpandida(data.lch_imagen || null)}>
-            <ImageBackground source={{ uri: data.lch_imagen }} style={{ width: 120, height: 120, borderRadius: 8, overflow: 'hidden', backgroundColor: '#384148' }}>
-              <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: 4, position: 'absolute', bottom: 0, width: '100%' }}>
-                <Text style={{ color: '#FFF', fontSize: 10, textAlign: 'center', fontWeight: 'bold' }}>VER LCH</Text>
-              </View>
-            </ImageBackground>
-          </TouchableOpacity>
+          {Boolean(data.lch_imagen) && (
+            <TouchableOpacity onPress={() => setImagenExpandida && setImagenExpandida(data.lch_imagen || null)}>
+              <ImageBackground source={{ uri: data.lch_imagen }} style={{ width: 120, height: 120, borderRadius: 8, overflow: 'hidden', backgroundColor: '#384148' }}>
+                <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: 4, position: 'absolute', bottom: 0, width: '100%' }}>
+                  <Text style={{ color: '#FFF', fontSize: 10, textAlign: 'center', fontWeight: 'bold' }}>VER LCH</Text>
+                </View>
+              </ImageBackground>
+            </TouchableOpacity>
+          )}
+          {Boolean(data.lch_numero || data.lchNumero || data.nro_lch) && (
+            <View style={{ marginTop: 8 }}>
+              <Text style={{ fontSize: 11, color: '#8C9BAB', fontWeight: '500', marginBottom: 2 }}>NRO LCH</Text>
+              <Text style={{ fontSize: 15, color: '#FFF', fontWeight: 'bold' }}>
+                {String(data.lch_numero || data.lchNumero || data.nro_lch)}
+              </Text>
+            </View>
+          )}
         </View>
       )}
     </View>

@@ -325,3 +325,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+export function esListaCargaExcel(nombre?: string): boolean {
+  if (!nombre) return false;
+  const n = nombre.toLowerCase().trim();
+  if (
+    n.includes('efectiva') ||
+    n.includes('negativa') ||
+    n.includes('positiva') ||
+    n.includes('resultado') ||
+    n.includes('(recupero)')
+  ) {
+    return false;
+  }
+  return (
+    n.includes('carga de cobranza') ||
+    n.includes('clientes cortados') ||
+    n === 'recupero' ||
+    n === 'carga de recupero' ||
+    n.includes('carga recupero')
+  );
+}
+

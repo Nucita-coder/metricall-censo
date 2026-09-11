@@ -31,3 +31,23 @@ Es OBLIGATORIO que ningún archivo (`.ts`, `.tsx`, `.js`) supere las 350 líneas
 - Todo componente, hook, servicio o vista que crezca debe modularizarse y dividirse en submódulos o subcomponentes independientes.
 - Mantener funciones y archivos pequeños, cohesivos y fáciles de mantener.
 
+# Prohibición Estricta de Chips / Filter Chips / Pastillas de Selección
+
+Queda TAJANTEMENTE PROHIBIDO el uso de chips, filter chips, pastillas o píldoras de selección para desglosar filtros u opciones en toda la aplicación.
+- Se consideran componentes genéricos y poco profesionales para desglosar opciones.
+- Todos los filtros, categorías y opciones de selección DEBEN implementarse únicamente mediante listas desplegables (`SelectDropdown`) centradas o listas estructuradas.
+# Estética y Paleta de Colores Corporativa (Sobria y Minimalista)
+
+Queda ESTRICTAMENTE PROHIBIDO romper la estética corporativa sobria mediante el uso de colores fluorescentes, estridentes, neón o chillones (ej. PROHIBIDO usar verde neón `#34D399` / `#10B981` / `#22C55E`, amarillo chillón `#FCD34D` / `#FBBF24`, cian o azul eléctrico saturado `#579DFF` / `#60A5FA` / `#93C5FD`, naranja brillante `#F59E0B`, morados llamativos, etc.). La interfaz no debe parecer un mosaico saturado de colores ("parece un perico").
+
+Todo formulario, modal, tarjeta, tabla e indicador debe ajustarse estrictamente a la paleta corporativa oscura, sobria y minimalista oficial (referencia oficial: Modal Nueva Venta / Formularios):
+- **Superficie base / Fondos principales**: `#22272B`
+- **Encabezados, tarjetas agrupadoras y subsecciones**: `#2C333A`
+- **Bordes y divisores**: `#384148`
+- **Campos de entrada, inputs y cajas internas**: `#1D2125` o `#22272B` con borde `#384148`
+- **Texto principal / Títulos / Valores numéricos**: `#B6C2CF` o `#FFFFFF` (para énfasis limpio y sobrio)
+- **Texto secundario / Etiquetas / Subtítulos / Iconos estándar**: `#8C9BAB`
+- **Botones y elementos interactivos**: `#1D2125` con borde `#384148` y texto `#B6C2CF`, o botón de acción principal sobrio (`#A0B2C6` o `#8FA3B7` con texto `#1D2125`).
+- **Badges, píldoras y tags**: Tonos neutros o translúcidos muy tenues (`#2C333A` con borde `#384148`, texto `#8C9BAB` o `#B6C2CF`), sin saturación ni colores estridentes.
+- **Números de stock, seriales, identificadores y métricas**: Deben utilizar texto limpio `#FFFFFF` o `#B6C2CF`, NUNCA colores fosforescentes (verde, amarillo, cian o naranja).
+- La interfaz debe transmitir sobriedad, elegancia y consistencia corporativa en cada modal, tabla, tarjeta y formulario.

@@ -451,14 +451,25 @@ export function ModuloCobranza({ empresaId, filtroPeriodo, busquedaTexto }: Modu
         return;
       }
 
-      // 4. Cargar tarjetas de Cobranza y Recupero (incluye tableros archivados para historial)
+      // 4. Cargar tarjetas de Cobranza y Recupero (excluyendo borradas y archivadas)
       const { data: tarjetasData, error } = await supabase
         .from('tarjetas')
         .select('*')
         .in('lista_id', listaIdsCobranza);
 
       if (error) throw error;
-      const tarjetas = (tarjetasData || []) as Tarjeta[];
+      const tarjetas = ((tarjetasData || []) as Tarjeta[]).filter(t => {
+        const data = t.datos_valores || {};
+        return (
+          t.estado_archivo !== true &&
+          !data.eliminada &&
+          !data.eliminado &&
+          !data.borrada &&
+          !data.borrado &&
+          data.estado_archivo !== true &&
+          data.estado_archivo !== 'true'
+        );
+      });
       setRawTarjetasCobranza(tarjetas);
 
       // 5. Filtrar por periodo seleccionado (admite rango personalizado con calendario)

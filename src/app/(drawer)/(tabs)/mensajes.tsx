@@ -16,6 +16,7 @@ import { ConversacionesList } from '../../../components/mensajes/ConversacionesL
 import { ChatRoom } from '../../../components/mensajes/ChatRoom';
 import { ModalAdjuntarElemento } from '../../../components/mensajes/ModalAdjuntarElemento';
 import { ModalNuevoChat } from '../../../components/mensajes/ModalNuevoChat';
+import { soundService } from '../../../services/soundService';
 
 export default function MensajesScreen() {
   const { session, empresaId } = useAuth();
@@ -79,6 +80,9 @@ export default function MensajesScreen() {
         { event: 'INSERT', schema: 'public', table: 'soporte_mensajes', filter: `empresa_id=eq.${empresaId}` },
         (payload) => {
           const nuevoMsg = payload.new as MensajeGlobal;
+          if (nuevoMsg.receptor_id === currentUserId) {
+            soundService.playNotification('new_message');
+          }
           if (
             chatActivoUser &&
             ((nuevoMsg.emisor_id === currentUserId && nuevoMsg.receptor_id === chatActivoUser.id) ||

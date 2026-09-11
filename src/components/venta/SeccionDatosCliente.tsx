@@ -77,6 +77,7 @@ export const SeccionDatosCliente = ({
         onChangeText={(v: string) => update('telefonoMovil', v)}
         placeholder="Ej. 04141234567"
         keyboardType="phone-pad"
+        isRequired
         readOnly={readOnly}
       />
 
@@ -104,6 +105,7 @@ export const SeccionDatosCliente = ({
         onChangeText={(v: string) => update('correo', v)}
         placeholder="ejemplo@correo.com"
         keyboardType="email-address"
+        isRequired
         readOnly={readOnly}
       />
 
@@ -116,6 +118,7 @@ export const SeccionDatosCliente = ({
         onSelect={(v: string) => update('estado', v)}
         options={ESTADOS_VENEZUELA}
         placeholder="Seleccione un estado"
+        isRequired
         disabled={readOnly}
       />
 
@@ -138,6 +141,7 @@ export const SeccionDatosCliente = ({
           update('zonaCuadrante', v);
         }}
         placeholder="Zona o Cuadrante"
+        isRequired
         readOnly={readOnly}
       />
 
@@ -146,6 +150,7 @@ export const SeccionDatosCliente = ({
         value={formData.sector}
         onChangeText={(v: string) => update('sector', v)}
         placeholder="Sector"
+        isRequired
         readOnly={readOnly}
       />
 

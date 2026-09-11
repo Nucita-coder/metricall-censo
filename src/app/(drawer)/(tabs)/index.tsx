@@ -179,7 +179,7 @@ export default function DashboardScreen() {
                   ? ['ventas online', 'reporte falla', 'reporte pago']
                   : tipoTablero === 'atencion_fallas'
                     ? ['Por asignar', 'Asignado a', 'En Proceso', 'En Revisión', 'Falla Solventada']
-                    : ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'];
+                    : ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Recuperados', 'Devolución de Asignación', 'Devolución a Almacén Central'];
 
           const defaultListas = nombresListas.map((nombre, index) => ({
             empresa_id: perfilData?.empresa_id,

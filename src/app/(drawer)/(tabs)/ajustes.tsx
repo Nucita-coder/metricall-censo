@@ -13,6 +13,7 @@ import { supabase } from '../../../lib/supabase';
 import { TarjetaLogoEmpresa } from '../../../components/ajustes/TarjetaLogoEmpresa';
 import { TarjetaInfoOrganizacion } from '../../../components/ajustes/TarjetaInfoOrganizacion';
 import { TarjetaPerfilUsuario } from '../../../components/ajustes/TarjetaPerfilUsuario';
+import { TarjetaPreferenciasSonido } from '../../../components/ajustes/TarjetaPreferenciasSonido';
 import { TarjetaSoporteTecnico } from '../../../components/ajustes/TarjetaSoporteTecnico';
 
 export default function AjustesScreen() {
@@ -79,6 +80,9 @@ export default function AjustesScreen() {
 
         {/* TARJETA DEL PERFIL DE USUARIO (Visible para todos los usuarios) */}
         <TarjetaPerfilUsuario />
+
+        {/* PREFERENCIAS DE SONIDO Y RESPUESTA HÁPTICA (Visible para todos los usuarios) */}
+        <TarjetaPreferenciasSonido />
 
         {/* TARJETAS DE ADMINISTRACIÓN DE EMPRESA (Solo visibles para Líder / Admin) */}
         {isLiderOrAdmin && (

@@ -111,7 +111,7 @@ export const TablaStockAsignado = ({ empresaId, searchQuery = '' }: TablaStockAs
   if (isLoading) {
     return (
       <View style={s.center}>
-        <ActivityIndicator size="small" color="#3B82F6" />
+        <ActivityIndicator size="small" color="#8C9BAB" />
         <Text style={s.centerTxt}>Cargando material asignado a personal...</Text>
       </View>
     );
@@ -150,7 +150,7 @@ export const TablaStockAsignado = ({ empresaId, searchQuery = '' }: TablaStockAs
           >
             <View style={{ flex: 2 }}>
               <View style={s.flexRow}>
-                <User size={13} color="#60A5FA" />
+                <User size={13} color="#8C9BAB" />
                 <Text style={s.miembroTxt}>{item.miembro}</Text>
               </View>
               <Text style={s.subTxt}>Orden: {item.nroOrden}</Text>
@@ -169,12 +169,12 @@ export const TablaStockAsignado = ({ empresaId, searchQuery = '' }: TablaStockAs
 
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
               <View style={s.flexRow}>
-                <Calendar size={11} color="#9CA3AF" />
+                <Calendar size={11} color="#8C9BAB" />
                 <Text style={s.dateTxt}>{item.fecha}</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 4 }}>
-                <History size={10} color="#60A5FA" />
-                <Text style={{ fontSize: 9, color: '#60A5FA', fontWeight: 'bold' }}>Historial</Text>
+                <History size={10} color="#8C9BAB" />
+                <Text style={{ fontSize: 9, color: '#8C9BAB', fontWeight: 'bold' }}>Historial</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -194,20 +194,20 @@ export const TablaStockAsignado = ({ empresaId, searchQuery = '' }: TablaStockAs
 const s = StyleSheet.create({
   container: { flex: 1 },
   center: { padding: 40, alignItems: 'center', justifyContent: 'center' },
-  centerTxt: { color: '#6B7280', marginTop: 10, fontSize: 13 },
-  summaryBadge: { backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.3)', padding: 10, borderRadius: 6, margin: 16, marginBottom: 8 },
-  summaryTxt: { color: '#93C5FD', fontSize: 12 },
-  summaryBold: { fontWeight: 'bold', color: '#FFF' },
-  thead: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#0D1117', borderBottomWidth: 1, borderBottomColor: '#1F2937' },
-  th: { fontSize: 10, fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.6 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#111827' },
-  rowAlt: { backgroundColor: 'rgba(255,255,255,0.015)' },
+  thead: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#2C333A', borderBottomWidth: 1, borderBottomColor: '#384148' },
+  th: { fontSize: 11, fontWeight: '700', color: '#8C9BAB', textTransform: 'uppercase', letterSpacing: 0.6 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#2C333A' },
+  rowAlt: { backgroundColor: 'rgba(255,255,255,0.02)' },
   flexRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  miembroTxt: { fontSize: 13, fontWeight: '600', color: '#F3F4F6' },
-  subTxt: { fontSize: 10, color: '#6B7280', marginTop: 2 },
-  codTxt: { fontSize: 11, fontWeight: '600', color: '#60A5FA' },
-  matName: { fontSize: 12, color: '#D1D5DB' },
-  qtyBadge: { backgroundColor: 'rgba(245, 158, 11, 0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)' },
-  qtyTxt: { fontSize: 12, fontWeight: 'bold', color: '#FBBF24' },
-  dateTxt: { fontSize: 11, color: '#9CA3AF' },
+  miembroTxt: { fontSize: 13, fontWeight: '600', color: '#B6C2CF' },
+  subTxt: { fontSize: 10, color: '#8C9BAB', marginTop: 2 },
+  codTxt: { fontSize: 11, fontWeight: '700', color: '#8C9BAB' },
+  matName: { fontSize: 12, color: '#B6C2CF' },
+  qtyBadge: { backgroundColor: '#2C333A', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, borderWidth: 1, borderColor: '#384148' },
+  qtyTxt: { fontSize: 12, fontWeight: 'bold', color: '#FFFFFF' },
+  dateTxt: { fontSize: 11, color: '#8C9BAB' },
+  centerTxt: { color: '#8C9BAB', marginTop: 10, fontSize: 13 },
+  summaryBadge: { backgroundColor: '#2C333A', borderWidth: 1, borderColor: '#384148', padding: 10, borderRadius: 6, margin: 16, marginBottom: 8 },
+  summaryTxt: { color: '#8C9BAB', fontSize: 12 },
+  summaryBold: { fontWeight: 'bold', color: '#FFFFFF' },
 });

@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
 
 import { Tarjeta, Lista, TableroInfo } from '../types/kanban';
+import { soundService } from '../services/soundService';
 
 interface UseKanbanDragDropProps {
   listas: Lista[];
@@ -82,6 +83,7 @@ export const useKanbanDragDrop = ({ listas, setListas, tableroInfo }: UseKanbanD
 
     try {
       // 1. UI Updates Optimistas
+      soundService.playGesture('drop_success');
       setListas(prev => {
         let latestCard = { ...tarjetaEnMovimiento };
         for (const list of prev) {
@@ -112,6 +114,7 @@ export const useKanbanDragDrop = ({ listas, setListas, tableroInfo }: UseKanbanD
       });
       if (error) throw error;
     } catch (e: unknown) {
+      soundService.playNotification('action_error');
       setListas(previousListas);
       Alert.alert('Error', 'No se pudo mover la tarjeta: ' + ((e as Error).message || String(e)));
     }
@@ -138,6 +141,7 @@ export const useKanbanDragDrop = ({ listas, setListas, tableroInfo }: UseKanbanD
     setListaEnMovimiento(null);
 
     try {
+      soundService.playGesture('drop_success');
       setListas(prev => {
         const newList = [...prev];
         newList[currentIndex] = { ...currentLista, orden: newOrdenCurrent };

@@ -54,15 +54,18 @@ function RootLayoutNav() {
 }
 
 import { ErrorDiagnosticsProvider } from '../context/ErrorDiagnosticsContext';
+import { SoundPreferencesProvider } from '../context/SoundPreferencesContext';
 
 export default function RootLayout() {
   return (
     <ErrorDiagnosticsProvider>
-      <AuthProvider>
-        <LocationProvider>
-          <RootLayoutNav />
-        </LocationProvider>
-      </AuthProvider>
+      <SoundPreferencesProvider>
+        <AuthProvider>
+          <LocationProvider>
+            <RootLayoutNav />
+          </LocationProvider>
+        </AuthProvider>
+      </SoundPreferencesProvider>
     </ErrorDiagnosticsProvider>
   );
 }

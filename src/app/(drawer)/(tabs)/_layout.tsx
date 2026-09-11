@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { useWindowDimensions, Platform } from 'react-native';
 import { Briefcase, Users, Settings, MessageSquare, BarChart3, Package, Bot } from 'lucide-react-native';
 import { useAuth } from '../../../context/AuthContext';
+import { soundService } from '../../../services/soundService';
 
 export default function TabLayout() {
   const { userRol, isDeveloper } = useAuth();
@@ -14,6 +15,11 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      screenListeners={{
+        tabPress: () => {
+          soundService.playGesture('tab_switch');
+        },
+      }}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#FFF',

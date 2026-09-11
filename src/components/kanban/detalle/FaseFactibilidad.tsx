@@ -6,6 +6,7 @@ import { FaseProps, findListaTarget } from './types';
 import { renderSection } from './SeccionRegistro';
 import { uploadImageToSupabase } from '../../../services/uploadImage';
 import { useErrorDiagnostics } from '../../../context/ErrorDiagnosticsContext';
+import { soundService } from '../../../services/soundService';
 
 export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, isSaving, setIsSaving, listasGlobales = [] }: FaseProps) => {
   const data = tarjeta.datos_valores || {};
@@ -17,6 +18,47 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
   const [errorFactibilidad, setErrorFactibilidad] = useState<string | null>(null);
 
   const lchIncompleto = !lchNumero || lchNumero.trim() === '' || !lchImagen;
+
+  const handleSubirLch = async (origen: 'galeria' | 'camara') => {
+    try {
+      setSubiendoLch(true);
+      let result: ImagePicker.ImagePickerResult;
+
+      if (origen === 'camara') {
+        result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+      } else {
+        if (Platform.OS === 'web') {
+          result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
+        } else {
+          result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 }).catch(async () => {
+            return await ImagePicker.launchCameraAsync({ quality: 0.7 });
+          });
+        }
+      }
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const url = await uploadImageToSupabase(asset.uri, 'evidencias', 'lch');
+        if (url) {
+          setLchImagen(url);
+          setErrorFactibilidad(null);
+          await onUpdateTarjeta({ lch_numero: lchNumero, lch_imagen: url });
+          soundService.playNotification('action_success');
+          if (Platform.OS === 'web') window.alert("LCH cargado y guardado correctamente.");
+          else Alert.alert("Éxito", "LCH cargado y guardado correctamente.");
+        }
+      }
+    } catch (e: unknown) {
+      showDiagnosticError(
+        origen === 'camara' ? 'ERR-LCH-CAMARA' : 'ERR-LCH-SUBIDA',
+        `Error al ${origen === 'camara' ? 'abrir la cámara' : 'seleccionar la imagen'} para foto de LCH.`,
+        e,
+        'Factibilidad'
+      );
+    } finally {
+      setSubiendoLch(false);
+    }
+  };
 
   return (
     <View>
@@ -32,38 +74,18 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
             keyboardType="numeric"
             value={lchNumero}
             onChangeText={(val) => { setLchNumero(val); setErrorFactibilidad(null); }}
+            onBlur={async () => {
+              if (lchNumero !== (data.lch_numero || '')) {
+                await onUpdateTarjeta({ lch_numero: lchNumero, lch_imagen: lchImagen });
+              }
+            }}
             editable={!isSaving && !subiendoLch}
           />
 
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: lchImagen ? 12 : 0 }}>
             <TouchableOpacity
               style={{ flex: 1, backgroundColor: '#1D2125', padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', borderWidth: 1, borderColor: !lchImagen && errorFactibilidad ? '#E53E3E' : '#384148' }}
-              onPress={async () => {
-                try {
-                  setSubiendoLch(true);
-                  let result: ImagePicker.ImagePickerResult;
-                  if (Platform.OS === 'web') {
-                    result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
-                  } else {
-                    result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 }).catch(async () => {
-                      return await ImagePicker.launchCameraAsync({ quality: 0.7 });
-                    });
-                  }
-
-                  if (!result.canceled && result.assets && result.assets.length > 0) {
-                    const asset = result.assets[0];
-                    const url = await uploadImageToSupabase(asset.uri, 'evidencias', 'lch');
-                    if (url) {
-                      setLchImagen(url);
-                      setErrorFactibilidad(null);
-                    }
-                  }
-                } catch (e: unknown) {
-                  showDiagnosticError('ERR-LCH-SUBIDA', 'Error al seleccionar o subir la imagen de LCH.', e, 'Factibilidad');
-                } finally {
-                  setSubiendoLch(false);
-                }
-              }}
+              onPress={() => handleSubirLch('galeria')}
               disabled={isSaving || subiendoLch}
             >
               {subiendoLch ? (
@@ -78,24 +100,7 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
 
             <TouchableOpacity
               style={{ flex: 1, backgroundColor: '#1D2125', padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', borderWidth: 1, borderColor: !lchImagen && errorFactibilidad ? '#E53E3E' : '#384148' }}
-              onPress={async () => {
-                try {
-                  setSubiendoLch(true);
-                  let result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-                  if (!result.canceled && result.assets && result.assets.length > 0) {
-                    const asset = result.assets[0];
-                    const url = await uploadImageToSupabase(asset.uri, 'evidencias', 'lch');
-                    if (url) {
-                      setLchImagen(url);
-                      setErrorFactibilidad(null);
-                    }
-                  }
-                } catch (e: unknown) {
-                  showDiagnosticError('ERR-LCH-CAMARA', 'Error al abrir la cámara para foto de LCH.', e, 'Factibilidad');
-                } finally {
-                  setSubiendoLch(false);
-                }
-              }}
+              onPress={() => handleSubirLch('camara')}
               disabled={isSaving || subiendoLch}
             >
               <ImageIcon size={18} color="#0C66E4" style={{ marginRight: 8 }} />
@@ -108,20 +113,6 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
               <ImageBackground source={{ uri: lchImagen }} style={{ flex: 1 }} resizeMode="cover" />
             </View>
           )}
-
-          <TouchableOpacity
-            style={{ backgroundColor: '#0C66E4', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 16 }}
-            onPress={async () => {
-              setIsSaving(true);
-              await onUpdateTarjeta({ lch_numero: lchNumero, lch_imagen: lchImagen });
-              if (Platform.OS === 'web') window.alert("LCH guardado correctamente.");
-              else Alert.alert("Éxito", "LCH guardado correctamente.");
-              setIsSaving(false);
-            }}
-            disabled={isSaving || subiendoLch}
-          >
-            {isSaving ? <ActivityIndicator color="#FFF" /> : <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Guardar LCH</Text>}
-          </TouchableOpacity>
         </View>
       ))}
 
@@ -151,6 +142,7 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
               style={{ flex: 1, padding: 12, borderRadius: 8, borderWidth: 2, borderColor: lchIncompleto ? '#2F5C3E' : '#48BB78', backgroundColor: '#1C3A27', alignItems: 'center', opacity: lchIncompleto ? 0.7 : 1 }}
               onPress={async () => {
                 if (lchIncompleto) {
+                  soundService.playNotification('action_error');
                   const msg = 'Es obligatorio ingresar el Nro de LCH y adjuntar su imagen antes de aprobar y pasar a instalar.';
                   setErrorFactibilidad(msg);
                   showDiagnosticError(
@@ -167,7 +159,9 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
                   const destId = findListaTarget(listasGlobales, 'por_instalar')?.id;
                   if (!destId) throw new Error("Lista destino 'Por Instalar' no encontrada");
                   await autoMoverTarjeta(tarjeta, destId);
+                  soundService.playNotification('action_success');
                 } catch (e: unknown) {
+                  soundService.playNotification('action_error');
                   setErrorFactibilidad((e as Error).message);
                   showDiagnosticError('ERR-FACTIBILIDAD-APROBAR', 'No se pudo aprobar ni mover la tarjeta a Por Instalar.', e, 'Factibilidad');
                 } finally {

@@ -2,17 +2,8 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { Calendar as CalendarIcon, ChevronDown, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-  FlatList,
-  Modal,
-  Platform,
-  StyleProp,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  ViewStyle,
-  useWindowDimensions,
+  FlatList, Modal, Platform, StyleProp, StyleSheet, Text,
+  TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions,
 } from 'react-native';
 
 export interface InputTextoProps {
@@ -189,6 +180,7 @@ export interface SelectDropdownProps {
   disabled?: boolean;
   halfWidth?: boolean;
   fullWidth?: boolean;
+  compact?: boolean;
 }
 
 export const SelectDropdown = ({
@@ -200,6 +192,7 @@ export const SelectDropdown = ({
   isRequired = false,
   disabled = false,
   halfWidth = false,
+  compact = false,
 }: SelectDropdownProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const { width } = useWindowDimensions();
@@ -209,22 +202,23 @@ export const SelectDropdown = ({
     <View
       style={[
         styles.fieldContainer,
+        compact && styles.fieldContainerCompact,
         disabled && styles.btnDisabled,
         isDesktop && halfWidth ? { width: '48%' } : { width: '100%' },
       ]}
     >
-      <Text style={styles.label}>
+      <Text style={[styles.label, compact && styles.labelCompact]}>
         {label} {isRequired && <Text style={styles.required}>*</Text>}
       </Text>
       <TouchableOpacity
-        style={styles.selectBtn}
+        style={[styles.selectBtn, compact && styles.selectBtnCompact]}
         onPress={() => !disabled && setModalVisible(true)}
         disabled={disabled}
       >
-        <Text style={{ color: value ? (disabled ? '#8C9BAB' : '#B6C2CF') : '#8C9BAB', fontSize: 16 }}>
+        <Text style={{ color: value ? (disabled ? '#8C9BAB' : '#B6C2CF') : '#8C9BAB', fontSize: compact ? 13 : 16 }}>
           {value || placeholder}
         </Text>
-        <ChevronDown size={20} color={disabled ? '#8C9BAB' : '#B6C2CF'} />
+        <ChevronDown size={compact ? 16 : 20} color={disabled ? '#8C9BAB' : '#B6C2CF'} />
       </TouchableOpacity>
 
       <Modal visible={modalVisible} transparent animationType="fade">
@@ -267,11 +261,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     width: '100%',
   },
+  fieldContainerCompact: {
+    marginBottom: 0,
+  },
   label: {
     fontSize: 14,
     fontWeight: '600',
     color: '#B6C2CF',
     marginBottom: 6,
+  },
+  labelCompact: {
+    fontSize: 11,
+    color: '#8C9BAB',
+    marginBottom: 4,
   },
   required: {
     color: '#E53E3E',
@@ -304,6 +306,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  selectBtnCompact: {
+    height: 34,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
   },
   btnDisabled: {
     opacity: 0.5,

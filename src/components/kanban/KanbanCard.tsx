@@ -4,6 +4,7 @@ import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from 're
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { KANBAN_COLORS, KANBAN_THEME, getResultadoColor } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import { soundService } from '../../services/soundService';
 import { Lista, Tarjeta, TarjetaMaterialItem } from '../../types/kanban';
 
 export interface KanbanCardProps {
@@ -111,6 +112,7 @@ const KanbanCardComponent = ({
 
   const handlePress = () => {
     if (isMoveMode || isListMoveMode) return;
+    soundService.playGesture('tap');
     const now = Date.now();
     if (lastTap.current && (now - lastTap.current) < 300) {
       if (singleTapTimeout.current) clearTimeout(singleTapTimeout.current);
@@ -146,6 +148,7 @@ const KanbanCardComponent = ({
       onPressOut={handlePressOut}
       onLongPress={(e) => {
         if (!isMoveMode && !isListMoveMode) {
+          soundService.playGesture('drag_start');
           const esGerencial = userRol === 'admin' || userRol === 'lider' || userRol === 'supervisor';
           if (Platform.OS !== 'web' && esGerencial && onRightClick) onRightClick(item, e.nativeEvent.pageX || 50, e.nativeEvent.pageY || 200);
         }
@@ -318,10 +321,8 @@ const styles = StyleSheet.create({
   cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' },
   cardTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
   badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  badgeText: { fontSize: 10, fontWeight: 'bold' },
-  cardDate: { fontSize: 11, color: KANBAN_COLORS.text.light, fontWeight: '500' },
-  cardName: { fontWeight: 'bold', fontSize: 16, color: KANBAN_COLORS.text.primary, marginBottom: 4 },
-  cardNameNoBadge: { flex: 1, marginRight: 8, marginBottom: 0 },
+  badgeText: { fontSize: 10, fontWeight: 'bold' }, cardDate: { fontSize: 11, color: KANBAN_COLORS.text.light, fontWeight: '500' },
+  cardName: { fontWeight: 'bold', fontSize: 16, color: KANBAN_COLORS.text.primary, marginBottom: 4 }, cardNameNoBadge: { flex: 1, marginRight: 8, marginBottom: 0 },
   contactInfoRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap', gap: 10 },
   contactInfoItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   contactInfoText: { fontSize: 11, color: '#718096', fontWeight: '500' },

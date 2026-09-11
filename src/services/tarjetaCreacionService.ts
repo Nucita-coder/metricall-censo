@@ -1,0 +1,203 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase';
+import { TarjetaDatosValores, TarjetaMaterialItem } from '../types/kanban';
+
+export interface ParametrosPostCreacionTarjeta {
+  currentLista: { id: string; tablero_id: string; nombre: string } | null;
+  nuevaTarjetaId: string;
+  formData: TarjetaDatosValores;
+  empresaId?: string | null;
+  listaNombre?: string;
+  isMaterialesMode: boolean;
+  payload: {
+    lista_id: string;
+    creador_id?: string;
+    empresa_id?: string | null;
+    datos_valores: TarjetaDatosValores;
+  };
+}
+
+export async function ejecutarPostCreacionTarjeta({
+  currentLista,
+  nuevaTarjetaId,
+  formData,
+  empresaId,
+  listaNombre,
+  isMaterialesMode,
+  payload,
+}: ParametrosPostCreacionTarjeta): Promise<void> {
+  // 1. Mover Venta inicial a Factibilidad
+  if (currentLista && currentLista.nombre === 'Venta' && nuevaTarjetaId) {
+    try {
+      const { data: listaFactibilidad } = await supabase
+        .from('listas')
+        .select('id')
+        .eq('tablero_id', currentLista.tablero_id)
+        .eq('nombre', 'Factibilidad')
+        .maybeSingle();
+
+      if (listaFactibilidad) {
+        const { error: rpcError } = await supabase.rpc('mover_tarjeta_seguro', {
+          p_tarjeta_id: nuevaTarjetaId,
+          p_lista_destino_id: listaFactibilidad.id,
+        });
+        if (rpcError) {
+          console.warn('RPC mover_tarjeta_seguro falló, actualizando directamente:', rpcError.message);
+          await supabase.from('tarjetas').update({ lista_id: listaFactibilidad.id }).eq('id', nuevaTarjetaId);
+        }
+      }
+    } catch (err) {
+      console.error('Error moviendo tarjeta de Venta a Factibilidad:', err);
+    }
+  }
+
+  // 2. Caché de ciudad
+  try {
+    const ciudadToCache = (formData.ciudad as string) || (formData.ciudadMunicipio as string);
+    if (ciudadToCache) {
+      await AsyncStorage.setItem('@ultima_ciudad_registrada', ciudadToCache);
+    }
+  } catch (e) {
+    console.log('Error guardando ciudad en caché', e);
+  }
+
+  // 3. Clonado automático de Censo
+  if (listaNombre === 'Censo' && formData.dispuestoCambiar && currentLista?.tablero_id) {
+    try {
+      let targetListName = '';
+      if (formData.dispuestoCambiar === 'Sí') targetListName = 'si desea';
+      else if (formData.dispuestoCambiar === 'No') targetListName = 'no desea';
+      else if (formData.dispuestoCambiar === 'Es posible') targetListName = 'es posible';
+
+      if (targetListName) {
+        const { data: targetList } = await supabase
+          .from('listas')
+          .select('id')
+          .eq('tablero_id', currentLista.tablero_id)
+          .eq('nombre', targetListName)
+          .single();
+        if (targetList) {
+          const clonePayload = { ...payload, lista_id: targetList.id };
+          await supabase.from('tarjetas').insert(clonePayload);
+        }
+      }
+    } catch (err) {
+      console.log('Error silenciado al clonar tarjeta de censo:', err);
+    }
+  }
+
+  // 4. Procesamiento de Materiales y Notificaciones
+  if (isMaterialesMode && formData.tipoCarga && currentLista?.tablero_id && nuevaTarjetaId) {
+    try {
+      const { data: tableroListas } = await supabase
+        .from('listas')
+        .select('id, nombre')
+        .eq('tablero_id', currentLista.tablero_id);
+
+      if (tableroListas && tableroListas.length > 0) {
+        const normalizeStr = (s: string) =>
+          s
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+
+        const targetNorm = normalizeStr(String(formData.tipoCarga || ''));
+        const isDevCentral = targetNorm.includes('central');
+        const isDevAsignacion =
+          !isDevCentral &&
+          (targetNorm.includes('devolucion de asignacion') || targetNorm === 'devolucion' || targetNorm.includes('devolucion'));
+
+        const targetList = tableroListas.find((l) => {
+          if (!l.nombre) return false;
+          const lNorm = normalizeStr(l.nombre);
+          if (lNorm === targetNorm) return true;
+
+          if (isDevAsignacion) {
+            return lNorm.includes('devolucion de asignacion') || (lNorm.includes('devolucion') && !lNorm.includes('central'));
+          }
+          if (isDevCentral) {
+            return lNorm.includes('central');
+          }
+          if (targetNorm.includes('recibido') && lNorm.includes('recibido')) return true;
+          if (targetNorm.includes('asigna') && lNorm.includes('asigna') && !lNorm.includes('devolucion')) return true;
+          if (targetNorm.includes('recuperado') && lNorm.includes('recuperado')) return true;
+          return lNorm.includes(targetNorm) || targetNorm.includes(lNorm);
+        });
+
+        if (targetList && targetList.id !== currentLista.id) {
+          const { error: rpcError } = await supabase.rpc('mover_tarjeta_seguro', {
+            p_tarjeta_id: nuevaTarjetaId,
+            p_lista_destino_id: targetList.id,
+          });
+          if (rpcError) {
+            console.warn('mover_tarjeta_seguro falló en almacén, actualizando directamente:', rpcError.message);
+            await supabase.from('tarjetas').update({ lista_id: targetList.id }).eq('id', nuevaTarjetaId);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error al mover tarjeta de almacén:', err);
+    }
+
+    const tipoUpper = String(formData.tipoCarga || '').toUpperCase();
+    const isDevolucion = tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN');
+    const isAsignado =
+      !isDevolucion &&
+      (tipoUpper.includes('ASIGNA') || Boolean(formData.asignadoA && String(formData.asignadoA).trim()));
+
+    if ((isAsignado || isDevolucion) && formData.asignadoA && String(formData.asignadoA).trim()) {
+      try {
+        const targetName = String(formData.asignadoA).trim().toLowerCase();
+        const { data: perfiles, error: perfilError } = await supabase
+          .from('perfiles')
+          .select('id, nombre_completo')
+          .eq('empresa_id', empresaId);
+
+        if (perfilError) {
+          console.error('Error al buscar perfiles para notificación:', perfilError);
+        }
+
+        const matchedProfile = perfiles?.find((p) => {
+          const pName = (p.nombre_completo || '').trim().toLowerCase();
+          return pName === targetName || (pName && targetName && (pName.includes(targetName) || targetName.includes(pName)));
+        });
+
+        if (matchedProfile?.id) {
+          await supabase
+            .from('tarjetas')
+            .update({
+              datos_valores: { ...formData, asignado_a: matchedProfile.id },
+            })
+            .eq('id', nuevaTarjetaId);
+
+          const itemsList =
+            Array.isArray(formData.items) && formData.items.length > 0
+              ? (formData.items as TarjetaMaterialItem[])
+              : [formData as unknown as TarjetaMaterialItem];
+          const resumenItems = itemsList
+            .map(
+              (it) =>
+                `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`
+            )
+            .join(', ');
+          const mensaje = isDevolucion
+            ? `Se registró la devolución de ${resumenItems} al almacén correctamente.`
+            : `Se te asignó ${resumenItems}. Este material está ahora en tu custodia.`;
+
+          const { error: notifError } = await supabase.from('notificaciones').insert({
+            usuario_id: matchedProfile.id,
+            tarjeta_id: nuevaTarjetaId,
+            mensaje,
+            leida: false,
+          });
+          if (notifError) {
+            console.error('Error al insertar notificación:', notifError);
+          }
+        }
+      } catch (errNotif) {
+        console.error('Error notificacion:', errNotif);
+      }
+    }
+  }
+}

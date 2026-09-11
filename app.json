@@ -70,7 +70,9 @@
         {
           "photosPermission": "Permite a Metricall acceder a tu galería para adjuntar fotos de perfil y evidencias."
         }
-      ]
+      ],
+      "expo-audio",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

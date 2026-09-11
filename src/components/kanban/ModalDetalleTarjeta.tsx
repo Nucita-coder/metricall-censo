@@ -1,7 +1,7 @@
 import { History, Pencil, X } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Animated, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import { Tarjeta, TarjetaDatosValores, Lista, TarjetaMaterialItem } from '../../types/kanban';
+import { Alert, Animated, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Tarjeta, TarjetaDatosValores, Lista } from '../../types/kanban';
 import { WEB_MODAL_CONTAINER } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -10,24 +10,15 @@ import FormularioVenta from '../FormularioVenta';
 import FormularioReciboMaterial from '../FormularioReciboMaterial';
 import { AccionesExportacionCenso } from './detalle/AccionesExportacionCenso';
 import { BotonesAccionEdicion } from './detalle/BotonesAccionEdicion';
-import { FaseAsignadoA } from './detalle/FaseAsignadoA';
-import { FaseClienteActivo } from './detalle/FaseClienteActivo';
-import { FaseEnProceso } from './detalle/FaseEnProceso';
-import { FaseFactibilidad } from './detalle/FaseFactibilidad';
-import { FaseLiberada } from './detalle/FaseLiberada';
-import { FasePorActivar } from './detalle/FasePorActivar';
-import { FasePorInstalar } from './detalle/FasePorInstalar';
-import { FaseEnRevision } from './detalle/FaseEnRevision';
-import { FaseSolventada } from './detalle/FaseSolventada';
-import { FaseCobranza } from './detalle/FaseCobranza';
-import { FaseVenta } from './detalle/FaseVenta';
-import { FaseGestionOnline } from './detalle/FaseGestionOnline';
+import { FaseDinamicaSelector } from './detalle/FaseDinamicaSelector';
 import { FormularioConversionVenta } from './detalle/FormularioConversionVenta';
 import { SeccionAdjuntos } from './detalle/SeccionAdjuntos';
 import { SeccionComentarios } from './detalle/SeccionComentarios';
 import { SeccionGestion } from './detalle/SeccionGestion';
 import { SeccionRegistro } from './detalle/SeccionRegistro';
 import { FaseProps, Miembro } from './detalle/types';
+import { validarDatosVenta } from '../venta/validacionesVenta';
+import { ejecutarConversionCensoAVenta, notificarAsignacionMaterialDetalle } from './detalle/modalDetalleHelpers';
 
 export interface ModalDetalleTarjetaProps {
   tarjetaSeleccionada: Tarjeta | null;
@@ -129,6 +120,7 @@ export const ModalDetalleTarjeta = ({
   const listaActualNombre = nombreListaRemota || listas.find(l => l.id === tarjetaSeleccionada.lista_id)?.nombre || '';
   const isCensoFormat = ['censo', 'si desea', 'no desea', 'es posible', 'sí desea'].includes(listaActualNombre.toLowerCase().trim());
   const isMaterialesFormat = ['carga de materiales', 'material recibido', 'material asignado', 'devolución de asignación', 'devolución a almacén central', 'recuperados'].includes(listaActualNombre.toLowerCase().trim()) || tarjetaSeleccionada?.datos_valores?.codigoMaterial !== undefined || tarjetaSeleccionada?.datos_valores?.nroOrdenEntrega !== undefined;
+  const isClienteActivo = listaActualNombre.toLowerCase().trim().includes('activo');
 
   const faseProps: FaseProps = {
     tarjeta: tarjetaSeleccionada,
@@ -144,88 +136,27 @@ export const ModalDetalleTarjeta = ({
     listasGlobales: listas,
   };
 
-  const renderFaseDinamica = () => {
-    if (isCensoFormat || isMaterialesFormat) return null;
-
-    const clean = listaActualNombre.toLowerCase().trim().replace(/_/g, ' ');
-    const datosVal = tarjetaSeleccionada?.datos_valores || {};
-    const esWhatsAppBot = Boolean(datosVal.origen && String(datosVal.origen).toLowerCase().includes('whatsapp'));
-    const esPagoWhatsApp = Boolean(datosVal.referencia || datosVal.comprobantePagoUrl || datosVal.montoPago);
-    const isReporteFalla = Boolean(
-      datosVal.tipoFalla ||
-      datosVal.estadoSoporte ||
-      (datosVal.origen && String(datosVal.origen).toLowerCase().includes('soporte')) ||
-      (datosVal.origen && String(datosVal.origen).toLowerCase().includes('falla')) ||
-      String(datosVal.nombreApellido || '').toLowerCase().includes('falla') ||
-      clean.includes('falla') || clean.includes('soporte') || clean.includes('reclamo')
-    );
-
-    if (clean.includes('solventad') || datosVal.estadoSoporte === 'Falla Solventada' || datosVal.accionFalla === 'Falla Solventada') {
-      return <FaseSolventada {...faseProps} />;
-    }
-    if (clean.includes('factibilidad')) return <FaseFactibilidad {...faseProps} />;
-    if (clean.includes('liberad')) return <FaseLiberada {...faseProps} />;
-    if (clean.includes('por instalar') || clean.includes('instalar') || clean.includes('por asignar') || clean.includes('asignar')) return <FasePorInstalar {...faseProps} />;
-    if (clean.includes('asignado')) return <FaseAsignadoA {...faseProps} />;
-    if (clean.includes('proceso')) return <FaseEnProceso {...faseProps} />;
-    if (clean.includes('revis') || clean.includes('revision') || clean.includes('revisión')) return <FaseEnRevision {...faseProps} />;
-    if (clean.includes('activar')) return <FasePorActivar {...faseProps} />;
-    if (clean.includes('activo')) return <FaseClienteActivo {...faseProps} />;
-    if (clean.includes('cobranza') || clean.includes('efectiva') || clean.includes('negativa') || datosVal.origenImportacion === 'COBRANZA-RECUPERO-CHURN') {
-      return <FaseCobranza {...faseProps} />;
-    }
-    if (clean.includes('ventas online') || clean.includes('gestion online') || clean.includes('gestión online') || clean.includes('falla') || clean.includes('soporte')) {
-      return <FaseGestionOnline {...faseProps} />;
-    }
-    if (clean.includes('venta')) return <FaseVenta {...faseProps} />;
-
-    // Fallback asegurado para tarjetas de WhatsApp Bot / Pagos / Fallas recibidas
-    if (esWhatsAppBot || esPagoWhatsApp || isReporteFalla) {
-      return <FaseGestionOnline {...faseProps} />;
-    }
-
-    return null;
-  };
-
   const handleGuardarCambios = async () => {
+    if (!isCensoFormat && !isMaterialesFormat) {
+      const { esValido, faltantes } = validarDatosVenta(editFormData);
+      if (!esValido) {
+        Alert.alert(
+          'Casillas Obligatorias Requeridas',
+          'Para guardar los cambios, debes completar las siguientes casillas obligatorias:\n\n• ' + faltantes.join('\n• ')
+        );
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       await onUpdateTarjeta(editFormData);
-      const tipoUpper = (editFormData.tipoCarga || '').toUpperCase();
-      const isDevolucion = tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN');
-      const isAsignado = !isDevolucion && (tipoUpper.includes('ASIGNA') || Boolean(editFormData.asignadoA && editFormData.asignadoA.trim()));
-
-      if (isMaterialesFormat && (isAsignado || isDevolucion) && editFormData.asignadoA && editFormData.asignadoA.trim()) {
-        try {
-          const targetName = editFormData.asignadoA.trim().toLowerCase();
-          const { data: perfiles, error: perfilError } = await supabase
-            .from('perfiles')
-            .select('id, nombre_completo')
-            .eq('empresa_id', tarjetaSeleccionada.empresa_id);
-
-          if (perfilError) {
-            console.error('Error al buscar perfiles para notificación:', perfilError);
-          }
-
-          const matchedProfile = perfiles?.find(p => {
-            const pName = (p.nombre_completo || '').trim().toLowerCase();
-            return pName === targetName || (pName && targetName && (pName.includes(targetName) || targetName.includes(pName)));
-          });
-
-          if (matchedProfile?.id) {
-            const itemsList = Array.isArray(editFormData.items) && editFormData.items.length > 0 ? editFormData.items : [editFormData];
-            const resumenItems = (itemsList as TarjetaMaterialItem[]).map((it) => `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`).join(', ');
-            const mensaje = isDevolucion
-              ? `Se registró la devolución de ${resumenItems} al almacén correctamente.`
-              : `Se te asignó ${resumenItems}. Este material está ahora en tu custodia.`;
-            const { error: notifError } = await supabase.from('notificaciones').insert({ usuario_id: matchedProfile.id, tarjeta_id: tarjetaSeleccionada.id, mensaje, leida: false });
-            if (notifError) {
-              console.error('Error al insertar notificación:', notifError);
-            }
-          } else {
-            console.warn('Perfil no encontrado para notificación. Nombre buscado:', editFormData.asignadoA);
-          }
-        } catch (errNotif) { console.error('Error notificacion:', errNotif); }
+      if (isMaterialesFormat) {
+        await notificarAsignacionMaterialDetalle({
+          editFormData,
+          empresaId: tarjetaSeleccionada.empresa_id,
+          tarjetaId: tarjetaSeleccionada.id,
+        });
       }
       setIsEditing(false);
     } catch (e: unknown) {
@@ -282,52 +213,14 @@ export const ModalDetalleTarjeta = ({
                 onConfirm={async (datosComerciales: Record<string, unknown>) => {
                   setIsSaving(true);
                   try {
-                    const gestiones = tarjetaSeleccionada.datos_valores?.gestiones || [];
-                    const oldData = tarjetaSeleccionada.datos_valores || {};
-                    let gpsValues: Record<string, unknown> = {};
-                    if (oldData.geo_censo?.lat && oldData.geo_censo?.lng) {
-                      gpsValues = { latitud: oldData.geo_censo.lat, longitud: oldData.geo_censo.lng, ubicacion_cliente: oldData.geo_censo };
-                    }
-
-                    const nuevosDatos: Record<string, unknown> = {
-                      ...oldData, ...gpsValues, ...datosComerciales,
-                      tipoServicio: datosComerciales.tipoServicio || oldData.tipoProspecto,
-                      tipoDocumento: oldData.tipoDocumentoIdentidad,
-                      documentoIdentidad: oldData.nroIdentidad,
-                      telefonoMovil: oldData.nroTelefonoMovil,
-                      telefonoAdicional: oldData.nroTelefonoAdicional,
-                      telefonoResidencial: oldData.nroTelefonoResidencial,
-                      ciudad: oldData.ciudadMunicipio,
-                      zona: oldData.zonaCuadrante,
-                      calle: oldData.calleManzanaVereda,
-                      urbanizacion: oldData.urbanizacionBarrio,
-                      piso: oldData.pisoNivel,
-                      edificio: oldData.edificioCasa,
-                      referencia: oldData.puntoReferencia,
-                      gestiones: [...gestiones, conversionData],
-                      origen: 'censo'
-                    };
-
-                    const camposAPurgar = [
-                      'tipoProspecto', 'tipoDocumentoIdentidad', 'nroIdentidad', 'nroTelefonoMovil', 'nroTelefonoAdicional',
-                      'nroTelefonoResidencial', 'ciudadMunicipio', 'zonaCuadrante', 'calleManzanaVereda', 'urbanizacionBarrio',
-                      'pisoNivel', 'edificioCasa', 'puntoReferencia', 'geo_censo', 'fechaCenso', 'supervisor', 'asesorComercial',
-                      'cuentaConInternet', 'proveedorActual', 'proveedor_otro', 'tipoTecnologia', 'planContratado', 'costoPlan',
-                      'nivelSatisfaccion', 'principalProblema', 'dispuestoCambiar', 'servicioAdicionalInteres', 'observacionesCenso'
-                    ];
-
-                    camposAPurgar.forEach(campo => { delete nuevosDatos[campo]; });
-
-                    const { error: rpcError } = await supabase.rpc('convertir_venta_factibilidad', {
-                      p_tarjeta_id: tarjetaSeleccionada.id,
-                      p_nuevos_datos: nuevosDatos
+                    await ejecutarConversionCensoAVenta({
+                      tarjetaSeleccionada,
+                      conversionData,
+                      datosComerciales,
+                      onRemoveTarjetaLocal,
+                      setTarjetaSeleccionada,
+                      setConversionData,
                     });
-
-                    if (rpcError) throw rpcError;
-
-                    if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjetaSeleccionada.id);
-                    setTarjetaSeleccionada(null);
-                    setConversionData(null);
                     alert('Venta concretada. Tarjeta movida a Instalaciones -> Factibilidad.');
                   } catch (e: unknown) {
                     alert('Error al convertir la venta: ' + ((e as Error).message || String(e)));
@@ -385,7 +278,7 @@ export const ModalDetalleTarjeta = ({
                             </View>
                           ) : (
                             <>
-                              <SeccionRegistro {...faseProps} />
+                              {!isClienteActivo && <SeccionRegistro {...faseProps} />}
                               {tarjetaSeleccionada.datos_valores?.gestiones && tarjetaSeleccionada.datos_valores.gestiones.length > 0 && (
                                 <View style={{ marginTop: 24 }}>
                                   <SeccionGestion {...faseProps} soloHistorial={true} />
@@ -396,8 +289,15 @@ export const ModalDetalleTarjeta = ({
                         </>
                       )}
 
-                      {!isCensoFormat && !isMaterialesFormat && !isEditing && <SeccionAdjuntos {...faseProps} />}
-                      {!isCensoFormat && !isMaterialesFormat && !isEditing && renderFaseDinamica()}
+                      {!isCensoFormat && !isMaterialesFormat && !isEditing && !isClienteActivo && <SeccionAdjuntos {...faseProps} />}
+                      {!isCensoFormat && !isMaterialesFormat && !isEditing && (
+                        <FaseDinamicaSelector
+                          listaActualNombre={listaActualNombre}
+                          faseProps={faseProps}
+                          isCensoFormat={isCensoFormat}
+                          isMaterialesFormat={isMaterialesFormat}
+                        />
+                      )}
                     </View>
                   </View>
 

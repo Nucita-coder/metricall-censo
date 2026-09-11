@@ -26,15 +26,13 @@ La lista **Factibilidad** es la fase técnica donde el equipo revisa la viabilid
 ### 🔘 Botones y Acciones Disponibles
 
 1. **`Galería LCH *`** (Botón con icono de imagen):
-   - Abre la galería del dispositivo/navegador para subir la evidencia de LCH.
+   - Abre la galería del dispositivo/navegador para subir la evidencia de LCH. Al completarse la carga, guarda automáticamente el registro en Supabase.
 2. **`Cámara LCH *`** (Botón con icono de cámara):
-   - Abre la cámara del dispositivo para capturar la fotografía del LCH en tiempo real.
-3. **`Guardar LCH`** (Botón azul):
-   - Almacena el número y la imagen del LCH en los `datos_valores` de la tarjeta en Supabase.
-4. **`Aprobado (Pasar a Instalar)`** (Botón verde de Control de Calidad):
-   - **Validación previa**: Requiere obligatoriamente que `Nro LCH` y `Foto LCH` estén cargados.
+   - Abre la cámara del dispositivo para capturar la fotografía del LCH en tiempo real. Al completarse la captura y subida, guarda automáticamente el registro en Supabase.
+3. **`Aprobado (Pasar a Instalar)`** (Botón verde de Control de Calidad):
+   - **Validación previa**: Requiere obligatoriamente que `Nro LCH` y `Foto LCH` estén cargados y guardados.
    - **Efecto**: Actualiza `controlCalidad = 'Aprobado'` y traslada atómicamente la tarjeta a la lista **POR INSTALAR**.
-5. **`Rechazado (Devolver a Venta)`** (Botón rojo de Control de Calidad):
+4. **`Rechazado (Devolver a Venta)`** (Botón rojo de Control de Calidad):
    - **Efecto**: Actualiza `controlCalidad = 'Rechazado'` y devuelve la tarjeta a la lista **VENTA**.
 
 ---

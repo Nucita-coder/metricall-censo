@@ -100,6 +100,19 @@ export const useKanbanCardActions = ({ state, setters, auth, tableroId }: UseKan
     }
   };
 
+  const esTarjetaMaterial = (tarjeta: Tarjeta): boolean => {
+    const lista = listas.find(l => l.id === tarjeta.lista_id);
+    const nombre = lista?.nombre || '';
+    const v = tarjeta.datos_valores || {};
+    return (
+      ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'].includes(nombre) ||
+      Boolean(v.tipoCarga) ||
+      Boolean(v.codigoMaterial) ||
+      Boolean(v.nroOrdenEntrega) ||
+      Array.isArray(v.items)
+    );
+  };
+
   /** Elimina permanentemente la tarjeta en movimiento con confirmación previa */
   const handleDeleteCard = (): void => {
     if (!tarjetaEnMovimiento) return;
@@ -109,9 +122,14 @@ export const useKanbanCardActions = ({ state, setters, auth, tableroId }: UseKan
         text: 'Eliminar', style: 'destructive', onPress: async () => {
           try {
             const tarjetaId = tarjetaEnMovimiento.id;
+            const esMaterial = esTarjetaMaterial(tarjetaEnMovimiento);
             setTarjetaEnMovimiento(null);
             setListas(prev => prev.map(lista => ({ ...lista, tarjetas: lista.tarjetas.filter(t => t.id !== tarjetaId) })));
-            await supabase.from('tarjetas').delete().eq('id', tarjetaId);
+            if (esMaterial) {
+              await supabase.from('tarjetas').update({ estado_archivo: true }).eq('id', tarjetaId);
+            } else {
+              await supabase.from('tarjetas').delete().eq('id', tarjetaId);
+            }
           } catch (e: unknown) { Alert.alert('Error', (e as Error).message); }
         },
       },
@@ -240,8 +258,14 @@ export const useKanbanCardActions = ({ state, setters, auth, tableroId }: UseKan
         if (tarjetaEnMovimiento?.id === tarjeta.id) {
           setTarjetaEnMovimiento(null);
         }
-        const { error } = await supabase.from('tarjetas').delete().eq('id', tarjeta.id);
-        if (error) throw error;
+        const esMaterial = esTarjetaMaterial(tarjeta);
+        if (esMaterial) {
+          const { error } = await supabase.from('tarjetas').update({ estado_archivo: true }).eq('id', tarjeta.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('tarjetas').delete().eq('id', tarjeta.id);
+          if (error) throw error;
+        }
       } catch (e: unknown) {
         Alert.alert('Error al eliminar', (e as Error).message);
       }

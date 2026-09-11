@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
-import { History, Package, Calendar, User, FileText, ArrowDownRight, ArrowUpRight } from 'lucide-react-native';
+import { History, Package, Calendar, User, FileText } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
 import { TarjetaMaterialItem } from '../../../types/kanban';
@@ -128,20 +128,14 @@ export function TablaHistorialCargas({ empresaId, searchQuery }: TablaHistorialC
     return matchHeader || matchItems;
   });
 
-  const getTipoBadgeStyle = (tipo: string) => {
-    if (tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN')) {
-      return { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.3)', text: '#F87171' };
-    }
-    if (tipo.includes('ASIGNA')) {
-      return { bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.3)', text: '#FBBF24' };
-    }
-    return { bg: 'rgba(34, 197, 94, 0.15)', border: 'rgba(34, 197, 94, 0.3)', text: '#4ADE80' };
+  const getTipoBadgeStyle = () => {
+    return { bg: '#2C333A', border: '#384148', text: '#8C9BAB' };
   };
 
   if (isLoading) {
     return (
       <View style={s.center}>
-        <ActivityIndicator size="small" color="#3B82F6" />
+        <ActivityIndicator size="small" color="#8C9BAB" />
         <Text style={s.centerTxt}>Cargando historial de cargas y asignaciones...</Text>
       </View>
     );
@@ -150,7 +144,7 @@ export function TablaHistorialCargas({ empresaId, searchQuery }: TablaHistorialC
   if (filtered.length === 0) {
     return (
       <View style={s.center}>
-        <History size={32} color="#4B5563" />
+        <History size={32} color="#8C9BAB" />
         <Text style={s.centerTxt}>No se encontraron cargas o asignaciones registradas.</Text>
       </View>
     );
@@ -163,32 +157,30 @@ export function TablaHistorialCargas({ empresaId, searchQuery }: TablaHistorialC
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, gap: 12 }}
         renderItem={({ item }) => {
-          const badge = getTipoBadgeStyle(item.tipoCarga);
-          const isDevolucion = item.tipoCarga.includes('DEVOLUCION') || item.tipoCarga.includes('DEVOLUCIÓN');
+          const badge = getTipoBadgeStyle();
           return (
             <View style={s.card}>
               <View style={s.cardHdr}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <FileText size={15} color="#9CA3AF" />
+                  <FileText size={14} color="#8C9BAB" />
                   <Text style={s.nroOrdenTxt}>Orden: {item.nroOrden}</Text>
                   <View style={[s.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
-                    {isDevolucion ? <ArrowUpRight size={12} color={badge.text} /> : <ArrowDownRight size={12} color={badge.text} />}
                     <Text style={[s.badgeTxt, { color: badge.text }]}>{item.tipoCarga}</Text>
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Calendar size={12} color="#6B7280" />
+                  <Calendar size={12} color="#8C9BAB" />
                   <Text style={s.dateTxt}>{item.fecha}</Text>
                 </View>
               </View>
 
               <View style={s.metaRow}>
                 <Text style={s.metaTxt}>
-                  Personal: <Text style={{ color: '#F3F4F6', fontWeight: 'bold' }}>{item.asignadoA}</Text>
+                  Personal: <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>{item.asignadoA}</Text>
                 </Text>
                 {item.entregadoPor !== '—' && (
                   <Text style={s.metaTxt}>
-                    Entregado por: <Text style={{ color: '#D1D5DB' }}>{item.entregadoPor}</Text>
+                    Entregado por: <Text style={{ color: '#B6C2CF' }}>{item.entregadoPor}</Text>
                   </Text>
                 )}
               </View>
@@ -218,20 +210,20 @@ export function TablaHistorialCargas({ empresaId, searchQuery }: TablaHistorialC
 const s = StyleSheet.create({
   container: { flex: 1 },
   center: { padding: 40, alignItems: 'center', justifyContent: 'center' },
-  centerTxt: { color: '#6B7280', marginTop: 10, fontSize: 13 },
-  card: { backgroundColor: '#111827', borderRadius: 8, borderWidth: 1, borderColor: '#1F2937', padding: 14 },
+  centerTxt: { color: '#8C9BAB', marginTop: 10, fontSize: 13 },
+  card: { backgroundColor: '#22272B', borderRadius: 8, borderWidth: 1, borderColor: '#384148', padding: 14 },
   cardHdr: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  nroOrdenTxt: { fontSize: 13, fontWeight: 'bold', color: '#60A5FA' },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, borderWidth: 1 },
+  nroOrdenTxt: { fontSize: 13, fontWeight: 'bold', color: '#B6C2CF' },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1 },
   badgeTxt: { fontSize: 10, fontWeight: 'bold' },
-  dateTxt: { fontSize: 11, color: '#9CA3AF' },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1F2937' },
-  metaTxt: { fontSize: 11, color: '#9CA3AF' },
+  dateTxt: { fontSize: 11, color: '#8C9BAB' },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#384148' },
+  metaTxt: { fontSize: 11, color: '#8C9BAB' },
   itemsTable: { gap: 4 },
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
   itemRowAlt: { backgroundColor: 'rgba(255,255,255,0.02)' },
-  codTxt: { fontSize: 11, fontWeight: 'bold', color: '#38BDF8' },
-  nameTxt: { fontSize: 12, color: '#E5E7EB' },
-  qtyTxt: { fontSize: 12, fontWeight: 'bold', color: '#F59E0B' },
-  modelTxt: { fontSize: 10, color: '#6B7280' },
+  codTxt: { fontSize: 11, fontWeight: 'bold', color: '#8C9BAB' },
+  nameTxt: { fontSize: 12, color: '#B6C2CF' },
+  qtyTxt: { fontSize: 12, fontWeight: 'bold', color: '#FFFFFF' },
+  modelTxt: { fontSize: 10, color: '#8C9BAB' },
 });

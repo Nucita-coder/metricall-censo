@@ -148,7 +148,7 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
           <View style={s.hdr}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={s.userAvatarIcon}>
-                <User size={20} color="#60A5FA" />
+                <User size={18} color="#8C9BAB" />
               </View>
               <View>
                 <Text style={s.hdrTitle}>Historial de Asignaciones y Devoluciones</Text>
@@ -156,7 +156,7 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
               </View>
             </View>
             <TouchableOpacity onPress={onClose} style={s.closeBtn}>
-              <X size={18} color="#9CA3AF" />
+              <X size={18} color="#B6C2CF" />
             </TouchableOpacity>
           </View>
 
@@ -168,7 +168,7 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
             </View>
             <View style={s.kpiSep} />
             <View style={s.kpiItem}>
-              <Text style={[s.kpiNum, { color: '#F59E0B' }]}>{totalUnidadesCustodia}</Text>
+              <Text style={s.kpiNum}>{totalUnidadesCustodia}</Text>
               <Text style={s.kpiTxt}>Unidades en Custodia Actual</Text>
             </View>
           </View>
@@ -176,12 +176,12 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
           {/* CONTENIDO / LISTA */}
           {isLoading ? (
             <View style={s.center}>
-              <ActivityIndicator size="large" color="#3B82F6" />
+              <ActivityIndicator size="large" color="#8C9BAB" />
               <Text style={s.centerTxt}>Cargando historial de asignaciones...</Text>
             </View>
           ) : historyList.length === 0 ? (
             <View style={s.center}>
-              <Package size={36} color="#4B5563" />
+              <Package size={36} color="#8C9BAB" />
               <Text style={s.centerTxt}>No hay registros de asignaciones ni devoluciones para este usuario.</Text>
             </View>
           ) : (
@@ -192,21 +192,21 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
               renderItem={({ item }) => {
                 const isDevolucion = item.tipoCarga === 'DEVOLUCION';
                 return (
-                  <View style={[s.cardItem, isDevolucion && { borderColor: '#8B5CF6' }]}>
+                  <View style={s.cardItem}>
                     <View style={s.cardHeaderRow}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <FileText size={14} color={isDevolucion ? '#C084FC' : '#60A5FA'} />
-                        <Text style={[s.ordenTxt, isDevolucion && { color: '#C084FC' }]}>Orden: {item.nroOrden}</Text>
+                        <FileText size={14} color="#8C9BAB" />
+                        <Text style={s.ordenTxt}>Orden: {item.nroOrden}</Text>
                       </View>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Calendar size={12} color="#9CA3AF" />
+                        <Calendar size={12} color="#8C9BAB" />
                         <Text style={s.fechaTxt}>{item.fecha}</Text>
                       </View>
                     </View>
 
-                    <View style={[s.motivoBadge, isDevolucion && { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
-                      <Tag size={12} color={isDevolucion ? '#C084FC' : '#93C5FD'} />
-                      <Text style={[s.motivoTxt, isDevolucion && { color: '#C084FC' }]}>
+                    <View style={s.motivoBadge}>
+                      <Tag size={12} color="#8C9BAB" />
+                      <Text style={s.motivoTxt}>
                         {isDevolucion ? 'DEVOLUCIÓN: ' : 'ASIGNACIÓN: '}{item.motivo}
                       </Text>
                     </View>
@@ -216,12 +216,12 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
                       {item.items.map((sub, idx) => (
                         <View key={idx} style={s.subItemRow}>
                           <View style={{ flex: 1 }}>
-                            <Text style={[s.itemCod, isDevolucion && { color: '#C084FC' }]}>{sub.codigoMaterial}</Text>
+                            <Text style={s.itemCod}>{sub.codigoMaterial}</Text>
                             <Text style={s.itemName}>{sub.nombreMaterial}</Text>
                             <Text style={s.itemModel}>Modelo: {sub.modeloMaterial}{sub.serialMaterial ? ` · Serial: ${sub.serialMaterial}` : ''}</Text>
                           </View>
-                          <View style={[s.qtyTag, isDevolucion && { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
-                            <Text style={[s.qtyTagTxt, isDevolucion && { color: '#FCA5A5' }]}>
+                          <View style={s.qtyTag}>
+                            <Text style={s.qtyTagTxt}>
                               {isDevolucion ? '-' : '+'}{sub.cantidad} und.
                             </Text>
                           </View>
@@ -230,7 +230,7 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
                     </View>
 
                     <View style={s.footerInfo}>
-                      <Text style={s.footerMeta}>{isDevolucion ? 'Entregado a almacén por: ' : 'Entregado por: '}<Text style={{ color: '#E5E7EB' }}>{item.entregadoPor}</Text></Text>
+                      <Text style={s.footerMeta}>{isDevolucion ? 'Entregado a almacén por: ' : 'Entregado por: '}<Text style={{ color: '#B6C2CF' }}>{item.entregadoPor}</Text></Text>
                     </View>
                   </View>
                 );
@@ -244,33 +244,33 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
 }
 
 const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  modal: { backgroundColor: '#111827', width: '100%', maxHeight: '90%', borderRadius: 10, borderWidth: 1, borderColor: '#1F2937', overflow: 'hidden' },
-  hdr: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1F2937' },
-  userAvatarIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(59, 130, 246, 0.15)', justifyContent: 'center', alignItems: 'center' },
-  hdrTitle: { fontSize: 16, fontWeight: '700', color: '#F9FAFB' },
-  hdrSub: { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
-  closeBtn: { padding: 6, borderRadius: 6 },
-  kpiBar: { flexDirection: 'row', backgroundColor: '#0D1117', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1F2937' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  modal: { backgroundColor: '#22272B', width: '100%', maxHeight: '90%', borderRadius: 12, borderWidth: 1, borderColor: '#384148', overflow: 'hidden' },
+  hdr: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#384148', backgroundColor: '#2C333A' },
+  userAvatarIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', justifyContent: 'center', alignItems: 'center' },
+  hdrTitle: { fontSize: 15, fontWeight: '700', color: '#B6C2CF' },
+  hdrSub: { fontSize: 11, color: '#8C9BAB', marginTop: 1 },
+  closeBtn: { padding: 4, borderRadius: 6 },
+  kpiBar: { flexDirection: 'row', backgroundColor: '#2C333A', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#384148' },
   kpiItem: { flex: 1, alignItems: 'center' },
-  kpiNum: { fontSize: 18, fontWeight: '700', color: '#60A5FA' },
-  kpiTxt: { fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', marginTop: 2 },
-  kpiSep: { width: 1, height: 24, backgroundColor: '#1F2937' },
+  kpiNum: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  kpiTxt: { fontSize: 10, color: '#8C9BAB', textTransform: 'uppercase', marginTop: 2 },
+  kpiSep: { width: 1, height: 24, backgroundColor: '#384148' },
   center: { padding: 48, alignItems: 'center' },
-  centerTxt: { color: '#6B7280', marginTop: 12, fontSize: 13 },
-  cardItem: { backgroundColor: '#1F2937', borderRadius: 8, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#374151' },
+  centerTxt: { color: '#8C9BAB', marginTop: 12, fontSize: 13 },
+  cardItem: { backgroundColor: '#2C333A', borderRadius: 8, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#384148' },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  ordenTxt: { fontSize: 13, fontWeight: '700', color: '#93C5FD' },
-  fechaTxt: { fontSize: 11, color: '#9CA3AF' },
-  motivoBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(59, 130, 246, 0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, alignSelf: 'flex-start', marginBottom: 10 },
-  motivoTxt: { fontSize: 11, color: '#93C5FD', fontWeight: '600' },
-  itemsContainer: { backgroundColor: '#111827', borderRadius: 6, padding: 10, gap: 8 },
-  subItemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#1F2937', paddingBottom: 6 },
-  itemCod: { fontSize: 11, fontWeight: '700', color: '#60A5FA' },
-  itemName: { fontSize: 12, color: '#F3F4F6', fontWeight: '500', marginTop: 1 },
-  itemModel: { fontSize: 10, color: '#6B7280', marginTop: 1 },
-  qtyTag: { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
-  qtyTagTxt: { fontSize: 12, fontWeight: 'bold', color: '#FBBF24' },
-  footerInfo: { marginTop: 10, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#374151' },
-  footerMeta: { fontSize: 10, color: '#9CA3AF' },
+  ordenTxt: { fontSize: 12, fontWeight: '700', color: '#B6C2CF' },
+  fechaTxt: { fontSize: 11, color: '#8C9BAB' },
+  motivoBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#22272B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, borderWidth: 1, borderColor: '#384148', alignSelf: 'flex-start', marginBottom: 10 },
+  motivoTxt: { fontSize: 11, color: '#8C9BAB', fontWeight: '600' },
+  itemsContainer: { backgroundColor: '#1D2125', borderRadius: 6, borderWidth: 1, borderColor: '#384148', padding: 10, gap: 8 },
+  subItemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#2C333A', paddingBottom: 6 },
+  itemCod: { fontSize: 11, fontWeight: '700', color: '#8C9BAB' },
+  itemName: { fontSize: 12, color: '#B6C2CF', fontWeight: '500', marginTop: 1 },
+  itemModel: { fontSize: 10, color: '#8C9BAB', marginTop: 1 },
+  qtyTag: { backgroundColor: '#2C333A', borderWidth: 1, borderColor: '#384148', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
+  qtyTagTxt: { fontSize: 12, fontWeight: 'bold', color: '#FFFFFF' },
+  footerInfo: { marginTop: 10, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#384148' },
+  footerMeta: { fontSize: 10, color: '#8C9BAB' },
 });

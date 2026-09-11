@@ -92,8 +92,7 @@ export function useGestionOnlineData({
           n.includes('gestion online') ||
           n.includes('gestión online') ||
           n.includes('online') ||
-          n.includes('whatsapp') ||
-          n.includes('falla')
+          n.includes('whatsapp')
         );
       });
 
@@ -128,7 +127,18 @@ export function useGestionOnlineData({
       tarjetasFound.forEach(t => mapTarjetas.set(t.id, t));
       (tarjWhatsapp || []).forEach(t => mapTarjetas.set(t.id, t as Tarjeta));
 
-      const tarjetas = Array.from(mapTarjetas.values());
+      const tarjetas = Array.from(mapTarjetas.values()).filter(t => {
+        const d = t.datos_valores || {};
+        return (
+          t.estado_archivo !== true &&
+          !d.eliminada &&
+          !d.eliminado &&
+          !d.borrada &&
+          !d.borrado &&
+          d.estado_archivo !== true &&
+          d.estado_archivo !== 'true'
+        );
+      });
       setRawTarjetas(tarjetas);
 
       const baseAnio = parseInt(anioEspecificoStr, 10) || new Date().getFullYear();
@@ -204,7 +214,7 @@ export function useGestionOnlineData({
       const rIdx = hour >= 8 && hour <= 17 ? hour - 8 : (hour < 8 ? 0 : 9);
 
       let cIdx = 0;
-      if (Boolean(d.comprobantePagoUrl || d.montoPago || d.estadoCobranza)) cIdx = 1;
+      if (Boolean(d.comprobantePagoUrl || d.montoPago || d.estadoCobranza || d.referencia || d.bancoOrigen)) cIdx = 1;
       else if (Boolean(d.tipoFalla || d.estadoSoporte)) cIdx = 2;
       else if (d.origen === 'WhatsApp Bot' && !d.plan_hogar && !d.plan_pymes) cIdx = 3;
       else if (d.estadoGestion === 'compra_efectiva') cIdx = 4;
@@ -223,23 +233,40 @@ export function useGestionOnlineData({
 
     rawTarjetas.forEach(t => {
       const d = t.datos_valores || {};
-      const estadoG = String(d.estadoGestion || '').toLowerCase();
-      const estadoCob = String(d.estadoCobranza || '').toLowerCase();
-      const estadoSop = String(d.estadoSoporte || '').toLowerCase();
+      const estadoG = String(d.estadoGestion || '').toLowerCase().trim();
+      const estadoCob = String(d.estadoCobranza || '').toLowerCase().trim();
+      const estadoSop = String(d.estadoSoporte || '').toLowerCase().trim();
+
+      const esPagoWhatsApp = Boolean(
+        d.comprobantePagoUrl ||
+        (d.origen === 'WhatsApp Bot' && (d.referencia || d.bancoOrigen || d.montoPago))
+      );
+
+      const isPagoProcesado = estadoCob === 'pago procesado' || estadoCob === 'procesado';
+      const isPagoRechazado = estadoCob === 'pago rechazado' || estadoCob === 'rechazado';
+      const isPagoEnRevision =
+        estadoCob === 'pago en revisión' ||
+        estadoCob === 'pago en revision' ||
+        estadoCob === 'pago pendiente revisión' ||
+        estadoCob === 'pago pendiente revision' ||
+        estadoCob === 'pendiente verificación' ||
+        estadoCob === 'pendiente verificacion' ||
+        (estadoCob.length > 0 && (estadoCob.includes('revisión') || estadoCob.includes('revision') || estadoCob.includes('verificación') || estadoCob.includes('verificacion'))) ||
+        (esPagoWhatsApp && !isPagoProcesado && !isPagoRechazado);
 
       let clave = 'sin_atender';
 
       if (estadoG === 'compra_efectiva' || Boolean(d.fechaVenta && (d.plan_hogar || d.plan_pymes))) {
         clave = 'compra_efectiva';
-      } else if (estadoCob === 'pago procesado') {
+      } else if (isPagoProcesado) {
         clave = 'pago_procesado';
       } else if (estadoSop.includes('procesado') || estadoSop.includes('sae')) {
         clave = 'procesado_en_sae';
       } else if (estadoG === 'comprara_luego') {
         clave = 'comprara_luego';
-      } else if (estadoCob === 'pago en revisión' || estadoCob.includes('revisión')) {
+      } else if (isPagoEnRevision) {
         clave = 'pago_en_revision';
-      } else if (estadoCob === 'pago rechazado') {
+      } else if (isPagoRechazado) {
         clave = 'pago_rechazado';
       } else if (estadoG === 'no_quiso_servicio') {
         clave = 'no_quiso_servicio';

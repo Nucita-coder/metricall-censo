@@ -10,11 +10,13 @@ import FormularioVenta from '../../components/FormularioVenta';
 import { checkIsCensoFormat } from '../../components/kanban/detalle/types';
 import CardLayoutWrapper from '../../components/layout/CardLayoutWrapper';
 import { ModalMapaUbicacion } from '../../components/tarjetas/ModalMapaUbicacion';
+import { validarDatosVenta } from '../../components/venta/validacionesVenta';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { ejecutarPostCreacionTarjeta } from '../../services/tarjetaCreacionService';
 import { TarjetaDatosValores, TarjetaMaterialItem } from '../../types/kanban';
 
-const LISTAS_ALMACEN = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'];
+const LISTAS_ALMACEN = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Recuperados', 'Devolución de Asignación', 'Devolución a Almacén Central'];
 
 export default function NuevaTarjetaScreen() {
   const {
@@ -135,8 +137,22 @@ export default function NuevaTarjetaScreen() {
     if (isMaterialesMode) {
       const items = Array.isArray(formData.items) && formData.items.length > 0 ? (formData.items as TarjetaMaterialItem[]) : [formData as unknown as TarjetaMaterialItem];
       const hasValidItem = items.some((i) => i.codigoMaterial && i.nombreMaterial && i.cantidadRecibida);
-      if (!formData.nroOrdenEntrega || !formData.recibidoPor || !formData.entregadoPor || !formData.tipoCarga || !hasValidItem) {
-        Alert.alert('Campos incompletos', 'Por favor, completa los campos obligatorios de la orden, el tipo de carga y al menos un material válido.');
+      const tipoCargaStr = String(formData.tipoCarga || '').toUpperCase();
+      const isDevolucionCentral = tipoCargaStr.includes('ALMACÉN CENTRAL') || tipoCargaStr.includes('ALMACEN CENTRAL');
+      const isDevolucion = tipoCargaStr.includes('DEVOLUCION') || tipoCargaStr.includes('DEVOLUCIÓN');
+
+      if (isDevolucion && !formData.nroOrdenEntrega) {
+        formData.nroOrdenEntrega = 'S/N';
+      }
+
+      if (isDevolucion && !isDevolucionCentral) {
+        formData.tipoCarga = 'DEVOLUCIÓN DE ASIGNACIÓN';
+      } else if (isDevolucionCentral) {
+        formData.tipoCarga = 'DEVOLUCIÓN A ALMACÉN CENTRAL';
+      }
+
+      if ((!isDevolucion && !formData.nroOrdenEntrega) || !formData.recibidoPor || !formData.entregadoPor || !formData.tipoCarga || !formData.origen || !hasValidItem) {
+        Alert.alert('Campos incompletos', 'Por favor, completa los campos obligatorios de la orden (incluyendo el Origen), el tipo de carga y al menos un material válido.');
         return;
       }
       if (typeof formData.tipoCarga === 'string' && formData.tipoCarga.toUpperCase() === 'MATERIAL ASIGNADO') {
@@ -150,9 +166,20 @@ export default function NuevaTarjetaScreen() {
           return;
         }
       }
+      if (isDevolucion) {
+        const hasUnselectedItem = items.some((i) => !i.codigoMaterial || !i.codigoMaterial.trim());
+        if (hasUnselectedItem) {
+          Alert.alert('Material no seleccionado', 'Por favor, selecciona el material en tu poder a devolver utilizando el menú desplegable.');
+          return;
+        }
+      }
     } else if (listaNombre !== 'Censo') {
-      if (!formData.tipoServicio || !formData.nombreApellido || !formData.tipoDocumento || !formData.documentoIdentidad) {
-        Alert.alert('Campos incompletos', 'Por favor, completa los campos obligatorios marcados con (*).');
+      const { esValido, faltantes } = validarDatosVenta(formData);
+      if (!esValido) {
+        Alert.alert(
+          'Casillas Obligatorias Requeridas',
+          'Para proseguir, debes completar las siguientes casillas obligatorias:\n\n• ' + faltantes.join('\n• ')
+        );
         return;
       }
     } else {
@@ -179,125 +206,15 @@ export default function NuevaTarjetaScreen() {
 
       if (error) throw error;
 
-      if (currentLista && currentLista.nombre === 'Venta' && nuevaTarjeta) {
-        const { data: listaFactibilidad } = await supabase
-          .from('listas')
-          .select('id')
-          .eq('tablero_id', currentLista.tablero_id)
-          .eq('nombre', 'Factibilidad')
-          .maybeSingle();
-
-        if (listaFactibilidad) {
-          const { error: rpcError } = await supabase.rpc('mover_tarjeta_seguro', {
-            p_tarjeta_id: nuevaTarjeta.id,
-            p_lista_destino_id: listaFactibilidad.id
-          });
-          if (rpcError) {
-            console.warn('RPC mover_tarjeta_seguro falló, actualizando directamente:', rpcError.message);
-            await supabase.from('tarjetas').update({ lista_id: listaFactibilidad.id }).eq('id', nuevaTarjeta.id);
-          }
-        }
-      }
-
-      try {
-        const ciudadToCache = (formData.ciudad as string) || (formData.ciudadMunicipio as string);
-        if (ciudadToCache) {
-          await AsyncStorage.setItem('@ultima_ciudad_registrada', ciudadToCache);
-        }
-      } catch (e) {
-        console.log('Error guardando ciudad en caché', e);
-      }
-
-      if (listaNombre === 'Censo' && formData.dispuestoCambiar && currentLista?.tablero_id) {
-        const runClone = async () => {
-          try {
-            let targetListName = '';
-            if (formData.dispuestoCambiar === 'Sí') targetListName = 'si desea';
-            else if (formData.dispuestoCambiar === 'No') targetListName = 'no desea';
-            else if (formData.dispuestoCambiar === 'Es posible') targetListName = 'es posible';
-
-            if (targetListName) {
-              const { data: targetList } = await supabase.from('listas').select('id').eq('tablero_id', currentLista.tablero_id).eq('nombre', targetListName).single();
-              if (targetList) {
-                const clonePayload = { ...payload, lista_id: targetList.id };
-                await supabase.from('tarjetas').insert(clonePayload);
-              }
-            }
-          } catch (err) {
-            console.log('Error silenciado al clonar tarjeta de censo:', err);
-          }
-        };
-        runClone();
-      }
-
-      if (isMaterialesMode && formData.tipoCarga && currentLista?.tablero_id && nuevaTarjeta) {
-        try {
-          const { data: tableroListas } = await supabase
-            .from('listas')
-            .select('id, nombre')
-            .eq('tablero_id', currentLista.tablero_id);
-
-          if (tableroListas && tableroListas.length > 0) {
-            const targetClean = (formData.tipoCarga as string).toLowerCase().trim();
-            const targetList = tableroListas.find(l => l.nombre && l.nombre.toLowerCase().trim() === targetClean);
-
-            if (targetList && targetList.id !== currentLista.id) {
-              const { error: rpcError } = await supabase.rpc('mover_tarjeta_seguro', {
-                p_tarjeta_id: nuevaTarjeta.id,
-                p_lista_destino_id: targetList.id
-              });
-              if (rpcError) {
-                console.warn('mover_tarjeta_seguro falló en almacén, actualizando directamente:', rpcError.message);
-                await supabase.from('tarjetas').update({ lista_id: targetList.id }).eq('id', nuevaTarjeta.id);
-              }
-            }
-          }
-        } catch (err) {
-          console.error('Error al mover tarjeta de almacén:', err);
-        }
-
-        const tipoUpper = ((formData.tipoCarga as string) || '').toUpperCase();
-        const isDevolucion = tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN');
-        const isAsignado = !isDevolucion && (tipoUpper.includes('ASIGNA') || Boolean(formData.asignadoA && (formData.asignadoA as string).trim()));
-
-        if ((isAsignado || isDevolucion) && formData.asignadoA && (formData.asignadoA as string).trim()) {
-          try {
-            const targetName = (formData.asignadoA as string).trim().toLowerCase();
-            const { data: perfiles, error: perfilError } = await supabase
-              .from('perfiles')
-              .select('id, nombre_completo')
-              .eq('empresa_id', empresaId);
-
-            if (perfilError) {
-              console.error('Error al buscar perfiles para notificación:', perfilError);
-            }
-
-            const matchedProfile = perfiles?.find(p => {
-              const pName = (p.nombre_completo || '').trim().toLowerCase();
-              return pName === targetName || (pName && targetName && (pName.includes(targetName) || targetName.includes(pName)));
-            });
-
-            if (matchedProfile?.id) {
-              // Guardar también asignado_a UUID en datos_valores para compatibilidad RLS y triggers
-              await supabase.from('tarjetas').update({
-                datos_valores: { ...formData, asignado_a: matchedProfile.id }
-              }).eq('id', nuevaTarjeta.id);
-
-              const itemsList = Array.isArray(formData.items) && formData.items.length > 0 ? (formData.items as TarjetaMaterialItem[]) : [formData as unknown as TarjetaMaterialItem];
-              const resumenItems = itemsList.map((it) => `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`).join(', ');
-              const mensaje = isDevolucion
-                ? `Se registró la devolución de ${resumenItems} al almacén correctamente.`
-                : `Se te asignó ${resumenItems}. Este material está ahora en tu custodia.`;
-              const { error: notifError } = await supabase.from('notificaciones').insert({ usuario_id: matchedProfile.id, tarjeta_id: nuevaTarjeta.id, mensaje, leida: false });
-              if (notifError) {
-                console.error('Error al insertar notificación:', notifError);
-              }
-            } else {
-              console.warn('Perfil no encontrado para notificación. Nombre buscado:', formData.asignadoA, 'Perfiles disponibles:', perfiles?.map(p => p.nombre_completo));
-            }
-          } catch (errNotif) { console.error('Error notificacion:', errNotif); }
-        }
-      }
+      await ejecutarPostCreacionTarjeta({
+        currentLista,
+        nuevaTarjetaId: nuevaTarjeta.id,
+        formData,
+        empresaId,
+        listaNombre,
+        isMaterialesMode,
+        payload,
+      });
 
       const navigateBack = () => {
         if (router.canGoBack()) {

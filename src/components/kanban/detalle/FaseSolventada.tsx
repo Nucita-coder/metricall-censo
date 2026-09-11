@@ -43,7 +43,7 @@ export const FaseSolventada = (props: FaseProps) => {
             {Boolean(data.fechaSolventada) && (
               <View style={{ width: '48%' }}>
                 <Text style={{ fontSize: 10, color: '#8C9BAB' }}>FECHA SOLVENTADA</Text>
-                <Text style={{ fontSize: 12, color: '#34D399', marginTop: 2 }}>
+                <Text style={{ fontSize: 12, color: '#FFFFFF', marginTop: 2 }}>
                   {new Date(String(data.fechaSolventada)).toLocaleDateString()} {new Date(String(data.fechaSolventada)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
               </View>

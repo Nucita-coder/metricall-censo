@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { soundService } from '../services/soundService';
+import { localNotificationService } from '../services/localNotificationService';
 
 export interface Notificacion {
   id: string;
@@ -58,6 +60,11 @@ export function useNotificaciones(userId: string | undefined) {
             const nueva = payload.new as Notificacion;
             setNotificaciones(prev => [nueva, ...prev].slice(0, 20));
             setUnreadCount(prev => prev + 1);
+            soundService.playNotification('notification');
+            localNotificationService.dispararNotificacion('Metricall', nueva.mensaje, {
+              notificacionId: nueva.id,
+              tarjetaId: nueva.tarjeta_id,
+            });
           } else if (payload.eventType === 'UPDATE') {
             const actualizada = payload.new as Notificacion;
             setNotificaciones(prev => {

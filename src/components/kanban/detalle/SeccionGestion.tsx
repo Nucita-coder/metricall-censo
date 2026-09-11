@@ -10,20 +10,36 @@ import { useSyncQueue } from '../../../hooks/useSyncQueue';
 import { HistorialGestionList } from './HistorialGestionList';
 import { DropdownSelector, EvidenciaUpload } from './FormularioGestionForm';
 import { GestionItem, TarjetaDatosValores } from '../../../types/kanban';
+import { SeccionAsignarAsesor } from './SeccionAsignarAsesor';
 
-export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving, onSolicitarConversionVenta, soloHistorial }: FaseProps) => {
+export const SeccionGestion = ({
+  tarjeta,
+  miembros = [],
+  onUpdateTarjeta,
+  autoMoverTarjeta,
+  isSaving,
+  setIsSaving,
+  onSolicitarConversionVenta,
+  soloHistorial,
+  listasGlobales = [],
+}: FaseProps) => {
   const { addJob } = useSyncQueue();
   const gestiones = (tarjeta.datos_valores?.gestiones as Array<GestionItem & Record<string, unknown>>) || [];
   const hasGestion1 = gestiones.some((g) => g.etapa === 'gestion_1');
   const hasGestion2 = gestiones.some((g) => g.etapa === 'gestion_2');
   const fechaAgendada = tarjeta.datos_valores?.fecha_gestion_2 ? String(tarjeta.datos_valores.fecha_gestion_2) : '';
 
+  // Rango de fechas de agendamiento: mínimo 1 día, máximo 15 días
+  const ahora = new Date();
+  const minDateAgendar = new Date(ahora.getTime() + 24 * 60 * 60 * 1000);
+  const maxDateAgendar = new Date(ahora.getTime() + 15 * 24 * 60 * 60 * 1000);
+
   // Estados GESTION 1
   const [tipoContacto1, setTipoContacto1] = useState('');
   const [resultado1, setResultado1] = useState('');
   const [evidenciaUrl1, setEvidenciaUrl1] = useState('');
   const [motivoRechazo, setMotivoRechazo] = useState('');
-  const [fechaContacto2, setFechaContacto2] = useState(new Date());
+  const [fechaContacto2, setFechaContacto2] = useState(minDateAgendar);
   const [showDatePicker1, setShowDatePicker1] = useState(false);
   const [mostrarDropdownTipo1, setMostrarDropdownTipo1] = useState(false);
   const [mostrarDropdownResultado1, setMostrarDropdownResultado1] = useState(false);
@@ -80,6 +96,21 @@ export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving
 
       if (resultado1 === 'No quiere el servicio (Rechazo definitivo)') {
         nuevaGestion.motivoRechazo = motivoRechazo;
+      }
+
+      if (opcionesAgendar.includes(resultado1)) {
+        const tiempoSeleccionado = fechaContacto2.getTime();
+        const margenMinimo = ahora.getTime() + 23 * 60 * 60 * 1000;
+        const tiempoMaximo = maxDateAgendar.getTime() + 60 * 1000;
+
+        if (tiempoSeleccionado < margenMinimo || tiempoSeleccionado > tiempoMaximo) {
+          Alert.alert(
+            'Fecha Inválida',
+            'El plazo para la siguiente gestión debe ser no menor a 1 día y no mayor a 15 días a partir de hoy.'
+          );
+          setIsSaving(false);
+          return;
+        }
       }
 
       const payload: Partial<TarjetaDatosValores> = { gestiones: [...gestiones, nuevaGestion as unknown as GestionItem] };
@@ -227,6 +258,8 @@ export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving
                 <DateTimePicker
                   value={fechaContacto2}
                   mode="datetime"
+                  minimumDate={minDateAgendar}
+                  maximumDate={maxDateAgendar}
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={(event, selectedDate) => {
                     setShowDatePicker1(Platform.OS === 'ios');
@@ -270,6 +303,22 @@ export const SeccionGestion = ({ tarjeta, onUpdateTarjeta, isSaving, setIsSaving
           </TouchableOpacity>
         </View>
       )) : null}
+
+      {/* SECCIÓN DE ASIGNACIÓN A ASESOR COMERCIAL (Tras 2 gestiones) */}
+      {(gestiones.length >= 2 || (hasGestion1 && hasGestion2)) && (
+        <View style={{ marginTop: 16 }}>
+          <SeccionAsignarAsesor
+            tarjeta={tarjeta}
+            miembros={miembros}
+            onUpdateTarjeta={onUpdateTarjeta}
+            autoMoverTarjeta={autoMoverTarjeta}
+            isSaving={isSaving}
+            setIsSaving={setIsSaving}
+            onSolicitarConversionVenta={onSolicitarConversionVenta}
+            listasGlobales={listasGlobales}
+          />
+        </View>
+      )}
 
       <HistorialGestionList gestiones={gestiones} />
     </View>

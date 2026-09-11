@@ -157,7 +157,18 @@ export default function MetricasScreen() {
         .in('lista_id', listaIds);
 
       if (errorTar) throw errorTar;
-      const tarjetas = (tarjetasData || []) as Tarjeta[];
+      const tarjetas = ((tarjetasData || []) as Tarjeta[]).filter(t => {
+        const d = t.datos_valores || {};
+        return (
+          t.estado_archivo !== true &&
+          !d.eliminada &&
+          !d.eliminado &&
+          !d.borrada &&
+          !d.borrado &&
+          d.estado_archivo !== true &&
+          d.estado_archivo !== 'true'
+        );
+      });
 
       // 5. Cargar usuarios/perfiles para mapear nombres de técnicos si están asignados por UUID
       const { data: perfilesData } = await supabase

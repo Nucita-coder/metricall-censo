@@ -95,13 +95,16 @@ export function calcularStatsGestionOnline(
 
   filtradas.forEach(t => {
     const d = t.datos_valores || {};
-    const estadoG = String(d.estadoGestion || '').toLowerCase();
-    const estadoCob = String(d.estadoCobranza || '').toLowerCase();
-    const estadoSop = String(d.estadoSoporte || '').toLowerCase();
+    const estadoG = String(d.estadoGestion || '').toLowerCase().trim();
+    const estadoCob = String(d.estadoCobranza || '').toLowerCase().trim();
+    const estadoSop = String(d.estadoSoporte || '').toLowerCase().trim();
+
+    const isPagoProcesado = estadoCob === 'pago procesado' || estadoCob === 'procesado';
+    const isPagoRechazado = estadoCob === 'pago rechazado' || estadoCob === 'rechazado';
 
     const esEfectivo =
       estadoG === 'compra_efectiva' ||
-      estadoCob === 'pago procesado' ||
+      isPagoProcesado ||
       estadoSop.includes('procesado') ||
       estadoSop.includes('solventada') ||
       Boolean(d.fechaVenta && (d.plan_hogar || d.plan_pymes));
@@ -109,7 +112,7 @@ export function calcularStatsGestionOnline(
     const esNegativo =
       estadoG === 'no_quiso_servicio' ||
       estadoG === 'liberada_sin_caja' ||
-      estadoCob === 'pago rechazado' ||
+      isPagoRechazado ||
       Boolean(d.motivoLiberada || d.motivoNoDesea);
 
     const esSeguimiento =

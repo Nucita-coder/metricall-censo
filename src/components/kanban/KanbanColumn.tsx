@@ -1,13 +1,16 @@
 import { router } from 'expo-router';
 import { MoreHorizontal, Plus } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Platform, Pressable, Text, TouchableOpacity, View } from 'react-native';
 import Reanimated, { LinearTransition } from 'react-native-reanimated';
-import { KANBAN_THEME } from '../../constants/theme';
+
 import { useAuth } from '../../context/AuthContext';
 import { Lista, Tarjeta } from '../../types/kanban';
-import { BotonImportarExcel } from './BotonImportarExcel';
+import { BotonImportarExcel, esListaCargaExcel } from './BotonImportarExcel';
 import { KanbanCard } from './KanbanCard';
+import { styles, COLUMN_WIDTH, GAP, SNAP_INTERVAL } from './KanbanColumn.styles';
+
+export { COLUMN_WIDTH, GAP, SNAP_INTERVAL, styles };
 
 export interface KanbanColumnProps {
   item: Lista;
@@ -26,31 +29,6 @@ export interface KanbanColumnProps {
   resaltadaTarjetaId?: string | null;
   onRefreshKanbanData?: () => void;
   isCobranzaBoard?: boolean;
-}
-
-function esListaCargaExcel(nombre?: string): boolean {
-  if (!nombre) return false;
-  const n = nombre.toLowerCase().trim();
-
-  // Si es una columna de acción / resultado, NUNCA lleva botón de Excel
-  if (
-    n.includes('efectiva') ||
-    n.includes('negativa') ||
-    n.includes('positiva') ||
-    n.includes('resultado') ||
-    n.includes('(recupero)')
-  ) {
-    return false;
-  }
-
-  // Únicamente para columnas de carga inicial de clientes
-  return (
-    n.includes('carga de cobranza') ||
-    n.includes('clientes cortados') ||
-    n === 'recupero' ||
-    n === 'carga de recupero' ||
-    n.includes('carga recupero')
-  );
 }
 
 const KanbanColumnComponent = ({
@@ -256,25 +234,15 @@ const KanbanColumnComponent = ({
               if (
                 nombreLower.includes('ventas online') ||
                 nombreLower.includes('reporte falla') ||
-                nombreLower.includes('reporte pago')
+                nombreLower.includes('reporte pago') ||
+                nombreLower.includes('material recibido') ||
+                nombreLower.includes('material asignado') ||
+                nombreLower.includes('recuperado') ||
+                nombreLower.includes('devolución') ||
+                nombreLower.includes('devolucion')
               ) {
                 return null;
               }
-
-              const isDevolucionCentralColumn = nombreLower.includes('almacén central') || nombreLower.includes('almacen central');
-              const isDevolucionAsignacionColumn = !isDevolucionCentralColumn && (nombreLower.includes('devolución de asignación') || nombreLower.includes('devolucion de asignacion') || nombreLower.includes('devolucion'));
-
-              const buttonTipoCarga = isDevolucionCentralColumn
-                ? 'DEVOLUCIÓN A ALMACÉN CENTRAL'
-                : isDevolucionAsignacionColumn
-                  ? 'DEVOLUCIÓN DE ASIGNACIÓN'
-                  : undefined;
-
-              const buttonText = isDevolucionCentralColumn
-                ? 'Devolución a Almacén Central'
-                : isDevolucionAsignacionColumn
-                  ? 'Devolución de Asignación'
-                  : 'Añadir Tarjeta';
 
               return (
                 <View style={{ marginTop: 12, marginBottom: 20 }}>
@@ -291,12 +259,12 @@ const KanbanColumnComponent = ({
                       borderColor: '#333',
                       borderStyle: 'dashed',
                     }}
-                    onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre, tipoCarga: buttonTipoCarga } })}
+                    onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre } })}
                     activeOpacity={0.6}
                   >
                     <Plus size={20} color="#111" strokeWidth={2} />
                     <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 14, fontStyle: 'italic' }}>
-                      {buttonText}
+                      Añadir Tarjeta
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -344,58 +312,4 @@ const areEqualColumn = (prevProps: KanbanColumnProps, nextProps: KanbanColumnPro
 
 export const KanbanColumn = React.memo(KanbanColumnComponent, areEqualColumn);
 
-const { width, height } = Dimensions.get('window');
-export const COLUMN_WIDTH = Platform.OS === 'web' || width > 768 ? 350 : width * 0.85;
-export const GAP = 16;
-export const SNAP_INTERVAL = COLUMN_WIDTH + GAP;
 
-const styles = StyleSheet.create({
-  kanbanColumnWrapper: {
-    width: COLUMN_WIDTH,
-    marginRight: GAP,
-    height: height * 0.86, // Aumentado para mayor espacio vertical
-    paddingBottom: 10,
-  },
-  kanbanColumn: {
-    flex: 1,
-    borderRadius: KANBAN_THEME.column.borderRadius,
-    paddingHorizontal: KANBAN_THEME.column.paddingHorizontal,
-    paddingTop: KANBAN_THEME.column.paddingTop,
-    paddingBottom: KANBAN_THEME.column.paddingBottom,
-  },
-  columnHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    marginBottom: 8,
-  },
-  columnTitle: {
-    fontWeight: '900',
-    fontSize: 16,
-    color: '#1A202C',
-    marginRight: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  columnCount: {
-    fontSize: 14,
-    color: '#718096',
-    fontWeight: '600'
-  },
-  moreBtn: {
-    padding: 4,
-  },
-  columnHighlightOverlay: {
-    ...StyleSheet.absoluteFill,
-    borderColor: '#0C66E4',
-    borderWidth: 2.5,
-    borderRadius: KANBAN_THEME.column.borderRadius,
-    shadowColor: '#579DFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 12,
-    elevation: 8,
-    zIndex: 10,
-  },
-});

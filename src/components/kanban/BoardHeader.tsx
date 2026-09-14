@@ -1,8 +1,10 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, TextStyle } from 'react-native';
-import { ChevronDown, ChevronLeft, CloudUpload, Columns, Search, Settings, X, Boxes, SlidersHorizontal } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ChevronDown, ChevronLeft, CloudUpload, Columns, Search, Settings, X, Boxes, SlidersHorizontal, Lock } from 'lucide-react-native';
 import { router, Href } from 'expo-router';
 import { TableroInfo } from '../../types/kanban';
+import { BoardSearchBar } from './BoardSearchBar';
+import { CriterioBusqueda } from '../../hooks/useKanbanFiltros';
 
 interface BoardHeaderProps {
   tableroInfo: TableroInfo | null;
@@ -11,6 +13,8 @@ interface BoardHeaderProps {
   setIsMobileSearchActive: (val: boolean) => void;
   searchQuery: string;
   setSearchQuery: (val: string) => void;
+  criterioBusqueda?: CriterioBusqueda;
+  setCriterioBusqueda?: (val: CriterioBusqueda) => void;
   showBoardMenu: boolean;
   setShowBoardMenu: (val: boolean) => void;
   pendingCount: number;
@@ -32,6 +36,8 @@ export function BoardHeader({
   setIsMobileSearchActive,
   searchQuery,
   setSearchQuery,
+  criterioBusqueda = 'todos',
+  setCriterioBusqueda,
   showBoardMenu,
   setShowBoardMenu,
   pendingCount,
@@ -48,25 +54,14 @@ export function BoardHeader({
   return (
     <View style={styles.header}>
       {width <= 600 && isMobileSearchActive ? (
-        <View style={styles.mobileSearchBox}>
-          <Search size={18} color="#9FADBC" />
-          <TextInput
-            style={styles.mobileSearchInput}
-            placeholder="Buscar tarjeta..."
-            placeholderTextColor="#9FADBC"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoFocus
-          />
-          <TouchableOpacity
-            onPress={() => {
-              setSearchQuery('');
-              setIsMobileSearchActive(false);
-            }}
-          >
-            <X size={20} color="#9FADBC" style={{ marginLeft: 8 }} />
-          </TouchableOpacity>
-        </View>
+        <BoardSearchBar
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          criterioBusqueda={criterioBusqueda}
+          setCriterioBusqueda={setCriterioBusqueda || (() => {})}
+          isMobileActive
+          onCloseMobile={() => setIsMobileSearchActive(false)}
+        />
       ) : (
         <>
           <View style={styles.headerLeft}>
@@ -146,21 +141,12 @@ export function BoardHeader({
             )}
 
             {width > 600 ? (
-              <View style={styles.desktopSearchBox}>
-                <Search size={16} color="#FFF" />
-                <TextInput
-                  style={styles.desktopSearchInput}
-                  placeholder="Buscar..."
-                  placeholderTextColor="rgba(255,255,255,0.6)"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <X size={14} color="#FFF" />
-                  </TouchableOpacity>
-                )}
-              </View>
+              <BoardSearchBar
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                criterioBusqueda={criterioBusqueda}
+                setCriterioBusqueda={setCriterioBusqueda || (() => {})}
+              />
             ) : (
               <TouchableOpacity onPress={() => setIsMobileSearchActive(true)} style={[styles.headerIconBtn, { marginRight: 4 }]}>
                 <Search size={20} color="#FFF" />
@@ -176,7 +162,7 @@ export function BoardHeader({
 
             {tableroInfo?.tipo === 'privado' && (
               <TouchableOpacity onPress={() => router.push({ pathname: '/tablero/[id]/privacidad' as unknown as '/tablero/[id]', params: { id } } as unknown as Href)} style={styles.headerIconBtn}>
-                <Text style={{ fontSize: 16 }}>🔒</Text>
+                <Lock size={18} color="#FFF" />
               </TouchableOpacity>
             )}
 
@@ -236,39 +222,6 @@ const styles = StyleSheet.create({
   },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerIconBtn: { padding: 6 },
-  mobileSearchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#282E33',
-    borderRadius: 8,
-    flex: 1,
-    height: 36,
-    paddingHorizontal: 12,
-  },
-  mobileSearchInput: {
-    flex: 1,
-    color: '#FFF',
-    marginLeft: 8,
-    outlineStyle: 'none',
-    paddingVertical: 0,
-  } as unknown as TextStyle,
-  desktopSearchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    marginRight: 8,
-    height: 32,
-  },
-  desktopSearchInput: {
-    color: '#FFF',
-    paddingVertical: 0,
-    paddingHorizontal: 8,
-    minWidth: 200,
-    height: '100%',
-    outlineStyle: 'none',
-  } as unknown as TextStyle,
   pendingBadge: {
     flexDirection: 'row',
     alignItems: 'center',

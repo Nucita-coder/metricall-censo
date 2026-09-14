@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { CheckSquare, Square } from 'lucide-react-native';
+import { CheckSquare, Square, Building2, Folder } from 'lucide-react-native';
 
 export interface Lista {
   id: string;
@@ -56,7 +56,8 @@ export function PermisosJerarquiaTree({
           <View key={sucursal.id} style={styles.hierarchyCard}>
             <TouchableOpacity style={styles.checkRow} onPress={() => onToggleSucursal(sucursal.id)}>
               {isSucursalChecked ? <CheckSquare size={20} color="#0C66E4" /> : <Square size={20} color="#8C9BAB" />}
-              <Text style={styles.sucursalText}>🏢 {sucursal.nombre}</Text>
+              <Building2 size={16} color="#8C9BAB" style={{ marginRight: 6 }} />
+              <Text style={styles.sucursalText}>{sucursal.nombre}</Text>
             </TouchableOpacity>
 
             {isSucursalChecked &&
@@ -67,7 +68,8 @@ export function PermisosJerarquiaTree({
                   <View key={tablero.id} style={styles.tableroContainer}>
                     <TouchableOpacity style={styles.checkRow} onPress={() => onToggleTablero(tablero.id, tablero.listas || [])}>
                       {isTableroChecked ? <CheckSquare size={20} color="#0C66E4" /> : <Square size={20} color="#8C9BAB" />}
-                      <Text style={styles.tableroText}>📁 {tablero.nombre}</Text>
+                      <Folder size={15} color="#8C9BAB" style={{ marginRight: 6 }} />
+                      <Text style={styles.tableroText}>{tablero.nombre}</Text>
                     </TouchableOpacity>
 
                     {isTableroChecked && tablero.listas && (

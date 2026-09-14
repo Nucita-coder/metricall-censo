@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { ArrowLeftRight, Building2, MoreVertical, Plus, Search, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View, TextStyle } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { DashboardBoardCard } from '../../../components/dashboard/DashboardBoardCard';
 import { ModalCrearRecurso } from '../../../components/dashboard/ModalCrearRecurso';
 import { ModalOpcionesTablero } from '../../../components/dashboard/ModalOpcionesTablero';
@@ -10,6 +10,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { useGlobalUi } from '../../../context/GlobalUiContext';
 import { Tablero, useDashboardData } from '../../../hooks/useDashboardData';
 import { supabase } from '../../../lib/supabase';
+import { styles } from './dashboard.styles';
+import { getListasPorDefecto, TipoTableroCreacion } from './dashboardHelpers';
 
 export default function DashboardScreen() {
   const { userRol, empresaId, nombreCompleto } = useAuth();
@@ -32,7 +34,7 @@ export default function DashboardScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [createType, setCreateType] = useState<'sucursal' | 'tablero'>('sucursal');
   const [targetSucursalId, setTargetSucursalId] = useState<string | null>(null);
-  const [tipoTablero, setTipoTablero] = useState<'instalaciones' | 'censo' | 'almacen' | 'cobranza' | 'gestion_online' | 'atencion_fallas'>('instalaciones');
+  const [tipoTablero, setTipoTablero] = useState<TipoTableroCreacion>('instalaciones');
   const [inputNombre, setInputNombre] = useState('');
   const [inputSecundario, setInputSecundario] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -169,17 +171,7 @@ export default function DashboardScreen() {
         if (error) throw error;
 
         if (newTablero) {
-          const nombresListas = tipoTablero === 'instalaciones'
-            ? ['Venta', 'Factibilidad', 'Por Instalar', 'Asignado A', 'Liberada', 'En Proceso', 'Por Activar', 'Cliente Activo']
-            : tipoTablero === 'censo'
-              ? ['Censo', 'si desea', 'no desea', 'es posible']
-              : tipoTablero === 'cobranza'
-                ? ['Carga de cobranza clientes cortados', 'Acción efectiva', 'Acción negativa', 'Recupero', 'Acción efectiva (Recupero)', 'Acción negativa (Recupero)']
-                : tipoTablero === 'gestion_online'
-                  ? ['ventas online', 'reporte falla', 'reporte pago']
-                  : tipoTablero === 'atencion_fallas'
-                    ? ['Por asignar', 'Asignado a', 'En Proceso', 'En Revisión', 'Falla Solventada']
-                    : ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Recuperados', 'Devolución de Asignación', 'Devolución a Almacén Central'];
+          const nombresListas = getListasPorDefecto(tipoTablero);
 
           const defaultListas = nombresListas.map((nombre, index) => ({
             empresa_id: perfilData?.empresa_id,
@@ -214,34 +206,25 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#B6C2CF" />}>
         <View style={[styles.webContainer, isDesktop && { maxWidth: '100%', paddingHorizontal: 32 }]}>
-          <View style={{
-            marginBottom: 32,
-            marginTop: 16,
-            paddingHorizontal: isDesktop ? 0 : 24,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <View style={{ flex: 1, marginRight: 16 }}>
+          <View style={[styles.headerRow, { paddingHorizontal: isDesktop ? 0 : 24 }]}>
+            <View style={styles.headerInfo}>
               <Text style={styles.companyName}>{empresaNombre}</Text>
               <Text style={styles.greeting}>Hola, {liderNombre.split(' ')[0]}</Text>
             </View>
-            {empresaLogo ? (
+            {empresaLogo && (
               <Image
                 source={{ uri: empresaLogo }}
-                style={{ width: isDesktop ? 160 : 110, height: isDesktop ? 60 : 45, borderRadius: 8 }}
+                style={[styles.logoImg, { width: isDesktop ? 160 : 110, height: isDesktop ? 60 : 45 }]}
                 resizeMode="contain"
               />
-            ) : null}
+            )}
           </View>
 
-
-
           {!isDesktop && sucursales.length > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#22272B', borderRadius: 8, paddingHorizontal: 12, height: 44, marginBottom: 24, marginTop: 4, borderWidth: 1, borderColor: '#384148', marginHorizontal: 24 }}>
+            <View style={styles.searchContainer}>
               <Search size={20} color="#9FADBC" />
               <TextInput
-                style={{ flex: 1, marginLeft: 8, fontSize: 15, color: '#FFF', outlineStyle: 'none' } as unknown as TextStyle}
+                style={styles.searchInput}
                 placeholder="Buscar tablero por nombre..."
                 placeholderTextColor="#9FADBC"
                 value={searchQuery}
@@ -359,62 +342,4 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1D2125' },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1D2125' },
-  webContainer: { width: '100%', maxWidth: 1024, alignSelf: 'center' },
-  greeting: { fontSize: 14, color: '#9FADBC', fontWeight: '500' },
-  companyName: { fontSize: 32, fontWeight: '900', color: '#B6C2CF', marginTop: 0 },
-  scrollContent: { paddingTop: 24, paddingBottom: 40 },
-  sucursalSection: { marginBottom: 32 },
-  sucursalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingHorizontal: 24, marginBottom: 8 },
-  sucursalTitle: { fontSize: 14, fontWeight: 'bold', color: '#B6C2CF', textTransform: 'uppercase', letterSpacing: 2 },
-  sucursalLocation: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' },
-  boardGroupContainer: { backgroundColor: 'transparent' },
-  cardDashedGroup: { width: '100%', height: 56, justifyContent: 'center', alignItems: 'center', backgroundColor: '#2C333A', borderWidth: 1, borderColor: '#384148' },
-  dashedText: { fontSize: 16, fontWeight: 'bold', color: '#B6C2CF' },
-  emptyText: { paddingHorizontal: 24, fontSize: 16, color: '#8C9BAB', fontStyle: 'italic', marginBottom: 16 },
-  emptyContainer: {
-    padding: 32,
-    marginHorizontal: 24,
-    backgroundColor: '#22272B',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#384148',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#B6C2CF',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#8C9BAB',
-    textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 400,
-    marginBottom: 24,
-  },
-  btnCrearSucursalEmpresa: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0C66E4',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  btnCrearSucursalEmpresaText: {
-    color: '#FFF',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  swappingBanner: { position: 'absolute', bottom: 24, left: 24, right: 24, backgroundColor: 'rgba(0,0,0,0.85)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, borderRadius: 16, zIndex: 100 },
-  swappingBannerText: { flex: 1, marginLeft: 12, fontSize: 14, color: '#FFF', fontWeight: '600' },
 
-});

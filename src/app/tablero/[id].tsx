@@ -141,6 +141,8 @@ export default function KanbanTableroScreen() {
         setIsMobileSearchActive={filtros.setIsMobileSearchActive}
         searchQuery={filtros.searchQuery}
         setSearchQuery={filtros.setSearchQuery}
+        criterioBusqueda={filtros.criterioBusqueda}
+        setCriterioBusqueda={filtros.setCriterioBusqueda}
         showBoardMenu={showBoardMenu}
         setShowBoardMenu={setShowBoardMenu}
         pendingCount={pendingCount}

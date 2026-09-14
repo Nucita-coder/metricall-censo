@@ -65,7 +65,7 @@ export default function OnboardingScreen() {
             onPress={handleUploadLogo}
           >
             <Text style={globalStyles.btnTextOutline}>
-              {logoUploaded ? '✅ Logo Adjunto' : '📤 Subir Logo (Mock)'}
+              {logoUploaded ? 'Logo Adjunto' : 'Subir Logo'}
             </Text>
           </TouchableOpacity>
         </View>

@@ -1,8 +1,10 @@
 import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View, ScrollView, useWindowDimensions, Platform } from 'react-native';
-import { Filter, X, RefreshCw, Check } from 'lucide-react-native';
+import { Modal, Text, TouchableOpacity, View, ScrollView, useWindowDimensions, Platform } from 'react-native';
+import { Filter, X, RefreshCw } from 'lucide-react-native';
 import { WEB_MODAL_CONTAINER } from '../../../constants/theme';
+import { SelectDropdown } from '../../venta/CamposVenta';
 import { OPCIONES_RESULTADO_COBRANZA, OPCIONES_TIPO_CONTACTO_COBRANZA } from '../detalle/FaseCobranza';
+import { styles } from './ModalFiltrosTablero.styles';
 
 export interface FiltrosTableroEstado {
   estadoCobro: 'todos' | 'pendientes' | 'cobrados';
@@ -36,6 +38,62 @@ interface ModalFiltrosTableroProps {
   listas?: { id: string; nombre: string }[];
 }
 
+const OPCIONES_ORDEN = ['Más recientes primero', 'Más antiguas primero'];
+const ORDEN_MAP_LABEL: Record<string, string> = {
+  recientes: 'Más recientes primero',
+  antiguas: 'Más antiguas primero',
+};
+const ORDEN_MAP_KEY: Record<string, 'recientes' | 'antiguas'> = {
+  'Más recientes primero': 'recientes',
+  'Más antiguas primero': 'antiguas',
+};
+
+const OPCIONES_ETIQUETAS = [
+  'Todas las etiquetas',
+  'PAGO PROCESADO',
+  'PAGO EN REVISIÓN',
+  'PAGO RECHAZADO',
+  'PROCESADO EN SAE',
+];
+
+const OPCIONES_FECHAS = ['Todas las fechas', 'Hoy', 'Últimos 7 días', 'Este mes'];
+const FECHA_MAP_LABEL: Record<string, string> = {
+  todos: 'Todas las fechas',
+  hoy: 'Hoy',
+  '7dias': 'Últimos 7 días',
+  este_mes: 'Este mes',
+};
+const FECHA_MAP_KEY: Record<string, 'todos' | 'hoy' | '7dias' | 'este_mes'> = {
+  'Todas las fechas': 'todos',
+  'Hoy': 'hoy',
+  'Últimos 7 días': '7dias',
+  'Este mes': 'este_mes',
+};
+
+const OPCIONES_ESTADO_COBRO = ['Todos los clientes', 'Pagos Pendientes', 'Pagos Liquidados'];
+const ESTADO_COBRO_MAP_LABEL: Record<string, string> = {
+  todos: 'Todos los clientes',
+  pendientes: 'Pagos Pendientes',
+  cobrados: 'Pagos Liquidados',
+};
+const ESTADO_COBRO_MAP_KEY: Record<string, 'todos' | 'pendientes' | 'cobrados'> = {
+  'Todos los clientes': 'todos',
+  'Pagos Pendientes': 'pendientes',
+  'Pagos Liquidados': 'cobrados',
+};
+
+const OPCIONES_FLUJO = ['Todos los flujos', 'Flujo de Cobranza', 'Flujo de Recupero'];
+const FLUJO_MAP_LABEL: Record<string, string> = {
+  todos: 'Todos los flujos',
+  cobranza: 'Flujo de Cobranza',
+  recupero: 'Flujo de Recupero',
+};
+const FLUJO_MAP_KEY: Record<string, 'todos' | 'cobranza' | 'recupero'> = {
+  'Todos los flujos': 'todos',
+  'Flujo de Cobranza': 'cobranza',
+  'Flujo de Recupero': 'recupero',
+};
+
 export function ModalFiltrosTablero({
   visible,
   onClose,
@@ -62,6 +120,12 @@ export function ModalFiltrosTablero({
     (filtros.etiqueta && filtros.etiqueta !== 'todas') ||
     (filtros.rangoFecha && filtros.rangoFecha !== 'todos');
 
+  const opcionesListas = ['Todas las listas', ...listas.map((l) => l.nombre)];
+  const listaSeleccionadaNombre =
+    filtros.listaId && filtros.listaId !== 'todas'
+      ? listas.find((l) => l.id === filtros.listaId)?.nombre || 'Todas las listas'
+      : 'Todas las listas';
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -69,220 +133,102 @@ export function ModalFiltrosTablero({
           {/* HEADER */}
           <View style={styles.header}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Filter size={18} color="#3B82F6" />
+              <Filter size={18} color="#8C9BAB" />
               <Text style={styles.headerTitle}>Filtros del Tablero</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               {isFilteredActive && (
                 <TouchableOpacity onPress={onLimpiar} style={styles.btnLimpiar}>
-                  <RefreshCw size={13} color="#9CA3AF" />
+                  <RefreshCw size={13} color="#8C9BAB" />
                   <Text style={styles.btnLimpiarTxt}>Limpiar Filtros</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={onClose} style={styles.btnClose}>
-                <X size={20} color="#9CA3AF" />
+                <X size={20} color="#8C9BAB" />
               </TouchableOpacity>
             </View>
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {/* 1. ORDEN DE TARJETAS (MÁS RECIENTES / MÁS ANTIGUAS) */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>ORDEN DE TARJETAS</Text>
-              <View style={styles.pillsRow}>
-                {([
-                  { key: 'recientes' as const, label: 'Más recientes primero' },
-                  { key: 'antiguas' as const, label: 'Más antiguas primero' },
-                ]).map((item) => (
-                  <TouchableOpacity
-                    key={item.key}
-                    onPress={() => update('orden', item.key)}
-                    style={[styles.pill, (filtros.orden || 'recientes') === item.key && styles.pillActive]}
-                  >
-                    <Text style={[styles.pillTxt, (filtros.orden || 'recientes') === item.key && styles.pillTxtActive]}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+            {/* 1. ORDEN DE TARJETAS */}
+            <SelectDropdown
+              label="Orden de Tarjetas"
+              options={OPCIONES_ORDEN}
+              value={ORDEN_MAP_LABEL[filtros.orden || 'recientes']}
+              onSelect={(val) => update('orden', ORDEN_MAP_KEY[val] || 'recientes')}
+              compact
+            />
 
             {/* 2. FILTRAR POR LISTA ESPECÍFICA */}
             {listas && listas.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>FILTRAR POR LISTA</Text>
-                <View style={styles.pillsRow}>
-                  <TouchableOpacity
-                    onPress={() => update('listaId', 'todas')}
-                    style={[styles.pill, (filtros.listaId || 'todas') === 'todas' && styles.pillActive]}
-                  >
-                    <Text style={[styles.pillTxt, (filtros.listaId || 'todas') === 'todas' && styles.pillTxtActive]}>
-                      Todas las listas
-                    </Text>
-                  </TouchableOpacity>
-                  {listas.map((l) => (
-                    <TouchableOpacity
-                      key={l.id}
-                      onPress={() => update('listaId', l.id)}
-                      style={[styles.pill, (filtros.listaId || 'todas') === l.id && styles.pillActive]}
-                    >
-                      <Text style={[styles.pillTxt, (filtros.listaId || 'todas') === l.id && styles.pillTxtActive]}>
-                        {l.nombre}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+              <SelectDropdown
+                label="Filtrar por Lista"
+                options={opcionesListas}
+                value={listaSeleccionadaNombre}
+                onSelect={(val) => {
+                  if (val === 'Todas las listas') {
+                    update('listaId', 'todas');
+                  } else {
+                    const l = listas.find((item) => item.nombre === val);
+                    update('listaId', l ? l.id : 'todas');
+                  }
+                }}
+                compact
+              />
             )}
 
-            {/* 3. ESTATUS DE PAGO / ETIQUETA VÁLIDA */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>ESTATUS DE PAGO / ETIQUETA</Text>
-              <View style={styles.pillsRow}>
-                {[
-                  { key: 'todas', label: 'Todas las etiquetas' },
-                  { key: 'PAGO PROCESADO', label: 'PAGO PROCESADO' },
-                  { key: 'PAGO EN REVISIÓN', label: 'PAGO EN REVISIÓN' },
-                  { key: 'PAGO RECHAZADO', label: 'PAGO RECHAZADO' },
-                  { key: 'PROCESADO EN SAE', label: 'PROCESADO EN SAE' },
-                ].map((item) => (
-                  <TouchableOpacity
-                    key={item.key}
-                    onPress={() => update('etiqueta', item.key)}
-                    style={[styles.pill, (filtros.etiqueta || 'todas') === item.key && styles.pillActive]}
-                  >
-                    <Text style={[styles.pillTxt, (filtros.etiqueta || 'todas') === item.key && styles.pillTxtActive]}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+            {/* 3. ESTATUS DE PAGO / ETIQUETA */}
+            <SelectDropdown
+              label="Estatus de Pago / Etiqueta"
+              options={OPCIONES_ETIQUETAS}
+              value={filtros.etiqueta === 'todas' ? 'Todas las etiquetas' : filtros.etiqueta}
+              onSelect={(val) => update('etiqueta', val === 'Todas las etiquetas' ? 'todas' : val)}
+              compact
+            />
 
             {/* 4. RANGO DE FECHA */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>RANGO DE FECHA</Text>
-              <View style={styles.pillsRow}>
-                {([
-                  { key: 'todos' as const, label: 'Todas las fechas' },
-                  { key: 'hoy' as const, label: 'Hoy' },
-                  { key: '7dias' as const, label: 'Últimos 7 días' },
-                  { key: 'este_mes' as const, label: 'Este mes' },
-                ]).map((item) => (
-                  <TouchableOpacity
-                    key={item.key}
-                    onPress={() => update('rangoFecha', item.key)}
-                    style={[styles.pill, (filtros.rangoFecha || 'todos') === item.key && styles.pillActive]}
-                  >
-                    <Text style={[styles.pillTxt, (filtros.rangoFecha || 'todos') === item.key && styles.pillTxtActive]}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+            <SelectDropdown
+              label="Rango de Fecha"
+              options={OPCIONES_FECHAS}
+              value={FECHA_MAP_LABEL[filtros.rangoFecha || 'todos']}
+              onSelect={(val) => update('rangoFecha', FECHA_MAP_KEY[val] || 'todos')}
+              compact
+            />
 
             {/* SECCIONES ESPECÍFICAS DE COBRANZA */}
             {isCobranzaBoard && (
               <>
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>ESTADO DE COBRO / PAGO</Text>
-                  <View style={styles.optionsGrid}>
-                    {([
-                      { key: 'todos' as const, label: 'Todos los clientes', desc: 'Sin filtro de cobranza' },
-                      { key: 'pendientes' as const, label: 'Pagos Pendientes', desc: 'Acciones negativas y compromisos de pago sin abonar' },
-                      { key: 'cobrados' as const, label: 'Pagos Liquidados', desc: 'Cobro efectivo y cliente recuperado' },
-                    ]).map((opt) => (
-                      <TouchableOpacity
-                        key={opt.key}
-                        style={[
-                          styles.optionBtn,
-                          filtros.estadoCobro === opt.key && styles.optionBtnActive,
-                        ]}
-                        onPress={() => update('estadoCobro', opt.key)}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.optionLabel, filtros.estadoCobro === opt.key && styles.optionLabelActive]}>
-                            {opt.label}
-                          </Text>
-                          <Text style={styles.optionDesc}>{opt.desc}</Text>
-                        </View>
-                        {filtros.estadoCobro === opt.key && <Check size={16} color="#3B82F6" />}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
+                <SelectDropdown
+                  label="Estado de Cobro / Pago"
+                  options={OPCIONES_ESTADO_COBRO}
+                  value={ESTADO_COBRO_MAP_LABEL[filtros.estadoCobro || 'todos']}
+                  onSelect={(val) => update('estadoCobro', ESTADO_COBRO_MAP_KEY[val] || 'todos')}
+                  compact
+                />
 
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>FLUJO DE TRABAJO</Text>
-                  <View style={styles.pillsRow}>
-                    {([
-                      { key: 'todos' as const, label: 'Todos los flujos' },
-                      { key: 'cobranza' as const, label: 'Flujo de Cobranza' },
-                      { key: 'recupero' as const, label: 'Flujo de Recupero' },
-                    ]).map((item) => (
-                      <TouchableOpacity
-                        key={item.key}
-                        onPress={() => update('flujo', item.key)}
-                        style={[styles.pill, filtros.flujo === item.key && styles.pillActive]}
-                      >
-                        <Text style={[styles.pillTxt, filtros.flujo === item.key && styles.pillTxtActive]}>
-                          {item.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
+                <SelectDropdown
+                  label="Flujo de Trabajo"
+                  options={OPCIONES_FLUJO}
+                  value={FLUJO_MAP_LABEL[filtros.flujo || 'todos']}
+                  onSelect={(val) => update('flujo', FLUJO_MAP_KEY[val] || 'todos')}
+                  compact
+                />
 
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>TIPO DE CONTACTO</Text>
-                  <View style={styles.pillsRow}>
-                    <TouchableOpacity
-                      onPress={() => update('tipoContacto', 'todos')}
-                      style={[styles.pill, filtros.tipoContacto === 'todos' && styles.pillActive]}
-                    >
-                      <Text style={[styles.pillTxt, filtros.tipoContacto === 'todos' && styles.pillTxtActive]}>
-                        Todos
-                      </Text>
-                    </TouchableOpacity>
-                    {OPCIONES_TIPO_CONTACTO_COBRANZA.map((tipo) => (
-                      <TouchableOpacity
-                        key={tipo}
-                        onPress={() => update('tipoContacto', tipo)}
-                        style={[styles.pill, filtros.tipoContacto === tipo && styles.pillActive]}
-                      >
-                        <Text style={[styles.pillTxt, filtros.tipoContacto === tipo && styles.pillTxtActive]}>
-                          {tipo}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
+                <SelectDropdown
+                  label="Tipo de Contacto"
+                  options={['Todos', ...OPCIONES_TIPO_CONTACTO_COBRANZA]}
+                  value={filtros.tipoContacto === 'todos' ? 'Todos' : filtros.tipoContacto}
+                  onSelect={(val) => update('tipoContacto', val === 'Todos' ? 'todos' : val)}
+                  compact
+                />
 
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>RESULTADO / CAUSA ESPECÍFICA</Text>
-                  <View style={styles.pillsRow}>
-                    <TouchableOpacity
-                      onPress={() => update('resultadoEspecifico', 'todos')}
-                      style={[styles.pill, filtros.resultadoEspecifico === 'todos' && styles.pillActive]}
-                    >
-                      <Text style={[styles.pillTxt, filtros.resultadoEspecifico === 'todos' && styles.pillTxtActive]}>
-                        Todas las causas
-                      </Text>
-                    </TouchableOpacity>
-                    {OPCIONES_RESULTADO_COBRANZA.map((res) => (
-                      <TouchableOpacity
-                        key={res}
-                        onPress={() => update('resultadoEspecifico', res)}
-                        style={[styles.pill, filtros.resultadoEspecifico === res && styles.pillActive]}
-                      >
-                        <Text style={[styles.pillTxt, filtros.resultadoEspecifico === res && styles.pillTxtActive]}>
-                          {res}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
+                <SelectDropdown
+                  label="Resultado / Causa Específica"
+                  options={['Todas las causas', ...OPCIONES_RESULTADO_COBRANZA]}
+                  value={filtros.resultadoEspecifico === 'todos' ? 'Todas las causas' : filtros.resultadoEspecifico}
+                  onSelect={(val) => update('resultadoEspecifico', val === 'Todas las causas' ? 'todos' : val)}
+                  compact
+                />
               </>
             )}
           </ScrollView>
@@ -298,142 +244,3 @@ export function ModalFiltrosTablero({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalContent: {
-    backgroundColor: '#0F172A',
-    width: '100%',
-    maxHeight: '85%',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1E293B',
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
-    backgroundColor: '#020617',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#F8FAFC',
-  },
-  btnLimpiar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    backgroundColor: '#1E293B',
-  },
-  btnLimpiarTxt: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  btnClose: {
-    padding: 4,
-  },
-  body: {
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-  },
-  section: {
-    marginBottom: 18,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#64748B',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-  },
-  optionsGrid: {
-    gap: 8,
-  },
-  optionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  optionBtnActive: {
-    borderColor: '#3B82F6',
-    backgroundColor: 'rgba(37, 99, 235, 0.15)',
-  },
-  optionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#E2E8F0',
-  },
-  optionLabelActive: {
-    color: '#60A5FA',
-    fontWeight: 'bold',
-  },
-  optionDesc: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  pillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  pill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  pillActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#3B82F6',
-  },
-  pillTxt: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
-  pillTxtActive: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  footer: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#1E293B',
-    backgroundColor: '#020617',
-  },
-  btnAplicar: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 11,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  btnAplicarTxt: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-});

@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -13,6 +12,8 @@ import { WebView } from 'react-native-webview';
 import { MapPin, Navigation, Plus, Minus, X } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import { WEB_MODAL_CONTAINER } from '../../constants/theme';
+import { getInteractiveMapHtml } from './mapaUbicacionHtml';
+import { styles } from './ModalMapaUbicacion.styles';
 
 interface ModalMapaUbicacionProps {
   visible: boolean;
@@ -23,106 +24,6 @@ interface ModalMapaUbicacionProps {
   onConfirmar: (loc: { latitude: number; longitude: number }) => void;
   onCancelar: () => void;
 }
-
-const getInteractiveMapHtml = (lat: number, lng: number) => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body, #map { width: 100%; height: 100%; background: #1D2125; cursor: pointer; }
-    .leaflet-control-attribution { display: none !important; }
-    .leaflet-control-layers {
-      background: #2C333A !important;
-      color: #FFF !important;
-      border: 1px solid #384148 !important;
-      border-radius: 8px !important;
-      padding: 8px 12px !important;
-      font-family: system-ui, -apple-system, sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
-    }
-    .leaflet-control-layers label {
-      margin-bottom: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .leaflet-control-layers-expanded {
-      padding: 10px 14px !important;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script>
-    var currentLat = ${lat};
-    var currentLng = ${lng};
-
-    // 1. Google Híbrido (Satélite + Nombres de Calles y Sectores)
-    var googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-      maxZoom: 20,
-      attribution: 'Google Maps'
-    });
-
-    // 2. Google Satélite Solo
-    var googleSatellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-      maxZoom: 20,
-      attribution: 'Google Maps'
-    });
-
-    // 3. OpenStreetMap Callejero
-    var osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: 'OpenStreetMap'
-    });
-
-    // Inicializar mapa con Satélite Híbrido (Satélite + Calles) por defecto a Zoom 17
-    var map = L.map('map', {
-      zoomControl: true,
-      layers: [googleHybrid]
-    }).setView([currentLat, currentLng], 17);
-
-    // Control Selector de Capas
-    var baseMaps = {
-      "🛰️ Satélite con Calles": googleHybrid,
-      "📷 Satélite Solo": googleSatellite,
-      "🗺️ Mapa Callejero": osmStandard
-    };
-
-    L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
-
-    var marker = L.marker([currentLat, currentLng], { draggable: true }).addTo(map);
-
-    function notifyCoords(latVal, lngVal) {
-      var data = JSON.stringify({ latitude: latVal, longitude: lngVal });
-      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-        window.ReactNativeWebView.postMessage(data);
-      }
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage(data, '*');
-      }
-    }
-
-    map.on('click', function(e) {
-      marker.setLatLng(e.latlng);
-      notifyCoords(e.latlng.lat, e.latlng.lng);
-    });
-
-    marker.on('dragend', function(e) {
-      var pos = marker.getLatLng();
-      notifyCoords(pos.lat, pos.lng);
-    });
-  </script>
-</body>
-</html>
-`;
 
 export function ModalMapaUbicacion({
   visible,
@@ -211,8 +112,8 @@ export function ModalMapaUbicacion({
         <View style={[styles.modalContainer, WEB_MODAL_CONTAINER]}>
           {/* HEADER */}
           <View style={styles.header}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <MapPin size={20} color="#0C66E4" style={{ marginRight: 8 }} />
+            <View style={styles.headerLeft}>
+              <MapPin size={20} color="#8C9BAB" />
               <Text style={styles.title}>Fijar Ubicación en el Mapa</Text>
             </View>
             <TouchableOpacity onPress={onCancelar}>
@@ -223,7 +124,7 @@ export function ModalMapaUbicacion({
           {/* HINT & BOTÓN GPS */}
           <View style={styles.topActions}>
             <Text style={styles.hintText}>
-              👉 Toca o haz clic en cualquier lugar del mapa para fijar el punto exacto.
+              Toca o haz clic en cualquier lugar del mapa para fijar el punto exacto.
             </Text>
             <TouchableOpacity
               style={styles.gpsBtn}
@@ -231,9 +132,9 @@ export function ModalMapaUbicacion({
               disabled={isLocating}
             >
               {isLocating ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <ActivityIndicator size="small" color="#B6C2CF" />
               ) : (
-                <Navigation size={16} color="#FFF" style={{ marginRight: 6 }} />
+                <Navigation size={16} color="#B6C2CF" style={{ marginRight: 6 }} />
               )}
               <Text style={styles.gpsBtnText}>{isLocating ? 'Capturando...' : 'Usar Mi GPS Actual'}</Text>
             </TouchableOpacity>
@@ -256,10 +157,10 @@ export function ModalMapaUbicacion({
                 />
                 <View style={styles.nudgeBtnGroup}>
                   <TouchableOpacity style={styles.nudgeBtn} onPress={() => handleNudge(0.0005, 0)}>
-                    <Plus size={12} color="#FFF" />
+                    <Plus size={12} color="#B6C2CF" />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.nudgeBtn} onPress={() => handleNudge(-0.0005, 0)}>
-                    <Minus size={12} color="#FFF" />
+                    <Minus size={12} color="#B6C2CF" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -280,10 +181,10 @@ export function ModalMapaUbicacion({
                 />
                 <View style={styles.nudgeBtnGroup}>
                   <TouchableOpacity style={styles.nudgeBtn} onPress={() => handleNudge(0, 0.0005)}>
-                    <Plus size={12} color="#FFF" />
+                    <Plus size={12} color="#B6C2CF" />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.nudgeBtn} onPress={() => handleNudge(0, -0.0005)}>
-                    <Minus size={12} color="#FFF" />
+                    <Minus size={12} color="#B6C2CF" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -342,146 +243,3 @@ export function ModalMapaUbicacion({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalContainer: {
-    width: '100%',
-    maxWidth: 650,
-    height: '85%',
-    backgroundColor: '#22272B',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#384148',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#2C333A',
-    borderBottomWidth: 1,
-    borderBottomColor: '#384148',
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#B6C2CF',
-  },
-  topActions: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    gap: 8,
-  },
-  hintText: {
-    fontSize: 12,
-    color: '#90CDF4',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  gpsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0C66E4',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  gpsBtnText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  inputsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#8C9BAB',
-    marginBottom: 4,
-  },
-  inputWithButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#1D2125',
-    borderWidth: 1,
-    borderColor: '#384148',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  nudgeBtnGroup: {
-    flexDirection: 'column',
-    marginLeft: 4,
-    gap: 2,
-  },
-  nudgeBtn: {
-    backgroundColor: '#384148',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapFrame: {
-    flex: 1,
-    backgroundColor: '#1D2125',
-    marginHorizontal: 14,
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#384148',
-  },
-  footer: {
-    padding: 14,
-    backgroundColor: '#2C333A',
-    borderTopWidth: 1,
-    borderTopColor: '#384148',
-    gap: 8,
-  },
-  confirmBtn: {
-    backgroundColor: '#0C66E4',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  confirmBtnText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  cancelBtn: {
-    backgroundColor: '#1D2125',
-    borderWidth: 1,
-    borderColor: '#384148',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelBtnText: {
-    color: '#8C9BAB',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-});

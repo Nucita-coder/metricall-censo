@@ -5,13 +5,50 @@ import {
   FILTROS_DEFAULT,
 } from '../components/kanban/modals/ModalFiltrosTablero';
 
+export type CriterioBusqueda = 'todos' | 'telefono' | 'nombre' | 'cedula' | 'abonado';
+
 interface UseKanbanFiltrosParams {
   listas: Lista[];
   userRol: string | null;
 }
 
+const coincideTelefono = (vals: Record<string, unknown>, q: string): boolean => {
+  const camposTelefonos = [
+    vals.telefonoMovil,
+    vals.nroTelefonoMovil,
+    vals.telefono,
+    vals.celular,
+    vals.telefonoAdicional,
+    vals.telefonoResidencial,
+    vals.telefonoCliente,
+    vals.whatsapp,
+    vals['TELÉFONO'],
+    vals['TELEFONO'],
+    vals['TELÉFONO MÓVIL'],
+    vals['TELEFONO MOVIL'],
+  ];
+
+  const qLimpio = q.toLowerCase();
+  const qDigitos = q.replace(/\D/g, '');
+
+  for (const tel of camposTelefonos) {
+    if (!tel) continue;
+    const telStr = String(tel).toLowerCase();
+    if (telStr.includes(qLimpio)) return true;
+
+    if (qDigitos.length >= 3) {
+      const telDigitos = telStr.replace(/\D/g, '');
+      if (telDigitos.includes(qDigitos)) return true;
+      if (qDigitos.startsWith('0') && telDigitos.includes(qDigitos.slice(1))) return true;
+      if (telDigitos.startsWith('0') && qDigitos.includes(telDigitos.slice(1))) return true;
+    }
+  }
+  return false;
+};
+
 export const useKanbanFiltros = ({ listas, userRol }: UseKanbanFiltrosParams) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [criterioBusqueda, setCriterioBusqueda] = useState<CriterioBusqueda>('todos');
   const [filtrosTablero, setFiltrosTablero] = useState<FiltrosTableroEstado>(FILTROS_DEFAULT);
   const [modalFiltrosVisible, setModalFiltrosVisible] = useState(false);
   const [isMobileSearchActive, setIsMobileSearchActive] = useState(false);
@@ -94,13 +131,30 @@ export const useKanbanFiltros = ({ listas, userRol }: UseKanbanFiltrosParams) =>
       const tarjetasFiltradas = (lista.tarjetas || []).filter(t => {
         const vals = t.datos_valores || {};
 
-        // A. Búsqueda por texto libre (nombre, cédula, abonado, id)
+        // A. Búsqueda por texto libre filtrada según criterio
         if (q) {
-          const nombre = (vals.nombreApellido || vals.nombre || vals.cliente || '').toLowerCase();
-          const cedula = (vals.cedula || vals.documento || vals.rif || '').toLowerCase();
+          const matchTelefono = coincideTelefono(vals, q);
+          const nombre = String(vals.nombreApellido || vals.nombre || vals.cliente || '').toLowerCase();
+          const matchNombre = nombre.includes(q);
+          const cedula = String(vals.cedula || vals.documento || vals.rif || '').toLowerCase();
+          const matchCedula = cedula.includes(q);
           const abonado = String(vals.nroAbonado || vals['NRO SUSCRIPTOR'] || vals.abonado || '').toLowerCase();
+          const matchAbonado = abonado.includes(q);
           const idStr = String(t.id).toLowerCase();
-          if (!nombre.includes(q) && !cedula.includes(q) && !abonado.includes(q) && !idStr.includes(q)) return false;
+          const matchId = idStr.includes(q);
+
+          if (criterioBusqueda === 'telefono') {
+            if (!matchTelefono) return false;
+          } else if (criterioBusqueda === 'nombre') {
+            if (!matchNombre) return false;
+          } else if (criterioBusqueda === 'cedula') {
+            if (!matchCedula) return false;
+          } else if (criterioBusqueda === 'abonado') {
+            if (!matchAbonado) return false;
+          } else {
+            // 'todos': Coincidencia general
+            if (!matchNombre && !matchCedula && !matchAbonado && !matchId && !matchTelefono) return false;
+          }
         }
 
         // B. Estado de cobro (pendientes vs cobrados)
@@ -193,11 +247,13 @@ export const useKanbanFiltros = ({ listas, userRol }: UseKanbanFiltrosParams) =>
         tarjetas: [...tarjetasFiltradas].sort((a, b) => esAntiguas ? getTs(a) - getTs(b) : getTs(b) - getTs(a)),
       };
     });
-  }, [listas, searchQuery, filtrosTablero, userRol, RESULTADOS_PENDIENTES_COBRO]);
+  }, [listas, searchQuery, criterioBusqueda, filtrosTablero, userRol, RESULTADOS_PENDIENTES_COBRO]);
 
   return {
     searchQuery,
     setSearchQuery,
+    criterioBusqueda,
+    setCriterioBusqueda,
     filtrosTablero,
     setFiltrosTablero,
     modalFiltrosVisible,

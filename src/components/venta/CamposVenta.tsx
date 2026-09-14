@@ -181,6 +181,7 @@ export interface SelectDropdownProps {
   halfWidth?: boolean;
   fullWidth?: boolean;
   compact?: boolean;
+  hideLabel?: boolean;
 }
 
 export const SelectDropdown = ({
@@ -193,6 +194,7 @@ export const SelectDropdown = ({
   disabled = false,
   halfWidth = false,
   compact = false,
+  hideLabel = false,
 }: SelectDropdownProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const { width } = useWindowDimensions();
@@ -207,9 +209,11 @@ export const SelectDropdown = ({
         isDesktop && halfWidth ? { width: '48%' } : { width: '100%' },
       ]}
     >
-      <Text style={[styles.label, compact && styles.labelCompact]}>
-        {label} {isRequired && <Text style={styles.required}>*</Text>}
-      </Text>
+      {!hideLabel && Boolean(label) && (
+        <Text style={[styles.label, compact && styles.labelCompact]}>
+          {label} {isRequired && <Text style={styles.required}>*</Text>}
+        </Text>
+      )}
       <TouchableOpacity
         style={[styles.selectBtn, compact && styles.selectBtnCompact]}
         onPress={() => !disabled && setModalVisible(true)}
@@ -226,7 +230,7 @@ export const SelectDropdown = ({
           <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setModalVisible(false)} />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{label}</Text>
+              <Text style={styles.modalTitle}>{label || 'Seleccionar opción'}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <X size={20} color="#B6C2CF" />
               </TouchableOpacity>

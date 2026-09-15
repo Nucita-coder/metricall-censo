@@ -176,3 +176,40 @@ export async function notificarPagoRechazado(
     error: sent ? undefined : 'No se pudo entregar el mensaje a través de WhatsApp Cloud API',
   };
 }
+
+/**
+ * Notifica al cliente por WhatsApp cuando su reporte de falla fue procesado en el sistema (SAE)
+ */
+export async function notificarFallaProcesada(tarjeta: DatosTarjetaPago): Promise<ResultadoNotificacion> {
+  const datos = tarjeta.datos_valores || {};
+  const rawPhone = String(datos.telefonoMovil || datos.telefono || datos['TELEFONO'] || datos['telefono_movil'] || '');
+  const cleanPhone = normalizarTelefonoVenezuela(rawPhone);
+
+  if (!cleanPhone) {
+    return { success: false, noPhone: true };
+  }
+
+  const nombre = String(datos.nombreCliente || datos.nombreApellido || datos.nombre || 'Cliente').trim();
+  const tipoFalla = String(datos.tipoFalla || datos.falla || '').trim();
+  const abonado = String(datos.nroAbonado || datos.documentoIdentidad || '').trim();
+
+  let detalles = '';
+  if (abonado) detalles += `👤 *Abonado / Cédula:* ${abonado}\n`;
+  if (tipoFalla) detalles += `🛠️ *Falla Reportada:* ${tipoFalla}\n`;
+
+  const mensaje =
+    `✅ *REPORTE DE FALLA PROCESADO*\n\n` +
+    `Estimado(a) *${nombre}*, le informamos que su reporte de falla técnica ha sido procesado por el sistema satisfactoriamente.\n\n` +
+    (detalles ? `${detalles}\n` : '') +
+    `Nuestro equipo técnico ha registrado su caso en el sistema para su debida atención y seguimiento.\n\n` +
+    `¡Gracias por su paciencia!\n` +
+    `*Fibex Telecom Anaco*`;
+
+  const sent = await enviarMensajeWhatsAppAPI(cleanPhone, mensaje);
+  return {
+    success: sent,
+    phoneUsed: cleanPhone,
+    error: sent ? undefined : 'No se pudo entregar el mensaje a través de WhatsApp Cloud API',
+  };
+}
+

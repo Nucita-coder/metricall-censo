@@ -14,6 +14,7 @@ import { Tarjeta, TarjetaDatosValores } from '../../../types/kanban';
 import { getAtencionFallasListaId } from './types';
 import { useErrorDiagnostics } from '../../../context/ErrorDiagnosticsContext';
 import { uploadImageToSupabase } from '../../../services/uploadImage';
+import { notificarFallaProcesada } from '../../../services/whatsappNotificacionesService';
 import { styles } from './SeccionAccionFallaOnline.styles';
 
 interface SeccionAccionFallaOnlineProps {
@@ -59,8 +60,19 @@ export function SeccionAccionFallaOnline({
         fechaUltimaGestionFalla: new Date().toISOString(),
       });
 
+      const notif = await notificarFallaProcesada(tarjeta);
+
+      let mensajeResultado = 'La tarjeta fue marcada como procesada en el sistema.';
+      if (notif.success) {
+        mensajeResultado += '\n\nSe notificó al cliente automáticamente por WhatsApp.';
+      } else if (notif.noPhone) {
+        mensajeResultado += '\n\n(La tarjeta no tiene número de teléfono registrado para enviar WhatsApp).';
+      } else {
+        mensajeResultado += `\n\n(No se pudo enviar el WhatsApp: ${notif.error || 'Error de conexión'}).`;
+      }
+
       if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
-      Alert.alert('¡Procesado en SAE!', 'La tarjeta fue marcada correctamente como resuelta.');
+      Alert.alert('Procesado en SAE', mensajeResultado);
     } catch (e: unknown) {
       showDiagnosticError('ERR-GESTION-FALLA-SAE', 'Error al marcar Procesado en SAE.', e, 'GestionOnline');
     } finally {

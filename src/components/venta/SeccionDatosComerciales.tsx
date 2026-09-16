@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { DatePickerInput, InputTexto, SelectDropdown } from './CamposVenta';
+import { DatePickerInput, SelectDropdown } from './CamposVenta';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 import {
   OPCIONES_HOGAR_CINEFILOS,
   OPCIONES_HOGAR_CONECTADOS,
@@ -19,7 +21,81 @@ interface Props {
   readOnly?: boolean;
 }
 
+interface PerfilVendedor {
+  id: string;
+  nombre_completo: string | null;
+  rol: string | null;
+  etiquetas: string[] | null;
+}
+
 export const SeccionDatosComerciales = ({ formData, update, readOnly = false }: Props) => {
+  const { empresaId } = useAuth();
+  const [listaVendedores, setListaVendedores] = useState<string[]>([]);
+  const [cargandoVendedores, setCargandoVendedores] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchVendedores = async () => {
+      setCargandoVendedores(true);
+      try {
+        let query = supabase
+          .from('perfiles')
+          .select('id, nombre_completo, rol, etiquetas')
+          .order('nombre_completo', { ascending: true });
+
+        if (empresaId) {
+          query = query.eq('empresa_id', empresaId);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const perfiles = ((data || []) as unknown as PerfilVendedor[]).filter(
+          (p) => Boolean(p.nombre_completo && p.nombre_completo.trim())
+        );
+
+        // Filtrar usuarios con rol o etiqueta de asesor / vendedor
+        const filtrados = perfiles.filter((u) => {
+          const rol = (u.rol || '').toLowerCase().trim();
+          const hasRol = rol === 'asesor' || rol === 'vendedor' || rol === 'ventas' || rol === 'venta';
+          const hasEtiqueta =
+            Array.isArray(u.etiquetas) &&
+            u.etiquetas.some((e: string) => {
+              const clean = String(e).toLowerCase().trim();
+              return clean === 'asesor' || clean === 'vendedor' || clean === 'ventas' || clean === 'venta';
+            });
+          return hasRol || hasEtiqueta;
+        });
+
+        // Usar los que tengan perfil comercial o todos los perfiles disponibles como fallback
+        const base = filtrados.length > 0 ? filtrados : perfiles;
+        const nombres = base.map((p) => String(p.nombre_completo).trim());
+        const uniqueNombres = Array.from(new Set(nombres));
+
+        // Si ya hay un vendedor asignado en la tarjeta, conservarlo en las opciones
+        if (formData.vendedor && typeof formData.vendedor === 'string') {
+          const actual = formData.vendedor.trim();
+          if (actual && !uniqueNombres.includes(actual)) {
+            uniqueNombres.unshift(actual);
+          }
+        }
+
+        if (isMounted) {
+          setListaVendedores(uniqueNombres);
+        }
+      } catch (err: unknown) {
+        console.warn('Error al cargar vendedores:', err);
+      } finally {
+        if (isMounted) setCargandoVendedores(false);
+      }
+    };
+
+    fetchVendedores();
+    return () => {
+      isMounted = false;
+    };
+  }, [empresaId, formData.vendedor]);
+
   const hayPlanHogarSeleccionado = Boolean(
     formData.phConectados || formData.phGamer || formData.phCinefilos || formData.phFamiliar
   );
@@ -37,12 +113,14 @@ export const SeccionDatosComerciales = ({ formData, update, readOnly = false }: 
         placeholder="DD/MM/YYYY"
         disabled={readOnly}
       />
-      <InputTexto
+      <SelectDropdown
         label="Vendedor"
-        value={formData.vendedor}
-        onChangeText={(v: string) => update('vendedor', v)}
-        placeholder="Nombre del vendedor"
-        readOnly={readOnly}
+        value={String(formData.vendedor || '')}
+        onSelect={(v: string) => update('vendedor', v)}
+        options={listaVendedores}
+        placeholder={cargandoVendedores ? 'Cargando vendedores...' : 'Seleccione vendedor'}
+        disabled={readOnly || cargandoVendedores}
+        isRequired
       />
       <SelectDropdown
         label="Tipo de Servicio"

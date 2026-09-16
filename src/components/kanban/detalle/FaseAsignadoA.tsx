@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { CheckCircle2, XCircle } from 'lucide-react-native';
-import { FaseProps, findListaTarget, getAtencionFallasListaId } from './types';
+import { FaseProps, findListaTarget, getAtencionFallasListaId, resolverListaKanban } from './types';
 import { renderSection } from './SeccionRegistro';
 import { supabase } from '../../../lib/supabase';
 
@@ -20,6 +20,8 @@ export const FaseAsignadoA = ({
   const [motivoLiberacion, setMotivoLiberacion] = useState(data.motivoLiberacion || '');
 
   const matchLista = listasGlobales.find(l => l.id === tarjeta.lista_id);
+  const tableroId = matchLista?.tablero_id || (typeof tarjeta.tablero_id === 'string' ? tarjeta.tablero_id : undefined);
+  const empresaId = tarjeta.empresa_id || matchLista?.empresa_id;
   const nombreTablero = (matchLista?.tableros?.nombre || '').toLowerCase();
   const isFalla = Boolean(
     data.tipoFalla ||
@@ -110,6 +112,60 @@ export const FaseAsignadoA = ({
     }
   };
 
+  const handleAceptarInstalacion = async () => {
+    setIsSaving(true);
+    try {
+      const destId = await resolverListaKanban('proceso', listasGlobales, tableroId, empresaId);
+      if (!destId) {
+        throw new Error("No se encontró la lista 'En Proceso' en este tablero.");
+      }
+
+      await autoMoverTarjeta(tarjeta, destId);
+
+      if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
+      if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
+      Alert.alert('¡Trabajo Aceptado!', "La tarjeta pasó a 'En Proceso'.");
+    } catch (e: unknown) {
+      console.error('[FaseAsignadoA] Error al mover a En Proceso:', e);
+      Alert.alert('Error', (e as Error).message || 'No se pudo mover a En Proceso.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleConfirmarLiberacion = async () => {
+    if (!motivoLiberacion) {
+      Alert.alert('Motivo requerido', 'Por favor selecciona un motivo de caída antes de confirmar.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onUpdateTarjeta({
+        motivoLiberacion,
+        motivoLiberada: motivoLiberacion,
+        estadoLiberacion: 'bloqueada',
+        fechaLiberacion: new Date().toISOString(),
+      });
+
+      const destId = await resolverListaKanban('liberad', listasGlobales, tableroId, empresaId);
+      if (!destId) {
+        throw new Error("No se encontró la lista 'Liberada' en este tablero.");
+      }
+
+      await autoMoverTarjeta(tarjeta, destId);
+
+      if (onRemoveTarjetaLocal) onRemoveTarjetaLocal(tarjeta.id);
+      if (setTarjetaSeleccionada) setTarjetaSeleccionada(null);
+      Alert.alert('¡Instalación Liberada!', 'La tarjeta fue movida a Liberada (Caída).');
+    } catch (e: unknown) {
+      console.error('[FaseAsignadoA] Error al liberar tarjeta:', e);
+      Alert.alert('Error al liberar', (e as Error).message || 'No se pudo mover la tarjeta a Liberada.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const sectionTitle = isFalla ? 'Gestión de Atención de Fallas' : 'Gestión de Instalación';
 
   return renderSection(sectionTitle, (
@@ -170,13 +226,7 @@ export const FaseAsignadoA = ({
             <View style={{ flexDirection: 'row', gap: 16, marginBottom: 16 }}>
               <TouchableOpacity
                 style={{ flex: 1, padding: 14, borderRadius: 8, backgroundColor: '#3182CE', alignItems: 'center' }}
-                onPress={async () => {
-                  setIsSaving(true);
-                  const destId = findListaTarget(listasGlobales, 'en_proceso')?.id;
-                  if (!destId) throw new Error("Lista destino 'En Proceso' no encontrada");
-                  await autoMoverTarjeta(tarjeta, destId);
-                  setIsSaving(false);
-                }}
+                onPress={handleAceptarInstalacion}
                 disabled={isSaving}
               >
                 {isSaving ? <ActivityIndicator color="#FFF" /> : <Text style={{ fontWeight: 'bold', color: '#FFF' }}>En Proceso</Text>}
@@ -218,14 +268,7 @@ export const FaseAsignadoA = ({
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#E53E3E', alignItems: 'center' }}
-                  onPress={async () => {
-                    setIsSaving(true);
-                    await onUpdateTarjeta({ motivoLiberacion, estadoLiberacion: 'bloqueada' });
-                    const destId = listasGlobales.find(l => l.slug === 'liberada')?.id;
-                    if (!destId) throw new Error("Lista destino 'Liberada' no encontrada");
-                    await autoMoverTarjeta(tarjeta, destId);
-                    setIsSaving(false);
-                  }}
+                  onPress={handleConfirmarLiberacion}
                   disabled={isSaving || !motivoLiberacion}
                 >
                   {isSaving ? <ActivityIndicator color="#FFF" /> : <Text style={{ fontWeight: 'bold', color: '#FFF' }}>Confirmar Liberación</Text>}

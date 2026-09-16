@@ -1,7 +1,8 @@
 import { MapPin, Save, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
+import { supabase } from '../../../lib/supabase';
 import { ModalMapaUbicacion } from '../../tarjetas/ModalMapaUbicacion';
 import { DatePickerInput, InputTexto, SelectDropdown } from '../../venta/CamposVenta';
 
@@ -14,14 +15,24 @@ interface FormularioConversionVentaProps {
   initialData?: TarjetaDatosValores;
 }
 
+interface PerfilVendedor {
+  id: string;
+  nombre_completo: string | null;
+  rol: string | null;
+  etiquetas: string[] | null;
+}
+
 export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, initialData }: FormularioConversionVentaProps) => {
-  const { session, userRol } = useAuth();
+  const { session, userRol, empresaId, nombreCompleto } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = width > 768;
 
+  const vendedorInicial =
+    String(initialData?.vendedor || initialData?.asesorComercial || nombreCompleto || session?.user?.email || userRol || '').trim();
+
   const [formData, setFormData] = useState({
     fechaVenta: new Date().toLocaleDateString('es-ES'),
-    vendedor: session?.user?.email || userRol || 'Vendedor',
+    vendedor: vendedorInicial,
     tipoDocumento: initialData?.tipoDocumento || initialData?.tipoDocumentoIdentidad || 'V',
     documentoIdentidad: initialData?.documentoIdentidad || initialData?.nroIdentidad || initialData?.cedula || '',
     tipoServicio: initialData?.tipoServicio || '',
@@ -32,6 +43,66 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, i
     equipoAdicional: '',
     nroAbonado: initialData?.nroAbonado || initialData?.cedula || '',
   });
+
+  const [listaVendedores, setListaVendedores] = useState<string[]>([]);
+  const [cargandoVendedores, setCargandoVendedores] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchVendedores = async () => {
+      setCargandoVendedores(true);
+      try {
+        let query = supabase
+          .from('perfiles')
+          .select('id, nombre_completo, rol, etiquetas')
+          .order('nombre_completo', { ascending: true });
+
+        if (empresaId) {
+          query = query.eq('empresa_id', empresaId);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const perfiles = ((data || []) as unknown as PerfilVendedor[]).filter(
+          (p) => Boolean(p.nombre_completo && p.nombre_completo.trim())
+        );
+
+        const filtrados = perfiles.filter((u) => {
+          const rol = (u.rol || '').toLowerCase().trim();
+          const hasRol = rol === 'asesor' || rol === 'vendedor' || rol === 'ventas' || rol === 'venta';
+          const hasEtiqueta =
+            Array.isArray(u.etiquetas) &&
+            u.etiquetas.some((e: string) => {
+              const clean = String(e).toLowerCase().trim();
+              return clean === 'asesor' || clean === 'vendedor' || clean === 'ventas' || clean === 'venta';
+            });
+          return hasRol || hasEtiqueta;
+        });
+
+        const base = filtrados.length > 0 ? filtrados : perfiles;
+        const nombres = base.map((p) => String(p.nombre_completo).trim());
+        const uniqueNombres = Array.from(new Set(nombres));
+
+        if (vendedorInicial && !uniqueNombres.includes(vendedorInicial)) {
+          uniqueNombres.unshift(vendedorInicial);
+        }
+
+        if (isMounted) {
+          setListaVendedores(uniqueNombres);
+        }
+      } catch (err: unknown) {
+        console.warn('Error al cargar vendedores en conversion:', err);
+      } finally {
+        if (isMounted) setCargandoVendedores(false);
+      }
+    };
+
+    fetchVendedores();
+    return () => {
+      isMounted = false;
+    };
+  }, [empresaId, vendedorInicial]);
 
   // Estado de ubicación
   const [ubicacion, setUbicacion] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -80,7 +151,15 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, i
       <ScrollView style={{ flex: 1, padding: 16 }}>
         <View style={[styles.sectionCard, isDesktop && { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }]}>
           <InputTexto label="Fecha de Venta" value={formData.fechaVenta} readOnly />
-          <InputTexto label="Vendedor" value={formData.vendedor} readOnly />
+          <SelectDropdown
+            label="Vendedor"
+            value={formData.vendedor}
+            onSelect={(v: string) => updateForm('vendedor', v)}
+            options={listaVendedores}
+            placeholder={cargandoVendedores ? 'Cargando vendedores...' : 'Seleccione vendedor'}
+            disabled={cargandoVendedores}
+            isRequired
+          />
 
           <SelectDropdown
             label="Tipo Documento"

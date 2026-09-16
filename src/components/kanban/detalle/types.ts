@@ -174,3 +174,52 @@ export async function getListaInstalacionesId(
     return null;
   }
 }
+
+export async function resolverListaKanban(
+  patron: string,
+  listasGlobales: Lista[] = [],
+  tableroId?: string,
+  empresaId?: string
+): Promise<string | null> {
+  const pNorm = patron.toLowerCase().trim();
+  const direct = findListaTarget(listasGlobales, pNorm)?.id;
+  if (direct) return direct;
+
+  if (tableroId) {
+    const matchTablero = listasGlobales.find(
+      l => l.tablero_id === tableroId && (l.nombre || '').toLowerCase().includes(pNorm)
+    )?.id;
+    if (matchTablero) return matchTablero;
+  }
+
+  const matchGlobal = listasGlobales.find(l => (l.nombre || '').toLowerCase().includes(pNorm))?.id;
+  if (matchGlobal) return matchGlobal;
+
+  if (tableroId) {
+    const { data } = await supabase
+      .from('listas')
+      .select('id')
+      .eq('tablero_id', tableroId)
+      .ilike('nombre', `%${patron}%`)
+      .limit(1);
+    if (data && data[0]) return data[0].id;
+  }
+
+  if (empresaId) {
+    const { data } = await supabase
+      .from('listas')
+      .select('id')
+      .eq('empresa_id', empresaId)
+      .ilike('nombre', `%${patron}%`)
+      .limit(1);
+    if (data && data[0]) return data[0].id;
+  }
+
+  const { data } = await supabase
+    .from('listas')
+    .select('id')
+    .ilike('nombre', `%${patron}%`)
+    .limit(1);
+  return data && data[0] ? data[0].id : null;
+}
+

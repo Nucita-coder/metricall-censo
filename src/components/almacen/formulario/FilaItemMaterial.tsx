@@ -164,7 +164,12 @@ export const FilaItemMaterial: React.FC<FilaItemMaterialProps> = ({
                 (i) => i.nombre.toUpperCase() === selectedNombre.toUpperCase()
               );
               if (found) {
-                updateItemField(idx, 'nombreMaterial', found.nombre);
+                updateMultipleItemFields(idx, {
+                  nombreMaterial: found.nombre,
+                  codigoMaterial: found.codigo,
+                  modeloMaterial: found.modelo,
+                });
+                handleCodigoChangeForItem(idx, found.codigo);
               } else {
                 updateItemField(idx, 'nombreMaterial', selectedNombre.toUpperCase());
               }

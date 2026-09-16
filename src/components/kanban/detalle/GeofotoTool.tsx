@@ -23,43 +23,50 @@ const generarWatermarkWeb = async (fotoInfo: { uri: string, width: number, heigh
       if (!ctx) return resolve(fotoInfo.uri);
 
       const img = new window.Image();
-      img.crossOrigin = 'anonymous';
+      if (!fotoInfo.uri.startsWith('blob:') && !fotoInfo.uri.startsWith('data:')) {
+        img.crossOrigin = 'anonymous';
+      }
       img.onload = () => {
-        const targetWidth = 1024;
-        const targetHeight = Math.round(1024 * (img.naturalHeight / img.naturalWidth || fotoInfo.height / fotoInfo.width || 1));
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
+        try {
+          const targetWidth = 1024;
+          const targetHeight = Math.round(1024 * (img.naturalHeight / img.naturalWidth || fotoInfo.height / fotoInfo.width || 1));
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
 
-        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-        const boxWidth = 400;
-        const boxHeight = 220;
-        const margin = 20;
-        const boxX = targetWidth - boxWidth - margin;
-        const boxY = targetHeight - boxHeight - margin;
+          const boxWidth = 400;
+          const boxHeight = 220;
+          const margin = 20;
+          const boxX = targetWidth - boxWidth - margin;
+          const boxY = targetHeight - boxHeight - margin;
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-        if (typeof ctx.roundRect === 'function') {
-          ctx.beginPath();
-          ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 12);
-          ctx.fill();
-        } else {
-          ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+          if (typeof ctx.roundRect === 'function') {
+            ctx.beginPath();
+            ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 12);
+            ctx.fill();
+          } else {
+            ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+          }
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 22px Arial, sans-serif';
+          ctx.fillText(`Lat: ${fotoInfo.lat.toFixed(6)}`, boxX + 20, boxY + 40);
+          ctx.fillText(`Lng: ${fotoInfo.lng.toFixed(6)}`, boxX + 20, boxY + 75);
+          ctx.fillText(`Elev: ${(fotoInfo.altitude || 0).toFixed(2)} m`, boxX + 20, boxY + 110);
+          ctx.fillText(`Prec: ±${(fotoInfo.accuracy || 0).toFixed(2)} m`, boxX + 20, boxY + 145);
+
+          ctx.font = '18px Arial, sans-serif';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.fillText(new Date().toLocaleString(), boxX + 20, boxY + 185);
+
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          resolve(dataUrl);
+        } catch (canvasErr) {
+          console.error('[generarWatermarkWeb] Fallback a uri original por canvas:', canvasErr);
+          resolve(fotoInfo.uri);
         }
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 22px Arial, sans-serif';
-        ctx.fillText(`Lat: ${fotoInfo.lat.toFixed(6)}`, boxX + 20, boxY + 40);
-        ctx.fillText(`Lng: ${fotoInfo.lng.toFixed(6)}`, boxX + 20, boxY + 75);
-        ctx.fillText(`Elev: ${(fotoInfo.altitude || 0).toFixed(2)} m`, boxX + 20, boxY + 110);
-        ctx.fillText(`Prec: ±${(fotoInfo.accuracy || 0).toFixed(2)} m`, boxX + 20, boxY + 145);
-
-        ctx.font = '18px Arial, sans-serif';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.fillText(new Date().toLocaleString(), boxX + 20, boxY + 185);
-
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        resolve(dataUrl);
       };
       img.onerror = () => resolve(fotoInfo.uri);
       img.src = fotoInfo.uri;

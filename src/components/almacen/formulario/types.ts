@@ -15,6 +15,8 @@ export interface InsumoPrecargado {
 }
 
 export const INSUMOS_PRECARGADOS: InsumoPrecargado[] = [
+  { nombre: 'ONT SIN WIFI', codigo: 'MAT-ONT-SIN-WIFI', modelo: 'SIN WIFI' },
+  { nombre: 'ONT CON WIFI', codigo: 'MAT-ONT-CON-WIFI', modelo: 'CON WIFI' },
   { nombre: 'TENSOR PLÁSTICO', codigo: 'MAT-TENSOR-PLASTICO', modelo: 'GENERAL' },
   { nombre: 'TENSOR HIERRO', codigo: 'MAT-TENSOR-HIERRO', modelo: 'GENERAL' },
   { nombre: 'GRAPAS', codigo: 'MAT-GRAPAS', modelo: 'GENERAL' },

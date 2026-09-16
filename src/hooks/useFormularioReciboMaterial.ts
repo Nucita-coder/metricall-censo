@@ -62,8 +62,12 @@ export function useFormularioReciboMaterial({
           handleChange('entregadoPor', nombreCompleto);
         }
       }
+    } else if (isAsignadoMode && handleChange) {
+      if (!formData.origen) {
+        handleChange('origen', 'ALMACÉN PRINCIPAL');
+      }
     }
-  }, [isDevolucionMode, isDevolucionAsignacionMode, nombreCompleto]);
+  }, [isDevolucionMode, isDevolucionAsignacionMode, isAsignadoMode, nombreCompleto]);
 
   const adjuntos: string[] = Array.isArray(formData.adjuntos) ? formData.adjuntos : [];
 

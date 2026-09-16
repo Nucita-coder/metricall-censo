@@ -62,7 +62,12 @@ export const SeccionGuiaOrden: React.FC<SeccionGuiaOrdenProps> = ({
               ? 'Devolución de Asignación'
               : formData.tipoCarga
         }
-        onSelect={(v) => updateHeaderField('tipoCarga', v)}
+        onSelect={(v) => {
+          updateHeaderField('tipoCarga', v);
+          if (v.toUpperCase().includes('ASIGNA')) {
+            updateHeaderField('origen', 'ALMACÉN PRINCIPAL');
+          }
+        }}
         options={[
           'Material Recibido',
           'Material Asignado',
@@ -79,7 +84,7 @@ export const SeccionGuiaOrden: React.FC<SeccionGuiaOrdenProps> = ({
         label="Origen"
         value={formData.origen}
         onSelect={(v) => updateHeaderField('origen', v)}
-        options={['Almacén Fibex', 'Proveedor', 'Empleado', 'Contratista', 'Otros']}
+        options={['Almacén Principal', 'Almacén Fibex', 'Proveedor', 'Empleado', 'Contratista', 'Otros']}
         placeholder="Seleccionar origen..."
         isRequired
         disabled={readOnly}

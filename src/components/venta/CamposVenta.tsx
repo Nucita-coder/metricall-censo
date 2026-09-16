@@ -247,7 +247,13 @@ export const SelectDropdown = ({
                     setModalVisible(false);
                   }}
                 >
-                  <Text style={[styles.optionText, value === item && styles.optionTextSelected]}>
+                  <Text
+                    style={[
+                      styles.optionText,
+                      (value === item || (Boolean(value) && value?.toUpperCase() === item.toUpperCase())) &&
+                        styles.optionTextSelected,
+                    ]}
+                  >
                     {item}
                   </Text>
                 </TouchableOpacity>
@@ -311,33 +317,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  selectBtnCompact: {
-    height: 34,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-  },
-  btnDisabled: {
-    opacity: 0.5,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalContent: {
-    backgroundColor: '#2C333A',
-    borderRadius: 12,
-    width: '85%',
-    maxWidth: 340,
-    maxHeight: '60%',
-    paddingBottom: 8,
-    borderWidth: 1,
-    borderColor: '#384148',
-    elevation: 5,
-  },
+  selectBtnCompact: { height: 34, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6 },
+  btnDisabled: { opacity: 0.5 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.65)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  modalContent: { backgroundColor: '#2C333A', borderRadius: 12, width: '85%', maxWidth: 340, maxHeight: '60%', paddingBottom: 8, borderWidth: 1, borderColor: '#384148', elevation: 5 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#384148' },
   modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#B6C2CF' },
   optionItem: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#384148' },

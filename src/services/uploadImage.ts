@@ -18,54 +18,106 @@ export const uploadImageToSupabase = async (
   folderName: string = ''
 ): Promise<string | null> => {
   try {
-    // 1. Obtener extensión del archivo
-    const ext = uri.substring(uri.lastIndexOf('.') + 1) || 'jpeg';
-    
-    // 2. Generar nombre único
-    const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    const fileName = folderName ? `${folderName}/${uniqueId}.${ext}` : `${uniqueId}.${ext}`;
+    if (!uri) throw new Error('URI de archivo no proporcionada.');
 
-    const cleanExt = ext.toLowerCase();
-    const mimeType = cleanExt === 'pdf' ? 'application/pdf' : cleanExt === 'png' ? 'image/png' : cleanExt === 'webp' ? 'image/webp' : 'image/jpeg';
+    // 1. Extraer extensión limpia y tipo MIME de forma segura
+    let ext = 'jpg';
+    let mimeType = 'image/jpeg';
+
+    if (uri.startsWith('data:')) {
+      const mimeMatch = uri.match(/^data:([^;]+);/);
+      if (mimeMatch) {
+        mimeType = mimeMatch[1].toLowerCase();
+        const subtype = mimeType.split('/')[1] || 'jpeg';
+        ext = subtype === 'jpeg' ? 'jpg' : subtype.replace(/[^a-z0-9]/gi, '');
+      }
+    } else {
+      const cleanUri = uri.split('?')[0].split('#')[0];
+      const lastSlash = cleanUri.lastIndexOf('/');
+      const lastDot = cleanUri.lastIndexOf('.');
+      if (lastDot > lastSlash && lastDot !== -1) {
+        const rawExt = cleanUri.substring(lastDot + 1).toLowerCase();
+        if (rawExt && rawExt.length <= 5) {
+          ext = rawExt === 'jpeg' ? 'jpg' : rawExt.replace(/[^a-z0-9]/gi, '');
+        }
+      }
+      mimeType = ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    }
+
+    // 2. Generar nombre de archivo único y seguro para Storage
+    const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const sanitizedFolder = folderName.replace(/^\/+|\/+$/g, '').replace(/[^a-zA-Z0-9_\-\/]/g, '');
+    const fileName = sanitizedFolder ? `${sanitizedFolder}/${uniqueId}.${ext}` : `${uniqueId}.${ext}`;
 
     let error: { message?: string } | null = null;
 
     if (Platform.OS === 'web') {
-      // 3. (Web) Usar Fetch y Blob directo
-      const res = await fetch(uri);
-      const blob = await res.blob();
+      // 3. (Web) Obtener Blob para subida
+      let blob: Blob;
+      if (uri.startsWith('data:')) {
+        try {
+          const res = await fetch(uri);
+          blob = await res.blob();
+        } catch {
+          const base64Data = uri.split(',')[1] || '';
+          const byteChars = atob(base64Data);
+          const byteNumbers = new Array(byteChars.length);
+          for (let i = 0; i < byteChars.length; i++) {
+            byteNumbers[i] = byteChars.charCodeAt(i);
+          }
+          blob = new Blob([new Uint8Array(byteNumbers)], { type: mimeType });
+        }
+      } else {
+        const res = await fetch(uri);
+        blob = await res.blob();
+      }
+
       const response = await supabase.storage
         .from(bucket)
         .upload(fileName, blob, {
           contentType: blob.type || mimeType,
+          upsert: true,
         });
       error = response.error;
     } else {
-      // 3. (Móvil) Leer el archivo como Base64 (más seguro en React Native que usar fetch Blob)
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+      // 3. (Móvil)
+      let fileData: ArrayBuffer;
+      if (uri.startsWith('data:')) {
+        const base64Data = uri.split(',')[1] || '';
+        fileData = decode(base64Data);
+      } else {
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        fileData = decode(base64);
+      }
 
       // 4. Subir a Supabase usando decode de base64-arraybuffer
       const response = await supabase.storage
         .from(bucket)
-        .upload(fileName, decode(base64), {
+        .upload(fileName, fileData, {
           contentType: mimeType,
+          upsert: true,
         });
       error = response.error;
     }
 
     if (error) {
       console.error('[uploadImageToSupabase] Error subiendo imagen:', error);
-      throw error;
+      throw new Error(error.message || 'Error de almacenamiento en Supabase');
     }
 
     // 5. Obtener URL Pública
     const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
 
+    if (!urlData?.publicUrl) {
+      throw new Error('Supabase no retornó una URL pública válida.');
+    }
+
     return urlData.publicUrl;
-  } catch (error) {
-    console.error('[uploadImageToSupabase] Excepción capturada:', error);
-    return null;
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('[uploadImageToSupabase] Excepción capturada:', errorMsg);
+    throw new Error(errorMsg);
   }
 };

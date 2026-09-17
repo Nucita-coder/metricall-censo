@@ -62,7 +62,14 @@ export default function NuevaTarjetaScreen() {
   React.useEffect(() => {
     setFormData(prev => ({
       ...prev,
-      ...(paramTipoCarga ? { tipoCarga: paramTipoCarga } : {}),
+      ...(paramTipoCarga
+        ? {
+            tipoCarga:
+              paramTipoCarga.trim().toLowerCase() === 'carga de materiales'
+                ? 'Material Recibido'
+                : paramTipoCarga,
+          }
+        : {}),
       ...(paramCodigo ? { codigoMaterial: paramCodigo } : {}),
       ...(paramNombre ? { nombreMaterial: paramNombre } : {}),
       ...(paramModelo ? { modeloMaterial: paramModelo } : {}),
@@ -87,12 +94,20 @@ export default function NuevaTarjetaScreen() {
           if (data) {
             setListaNombre(data.nombre);
             if (clasificarMovimientoAlmacen(data.nombre) !== 'OTRO') {
-              setFormData(prev => (!prev.tipoCarga ? { ...prev, tipoCarga: data.nombre } : prev));
+              const tipoPorDefecto =
+                data.nombre.trim().toLowerCase() === 'carga de materiales'
+                  ? 'Material Recibido'
+                  : data.nombre;
+              setFormData(prev => (!prev.tipoCarga ? { ...prev, tipoCarga: tipoPorDefecto } : prev));
             }
           }
         });
     } else if (lista_nombre && clasificarMovimientoAlmacen(lista_nombre) !== 'OTRO') {
-      setFormData(prev => (!prev.tipoCarga ? { ...prev, tipoCarga: lista_nombre } : prev));
+      const tipoPorDefecto =
+        lista_nombre.trim().toLowerCase() === 'carga de materiales'
+          ? 'Material Recibido'
+          : lista_nombre;
+      setFormData(prev => (!prev.tipoCarga ? { ...prev, tipoCarga: tipoPorDefecto } : prev));
     }
   }, [lista_id, lista_nombre]);
 

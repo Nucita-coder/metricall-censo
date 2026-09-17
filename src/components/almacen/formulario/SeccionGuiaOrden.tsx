@@ -67,7 +67,9 @@ export const SeccionGuiaOrden: React.FC<SeccionGuiaOrdenProps> = ({
             ? 'Devolución a Almacén Central'
             : isDevolucionAsignacionMode
               ? 'Devolución de Asignación'
-              : formData.tipoCarga
+              : formData.tipoCarga === 'Carga de Materiales'
+                ? 'Material Recibido'
+                : formData.tipoCarga
         }
         onSelect={(v) => {
           updateHeaderField('tipoCarga', v);

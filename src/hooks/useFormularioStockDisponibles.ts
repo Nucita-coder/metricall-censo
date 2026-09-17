@@ -31,6 +31,7 @@ export function useFormularioStockDisponibles({
   const [miembrosList, setMiembrosList] = useState<string[]>([]);
   const [miembrosDetallados, setMiembrosDetallados] = useState<MiembroResumen[]>([]);
   const [stockDisponibles, setStockDisponibles] = useState<StockItemDisponible[]>([]);
+  const [todosLosMateriales, setTodosLosMateriales] = useState<StockItemDisponible[]>([]);
   const [stockCustodiaMiembro, setStockCustodiaMiembro] = useState<StockItemDisponible[]>([]);
 
   useEffect(() => {
@@ -105,8 +106,9 @@ export function useFormularioStockDisponibles({
         });
 
         if (isMounted) {
-          const disponibles = Object.values(mapa).filter((m) => m.stock > 0);
-          setStockDisponibles(disponibles);
+          const todos = Object.values(mapa);
+          setTodosLosMateriales(todos);
+          setStockDisponibles(todos.filter((m) => m.stock > 0));
         }
       } catch (err) {
         console.error('Error calculando stock disponibles:', err);
@@ -199,6 +201,7 @@ export function useFormularioStockDisponibles({
     miembrosList,
     miembrosDetallados,
     stockDisponibles,
+    todosLosMateriales,
     stockCustodiaMiembro,
   };
 }

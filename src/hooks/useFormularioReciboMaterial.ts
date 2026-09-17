@@ -34,7 +34,7 @@ export function useFormularioReciboMaterial({
   const isDevolucionMode = isDevolucionCentralMode || isDevolucionAsignacionMode;
   const isAsignadoMode = movTipo === 'MATERIAL_ASIGNADO';
 
-  const { miembrosList, miembrosDetallados, stockDisponibles, stockCustodiaMiembro } =
+  const { miembrosList, miembrosDetallados, stockDisponibles, todosLosMateriales, stockCustodiaMiembro } =
     useFormularioStockDisponibles({
       empresaId,
       nombreCompleto,
@@ -166,82 +166,71 @@ export function useFormularioReciboMaterial({
     }
   };
 
-  const checkStockForCodigo = async (index: number, codigo: string) => {
+  const checkStockForCodigo = (index: number, codigo: string) => {
     const cleanCodigo = (codigo || '').trim().toUpperCase();
-    if (!cleanCodigo || cleanCodigo.length < 2 || !empresaId || readOnly) {
+    if (!cleanCodigo || cleanCodigo.length < 2 || readOnly) {
       setStockInfoMap((prev) => ({
         ...prev,
         [index]: { stockExistente: null, esNuevoCodigo: null, isSearching: false },
       }));
       return;
     }
-    setStockInfoMap((prev) => ({
-      ...prev,
-      [index]: {
-        ...(prev[index] || { stockExistente: null, esNuevoCodigo: null }),
-        isSearching: true,
-      },
-    }));
-    try {
-      const { data, error } = await supabase
-        .from('tarjetas')
-        .select('datos_valores')
-        .eq('empresa_id', empresaId);
-      if (error) throw error;
-      let totalStock = 0;
-      let primerNombre = '';
-      let primerModelo = '';
-      let encontrado = false;
-      if (data) {
-        (data as unknown as Tarjeta[]).forEach((row) => {
-          const val = row.datos_valores || {};
-          const movTipo = clasificarMovimientoAlmacen(val.tipoCarga);
-          const impacto = obtenerImpactoMovimiento(movTipo);
-          if (!impacto.afectaAlmacen) return;
 
-          const rowItems = Array.isArray(val.items) ? val.items : [val];
-          (rowItems as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((subItem) => {
-            if ((subItem.codigoMaterial || '').trim().toUpperCase() === cleanCodigo) {
-              encontrado = true;
-              const cant = parseFloat((subItem.cantidadRecibida as string) || '0');
-              if (!isNaN(cant)) totalStock += impacto.deltaAlmacen * cant;
-              if (!primerNombre && subItem.nombreMaterial) primerNombre = subItem.nombreMaterial;
-              if (!primerModelo && subItem.modeloMaterial) primerModelo = subItem.modeloMaterial;
-            }
-          });
-        });
-      }
+    const fuente = todosLosMateriales && todosLosMateriales.length > 0 ? todosLosMateriales : stockDisponibles;
+    const match = fuente.find((s) => (s.codigo || '').trim().toUpperCase() === cleanCodigo);
 
+    if (match) {
       setStockInfoMap((prev) => ({
         ...prev,
         [index]: {
-          stockExistente: encontrado ? totalStock : 0,
-          esNuevoCodigo: !encontrado,
+          stockExistente: match.stock,
+          esNuevoCodigo: false,
           isSearching: false,
         },
       }));
 
-      if (encontrado && handleChange) {
+      if (handleChange) {
         const cur = getItems()[index];
         if (cur) {
-          if (primerNombre && !cur.nombreMaterial) {
-            updateItemField(index, 'nombreMaterial', primerNombre);
+          if (match.nombre && !cur.nombreMaterial) {
+            updateItemField(index, 'nombreMaterial', match.nombre);
           }
-          if (primerModelo && !cur.modeloMaterial) {
-            updateItemField(index, 'modeloMaterial', primerModelo);
+          if (match.modelo && match.modelo !== 'GENERAL' && !cur.modeloMaterial) {
+            updateItemField(index, 'modeloMaterial', match.modelo);
           }
         }
       }
-    } catch {
+    } else {
       setStockInfoMap((prev) => ({
         ...prev,
         [index]: {
-          ...(prev[index] || { stockExistente: null, esNuevoCodigo: null }),
+          stockExistente: 0,
+          esNuevoCodigo: true,
           isSearching: false,
         },
       }));
     }
   };
+
+  useEffect(() => {
+    const fuente = todosLosMateriales && todosLosMateriales.length > 0 ? todosLosMateriales : stockDisponibles;
+    if (fuente.length === 0) return;
+    const curItems = getItems();
+    curItems.forEach((it, idx) => {
+      const c = (it.codigoMaterial || '').trim().toUpperCase();
+      if (c && c.length >= 2) {
+        const match = fuente.find((s) => (s.codigo || '').trim().toUpperCase() === c);
+        setStockInfoMap((prev) => ({
+          ...prev,
+          [idx]: {
+            stockExistente: match ? match.stock : 0,
+            esNuevoCodigo: !match,
+            isSearching: false,
+          },
+        }));
+      }
+    });
+  }, [todosLosMateriales, stockDisponibles]);
 
   const handleCodigoChangeForItem = (index: number, codigo: string) => {
     const upperCodigo = codigo ? codigo.toUpperCase() : '';

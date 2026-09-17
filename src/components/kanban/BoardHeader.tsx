@@ -117,15 +117,17 @@ export function BoardHeader({
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: '#0C66E4',
-                  paddingHorizontal: 12,
-                  paddingVertical: 7,
+                  backgroundColor: 'rgba(0, 0, 0, 0.35)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.25)',
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
                   borderRadius: 8,
                   marginRight: 8,
                 }}
               >
-                <Boxes size={16} color="#FFF" />
-                <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 13, marginLeft: 6 }}>
+                <Boxes size={15} color="#E5E7EB" />
+                <Text style={{ color: '#E5E7EB', fontWeight: 'bold', fontSize: 12, marginLeft: 6 }}>
                   Stock Inventario
                 </Text>
               </TouchableOpacity>

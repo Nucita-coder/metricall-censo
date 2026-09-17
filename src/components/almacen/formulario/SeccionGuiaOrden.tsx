@@ -66,6 +66,10 @@ export const SeccionGuiaOrden: React.FC<SeccionGuiaOrdenProps> = ({
           updateHeaderField('tipoCarga', v);
           if (v.toUpperCase().includes('ASIGNA')) {
             updateHeaderField('origen', 'ALMACÉN PRINCIPAL');
+          } else if (v.toUpperCase().includes('RECIBIDO')) {
+            if (formData.origen === 'ALMACÉN PRINCIPAL') {
+              updateHeaderField('origen', 'PROVEEDOR');
+            }
           }
         }}
         options={[
@@ -82,12 +86,16 @@ export const SeccionGuiaOrden: React.FC<SeccionGuiaOrdenProps> = ({
 
       <SelectDropdown
         label="Origen"
-        value={formData.origen}
+        value={isAsignadoMode ? 'ALMACÉN PRINCIPAL' : formData.origen}
         onSelect={(v) => updateHeaderField('origen', v)}
-        options={['Almacén Principal', 'Almacén Fibex', 'Proveedor', 'Empleado', 'Contratista', 'Otros']}
+        options={
+          isAsignadoMode
+            ? ['Almacén Principal']
+            : ['Almacén Principal', 'Almacén Fibex', 'Proveedor', 'Empleado', 'Contratista', 'Otros']
+        }
         placeholder="Seleccionar origen..."
         isRequired
-        disabled={readOnly}
+        disabled={readOnly || isAsignadoMode}
       />
 
       {isAsignadoMode && (

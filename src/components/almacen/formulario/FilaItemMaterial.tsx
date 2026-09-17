@@ -217,7 +217,9 @@ export const FilaItemMaterial: React.FC<FilaItemMaterialProps> = ({
                 ? 'Stock disponible en almacén local: '
                 : isDevolucionAsignacionMode
                   ? 'En tu poder / custodia: '
-                  : 'Stock disponible en almacén: '}
+                  : isAsignadoMode
+                    ? 'Stock disponible en almacén: '
+                    : 'Stock actual en almacén: '}
               <Text style={{ fontWeight: 'bold', color: '#FFF' }}>
                 {info.stockExistente} und.
               </Text>
@@ -253,7 +255,8 @@ export const FilaItemMaterial: React.FC<FilaItemMaterialProps> = ({
             isRequired
             readOnly={readOnly}
           />
-          {info?.stockExistente !== null &&
+          {(isAsignadoMode || isDevolucionMode) &&
+            info?.stockExistente !== null &&
             info?.stockExistente !== undefined &&
             parseFloat(String(item.cantidadRecibida || '0')) > info.stockExistente && (
               <Text style={styles.excedeErrorText}>

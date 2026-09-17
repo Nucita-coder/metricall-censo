@@ -53,7 +53,7 @@ export function useFormularioStockDisponibles({
           const isAsignado =
             !isDevolucionAsig &&
             !isDevolucionAlmacen &&
-            (tipo.includes('ASIGNA') || Boolean(v.asignadoA && v.asignadoA.toString().trim()));
+            (tipo ? tipo.includes('ASIGNA') : Boolean(v.asignadoA && v.asignadoA.toString().trim()));
 
           const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
           (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((subItem) => {
@@ -106,7 +106,7 @@ export function useFormularioStockDisponibles({
           const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
           const isAsignado =
             !isDevolucion &&
-            (tipo.includes('ASIGNA') || Boolean(v.asignadoA && v.asignadoA.toString().trim()));
+            (tipo ? tipo.includes('ASIGNA') : Boolean(v.asignadoA && v.asignadoA.toString().trim()));
 
           if (!isAsignado && !isDevolucion) return;
 

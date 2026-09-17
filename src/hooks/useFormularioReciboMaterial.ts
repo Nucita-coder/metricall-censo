@@ -33,7 +33,7 @@ export function useFormularioReciboMaterial({
   const isDevolucionMode = isDevolucionCentralMode || isDevolucionAsignacionMode;
   const isAsignadoMode =
     !isDevolucionMode &&
-    (tipoUpper.includes('ASIGNA') || Boolean(formData.asignadoA && formData.asignadoA.trim()));
+    (tipoUpper ? tipoUpper.includes('ASIGNA') : Boolean(formData.asignadoA && formData.asignadoA.trim()));
 
   const { miembrosList, stockDisponibles, stockCustodiaMiembro } =
     useFormularioStockDisponibles({
@@ -63,7 +63,7 @@ export function useFormularioReciboMaterial({
         }
       }
     } else if (isAsignadoMode && handleChange) {
-      if (!formData.origen) {
+      if (formData.origen !== 'ALMACÉN PRINCIPAL') {
         handleChange('origen', 'ALMACÉN PRINCIPAL');
       }
     }
@@ -193,12 +193,16 @@ export function useFormularioReciboMaterial({
       if (data) {
         (data as unknown as Tarjeta[]).forEach((row) => {
           const val = row.datos_valores || {};
+          const tipo = (val.tipoCarga || '').toString().trim().toUpperCase();
+          const isDevCentral = tipo.includes('ALMACÉN CENTRAL') || tipo.includes('ALMACEN CENTRAL');
+          const isDevAsig = !isDevCentral && (tipo.includes('DEVOLUCIÓN') || tipo.includes('DEVOLUCION'));
+          const isAsig = !isDevCentral && !isDevAsig && (tipo ? tipo.includes('ASIGNA') : Boolean(val.asignadoA && val.asignadoA.toString().trim()));
           const rowItems = Array.isArray(val.items) ? val.items : [val];
           (rowItems as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((subItem) => {
             if ((subItem.codigoMaterial || '').trim().toUpperCase() === cleanCodigo) {
               encontrado = true;
               const cant = parseFloat((subItem.cantidadRecibida as string) || '0');
-              if (!isNaN(cant)) totalStock += cant;
+              if (!isNaN(cant)) totalStock += (isAsig || isDevCentral) ? -cant : cant;
               if (!primerNombre && subItem.nombreMaterial) primerNombre = subItem.nombreMaterial;
               if (!primerModelo && subItem.modeloMaterial) primerModelo = subItem.modeloMaterial;
             }

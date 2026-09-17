@@ -4,6 +4,7 @@ import { Package } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
 import { TarjetaMaterialItem } from '../../../types/kanban';
+import { clasificarMovimientoAlmacen } from '../../../services/almacenService';
 
 export interface SubItemLoteGeneral {
   codigoMaterial: string;
@@ -94,16 +95,15 @@ export function TablaStockGeneral({ empresaId, searchQuery = '' }: TablaStockGen
             mapa[key].nombreMaterial = nombre;
           }
 
-          const isDevCentral = tipo.includes('ALMACÉN CENTRAL') || tipo.includes('ALMACEN CENTRAL');
-          const isDevAsignacion = !isDevCentral && (tipo.includes('DEVOLUCIÓN') || tipo.includes('DEVOLUCION'));
+          const movTipo = clasificarMovimientoAlmacen(tipo);
 
-          if (tipo === 'MATERIAL ASIGNADO' || (!isDevAsignacion && !isDevCentral && tipo.includes('ASIGNADO'))) {
+          if (movTipo === 'MATERIAL_ASIGNADO') {
             mapa[key].totalAsignado += cant;
-          } else if (isDevAsignacion) {
+          } else if (movTipo === 'DEVOLUCION_ASIGNACION') {
             mapa[key].totalAsignado = Math.max(0, mapa[key].totalAsignado - cant);
-          } else if (isDevCentral) {
+          } else if (movTipo === 'DEVOLUCION_CENTRAL') {
             mapa[key].totalRecibido = Math.max(0, mapa[key].totalRecibido - cant);
-          } else {
+          } else if (movTipo === 'MATERIAL_RECIBIDO' || movTipo === 'RECUPERADOS') {
             mapa[key].totalRecibido += cant;
           }
 

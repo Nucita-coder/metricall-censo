@@ -4,6 +4,10 @@ import { Calendar, FileText, History, Package, User, X, CheckCircle, Tag } from 
 import { supabase } from '../../../lib/supabase';
 import { WEB_MODAL_CONTAINER } from '../../../constants/theme';
 import { Tarjeta, TarjetaMaterialItem } from '../../../types/kanban';
+import {
+  clasificarMovimientoAlmacen,
+  obtenerMiembroResponsable,
+} from '../../../services/almacenService';
 
 export interface AssignmentHistoryItem {
   cardId: string;
@@ -60,48 +64,47 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
 
       (data as unknown as Tarjeta[]).forEach((row) => {
         const v = row.datos_valores || {};
-        const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
-        const asignadoA = (v.asignadoA || (v.recibidoPor as string) || '').toString().trim().toUpperCase();
+        const movTipo = clasificarMovimientoAlmacen(v.tipoCarga);
+        if (movTipo !== 'MATERIAL_ASIGNADO' && movTipo !== 'DEVOLUCION_ASIGNACION') return;
 
-        const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
-        const hasAsignadoA = Boolean(v.asignadoA && v.asignadoA.toString().trim() !== '' && v.asignadoA.toString().trim() !== '—');
-        const isAsignacion = !isDevolucion && (tipo.includes('ASIGNA') || hasAsignadoA);
+        const miembro = obtenerMiembroResponsable(movTipo, v);
+        const matchMiembro =
+          miembro === targetName ||
+          (targetName && miembro && (miembro.includes(targetName) || targetName.includes(miembro)));
+        if (!matchMiembro) return;
 
-        if (isDevolucion || isAsignacion) {
-          if (asignadoA === targetName || (targetName && (asignadoA.includes(targetName) || targetName.includes(asignadoA)))) {
-            const rawItems = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
-            const mappedItems: Array<{ codigoMaterial: string; nombreMaterial: string; modeloMaterial: string; serialMaterial?: string; cantidad: number }> = [];
-            let cardTotal = 0;
+        const isDevolucion = movTipo === 'DEVOLUCION_ASIGNACION';
+        const rawItems = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
+        const mappedItems: Array<{ codigoMaterial: string; nombreMaterial: string; modeloMaterial: string; serialMaterial?: string; cantidad: number }> = [];
+        let cardTotal = 0;
 
-            (rawItems as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((sub) => {
-              const cod = (sub.codigoMaterial || '').trim().toUpperCase();
-              const cant = parseFloat(String(sub.cantidadRecibida || '0')) || 0;
-              if (cod || cant > 0) {
-                mappedItems.push({
-                  codigoMaterial: cod || 'SIN-CÓDIGO',
-                  nombreMaterial: (sub.nombreMaterial || 'Material').toUpperCase(),
-                  modeloMaterial: (sub.modeloMaterial || 'GENERAL').toUpperCase(),
-                  serialMaterial: sub.serialMaterial || undefined,
-                  cantidad: cant,
-                });
-                cardTotal += cant;
-              }
+        (rawItems as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((sub) => {
+          const cod = (sub.codigoMaterial || '').trim().toUpperCase();
+          const cant = parseFloat(String(sub.cantidadRecibida || '0')) || 0;
+          if (cod || cant > 0) {
+            mappedItems.push({
+              codigoMaterial: cod || 'SIN-CÓDIGO',
+              nombreMaterial: (sub.nombreMaterial || 'Material').toUpperCase(),
+              modeloMaterial: (sub.modeloMaterial || 'GENERAL').toUpperCase(),
+              serialMaterial: sub.serialMaterial || undefined,
+              cantidad: cant,
             });
-
-            results.push({
-              cardId: row.id,
-              nroOrden: v.nroOrdenEntrega || 'S/N',
-              fecha: v.fechaRecibido || row.created_at?.split('T')[0] || '—',
-              createdAt: row.created_at || '',
-              motivo: v.motivoAsignacion || (isDevolucion ? 'Devolución de Material' : 'Asignación de Material'),
-              tipoCarga: isDevolucion ? 'DEVOLUCION' : 'ASIGNACION',
-              entregadoPor: (v.entregadoPor || '—').toUpperCase(),
-              recibidoPor: (v.recibidoPor || v.asignadoA || '—').toUpperCase(),
-              items: mappedItems,
-              totalUnidades: cardTotal,
-            });
+            cardTotal += cant;
           }
-        }
+        });
+
+        results.push({
+          cardId: row.id,
+          nroOrden: v.nroOrdenEntrega || 'S/N',
+          fecha: v.fechaRecibido || row.created_at?.split('T')[0] || '—',
+          createdAt: row.created_at || '',
+          motivo: v.motivoAsignacion || (isDevolucion ? 'Devolución de Material' : 'Asignación de Material'),
+          tipoCarga: isDevolucion ? 'DEVOLUCION' : 'ASIGNACION',
+          entregadoPor: (v.entregadoPor || '—').toUpperCase(),
+          recibidoPor: (v.recibidoPor || v.asignadoA || '—').toUpperCase(),
+          items: mappedItems,
+          totalUnidades: cardTotal,
+        });
       });
 
       const getTimestamp = (item: { createdAt?: string; fecha?: string }): number => {

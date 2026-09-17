@@ -8,6 +8,11 @@ import {
   FiltroAlmacenTab,
   MAPA_CAMPOS_INSTALACION,
 } from '../components/metricas/almacen/types';
+import {
+  clasificarMovimientoAlmacen,
+  obtenerImpactoMovimiento,
+  obtenerMiembroResponsable,
+} from '../services/almacenService';
 
 export function useModuloAlmacenData(empresaId: string | null) {
   const [isLoading, setIsLoading] = useState(true);
@@ -65,15 +70,16 @@ export function useModuloAlmacenData(empresaId: string | null) {
         // ── CASO A: TARJETAS DE MOVIMIENTO DE ALMACÉN ──
         if (tipo) {
           const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
-          const isDevCentral = tipo.includes('ALMACÉN CENTRAL') || tipo.includes('ALMACEN CENTRAL');
-          const isDevAsignacion = !isDevCentral && (tipo.includes('DEVOLUCIÓN') || tipo.includes('DEVOLUCION'));
-          const isAsignacion = !isDevAsignacion && !isDevCentral && (tipo.includes('ASIGN') || tipo.includes('MATERIAL ASIGNADO'));
-          const isEntrada = !isAsignacion && !isDevAsignacion && !isDevCentral;
+          const movTipo = clasificarMovimientoAlmacen(tipo);
+          const impacto = obtenerImpactoMovimiento(movTipo);
 
-          const tecnico = ((v.asignadoA as string) || (v.recibidoPor as string) || 'SIN TÉCNICO ASIGNADO').toString().trim().toUpperCase();
+          const tecnico =
+            obtenerMiembroResponsable(movTipo, v) || 'SIN TÉCNICO ASIGNADO';
           const entregado = ((v.entregadoPor as string) || 'ALMACÉN CENTRAL').toString().trim().toUpperCase();
           const orden = (v.nroOrdenEntrega as string) || 'S/N';
-          const motivo = (v.motivoAsignacion as string) || 'Asignación de Material';
+          const motivo =
+            (v.motivoAsignacion as string) ||
+            (movTipo === 'DEVOLUCION_ASIGNACION' ? 'Devolución de Material' : 'Asignación de Material');
 
           (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((subItem) => {
             const nombre = (subItem.nombreMaterial || '').trim().toUpperCase();
@@ -88,74 +94,61 @@ export function useModuloAlmacenData(empresaId: string | null) {
 
             if (!mapaSKU[key]) {
               mapaSKU[key] = {
-                codigoMaterial: cod || key,
-                nombreMaterial: nombre || cod,
-                modeloMaterial: modelo,
-                unidadesAlmacen: 0,
-                unidadesAsignadas: 0,
-                unidadesTotales: 0,
-                fechaEntrada: fechaCard,
-                numMovimientos: 0,
-                subItems: [],
+                codigoMaterial: cod || key, nombreMaterial: nombre || cod, modeloMaterial: modelo,
+                unidadesAlmacen: 0, unidadesAsignadas: 0, unidadesTotales: 0,
+                fechaEntrada: fechaCard, numMovimientos: 0, subItems: [],
               };
             }
 
             mapaSKU[key].numMovimientos += 1;
-            mapaSKU[key].subItems?.push({
-              codigoMaterial: cod,
-              modeloMaterial: modelo,
-              serialMaterial: serial,
-              cantidad: cant,
-            });
+            mapaSKU[key].subItems?.push({ codigoMaterial: cod, modeloMaterial: modelo, serialMaterial: serial, cantidad: cant });
 
             if (cod && !mapaSKU[key].codigoMaterial.includes(cod)) {
-              mapaSKU[key].codigoMaterial = mapaSKU[key].codigoMaterial
-                ? `${mapaSKU[key].codigoMaterial}, ${cod}`
-                : cod;
+              mapaSKU[key].codigoMaterial = mapaSKU[key].codigoMaterial ? `${mapaSKU[key].codigoMaterial}, ${cod}` : cod;
             }
             if (modelo && modelo !== 'GENERAL' && !mapaSKU[key].modeloMaterial.includes(modelo)) {
-              mapaSKU[key].modeloMaterial =
-                mapaSKU[key].modeloMaterial === 'GENERAL'
-                  ? modelo
-                  : `${mapaSKU[key].modeloMaterial}, ${modelo}`;
+              mapaSKU[key].modeloMaterial = mapaSKU[key].modeloMaterial === 'GENERAL' ? modelo : `${mapaSKU[key].modeloMaterial}, ${modelo}`;
             }
-            if (isEntrada && fechaCard !== '—') mapaSKU[key].fechaEntrada = fechaCard;
+            if (impacto.deltaAlmacen > 0 && fechaCard !== '—') mapaSKU[key].fechaEntrada = fechaCard;
 
-            if (isEntrada) {
+            if (movTipo === 'MATERIAL_RECIBIDO' || movTipo === 'RECUPERADOS') {
               mapaSKU[key].unidadesAlmacen += cant;
-            } else if (isAsignacion) {
+            } else if (movTipo === 'MATERIAL_ASIGNADO') {
               mapaSKU[key].unidadesAlmacen -= cant;
               mapaSKU[key].unidadesAsignadas += cant;
 
               desgloseAsignaciones.push({
                 id: `asig_${row.id}_${cod || key}_${desgloseAsignaciones.length}`,
-                tecnicoNombre: tecnico,
-                codigoMaterial: cod || key,
-                nombreMaterial: nombre || cod,
-                modeloMaterial: modelo,
-                serialMaterial: serial,
-                cantidad: cant,
-                fechaAsignacion: fechaCard,
-                nroOrden: orden,
-                entregadoPor: entregado,
-                motivo: motivo,
-                tipoMovimiento: 'ASIGNACION',
+                tecnicoNombre: tecnico, codigoMaterial: cod || key, nombreMaterial: nombre || cod,
+                modeloMaterial: modelo, serialMaterial: serial, cantidad: cant,
+                fechaAsignacion: fechaCard, nroOrden: orden, entregadoPor: entregado,
+                motivo, tipoMovimiento: 'ASIGNACION',
               });
 
               if (!mapaTecnicos[tecnico]) {
-                mapaTecnicos[tecnico] = {
-                  nombre: tecnico,
-                  totalUnidadesAsignadas: 0,
-                  totalOrdenes: 0,
-                  totalConsumidas: 0,
-                };
+                mapaTecnicos[tecnico] = { nombre: tecnico, totalUnidadesAsignadas: 0, totalOrdenes: 0, totalConsumidas: 0 };
               }
               mapaTecnicos[tecnico].totalUnidadesAsignadas += cant;
               mapaTecnicos[tecnico].totalOrdenes += 1;
-            } else if (isDevAsignacion) {
+            } else if (movTipo === 'DEVOLUCION_ASIGNACION') {
               mapaSKU[key].unidadesAlmacen += cant;
               mapaSKU[key].unidadesAsignadas = Math.max(0, mapaSKU[key].unidadesAsignadas - cant);
-            } else if (isDevCentral) {
+
+              desgloseAsignaciones.push({
+                id: `dev_${row.id}_${cod || key}_${desgloseAsignaciones.length}`,
+                tecnicoNombre: tecnico, codigoMaterial: cod || key, nombreMaterial: nombre || cod,
+                modeloMaterial: modelo, serialMaterial: serial, cantidad: cant,
+                fechaAsignacion: fechaCard, nroOrden: orden, entregadoPor: entregado,
+                motivo, tipoMovimiento: 'DEVOLUCION',
+              });
+
+              if (mapaTecnicos[tecnico]) {
+                mapaTecnicos[tecnico].totalUnidadesAsignadas = Math.max(
+                  0,
+                  mapaTecnicos[tecnico].totalUnidadesAsignadas - cant
+                );
+              }
+            } else if (movTipo === 'DEVOLUCION_CENTRAL') {
               mapaSKU[key].unidadesAlmacen = Math.max(0, mapaSKU[key].unidadesAlmacen - cant);
             }
 

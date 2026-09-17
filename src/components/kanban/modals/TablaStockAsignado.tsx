@@ -5,6 +5,10 @@ import { supabase } from '../../../lib/supabase';
 import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
 import { TarjetaMaterialItem } from '../../../types/kanban';
 import { ModalHistorialAsignaciones } from './ModalHistorialAsignaciones';
+import {
+  clasificarMovimientoAlmacen,
+  obtenerMiembroResponsable,
+} from '../../../services/almacenService';
 
 export interface AssignedStockRecord {
   id: string;
@@ -45,46 +49,40 @@ export const TablaStockAsignado = ({ empresaId, searchQuery = '' }: TablaStockAs
 
       data.forEach((row) => {
         const v = row.datos_valores || {};
-        const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
-        const rawMiembro = (v.asignadoA || (v.recibidoPor as string) || '').toString().trim();
-        const hasAsignadoA = Boolean(rawMiembro && rawMiembro.toUpperCase() !== 'SIN ASIGNAR' && rawMiembro !== '—');
+        const movTipo = clasificarMovimientoAlmacen(v.tipoCarga);
+        if (movTipo !== 'MATERIAL_ASIGNADO' && movTipo !== 'DEVOLUCION_ASIGNACION') return;
 
-        const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
-        const isAsignado = !isDevolucion && (tipo.includes('ASIGNA') || hasAsignadoA);
+        const miembro = obtenerMiembroResponsable(movTipo, v) || 'SIN ASIGNAR';
+        const fecha = v.fechaRecibido || row.created_at?.split('T')[0] || '';
+        const nroOrden = v.nroOrdenEntrega || '—';
 
-        if (isAsignado || isDevolucion) {
-          const miembro = rawMiembro.toUpperCase() || 'SIN ASIGNAR';
-          const fecha = v.fechaRecibido || row.created_at?.split('T')[0] || '';
-          const nroOrden = v.nroOrdenEntrega || '—';
+        const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
 
-          const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
+        (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((item, idx: number) => {
+          const cod = (item.codigoMaterial || '').toString().trim().toUpperCase();
+          if (!cod) return;
+          const cant = parseFloat(item.cantidadRecibida as string || '0') || 0;
+          const key = `${miembro}___${cod}`;
 
-          (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((item, idx: number) => {
-            const cod = (item.codigoMaterial || '').toString().trim().toUpperCase();
-            if (!cod) return;
-            const cant = parseFloat(item.cantidadRecibida as string || '0') || 0;
-            const key = `${miembro}___${cod}`;
+          if (!mapa[key]) {
+            mapa[key] = {
+              id: `${row.id}-${idx}`,
+              miembro,
+              codigoMaterial: cod,
+              nombreMaterial: (item.nombreMaterial || '—').toUpperCase(),
+              modeloMaterial: (item.modeloMaterial || 'GENERAL').toUpperCase(),
+              cantidad: 0,
+              fecha,
+              nroOrden,
+            };
+          }
 
-            if (!mapa[key]) {
-              mapa[key] = {
-                id: `${row.id}-${idx}`,
-                miembro,
-                codigoMaterial: cod,
-                nombreMaterial: (item.nombreMaterial || '—').toUpperCase(),
-                modeloMaterial: (item.modeloMaterial || 'GENERAL').toUpperCase(),
-                cantidad: 0,
-                fecha,
-                nroOrden
-              };
-            }
-
-            if (isAsignado) {
-              mapa[key].cantidad += cant;
-            } else if (isDevolucion) {
-              mapa[key].cantidad -= cant;
-            }
-          });
-        }
+          if (movTipo === 'MATERIAL_ASIGNADO') {
+            mapa[key].cantidad += cant;
+          } else if (movTipo === 'DEVOLUCION_ASIGNACION') {
+            mapa[key].cantidad -= cant;
+          }
+        });
       });
 
       const list = Object.values(mapa).filter(r => r.cantidad > 0);

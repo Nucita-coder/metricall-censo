@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchTodasLasTarjetas } from '../services/tarjetasService';
 import { TarjetaMaterialItem } from '../types/kanban';
 import { MaterialStockItem } from '../components/kanban/modals/inventario/types';
+import {
+  clasificarMovimientoAlmacen,
+  obtenerImpactoMovimiento,
+} from '../services/almacenService';
 
 export function useModalInventarioData(visible: boolean, empresaId: string | null) {
   const [isLoading, setIsLoading] = useState(false);
@@ -68,22 +72,9 @@ export function useModalInventarioData(visible: boolean, empresaId: string | nul
             adjuntos: Array.isArray(v.adjuntos) ? (v.adjuntos as string[]) : [],
           });
 
-          let rec = 0;
-          let asig = 0;
-          if (tipo === 'MATERIAL ASIGNADO') asig += cant;
-          else if (
-            tipo === 'DEVOLUCIÓN DE ASIGNACIÓN' ||
-            tipo === 'DEVOLUCION DE ASIGNACION'
-          )
-            asig -= cant;
-          else if (
-            tipo === 'DEVOLUCIÓN A ALMACÉN CENTRAL' ||
-            tipo === 'DEVOLUCION A ALMACEN CENTRAL'
-          )
-            rec -= cant;
-          else rec += cant;
-
-          mapa[key].stockTotal += rec - asig;
+          const movTipo = clasificarMovimientoAlmacen(tipo);
+          const impacto = obtenerImpactoMovimiento(movTipo);
+          mapa[key].stockTotal += impacto.deltaAlmacen * cant;
         });
       });
       setMateriales(Object.values(mapa));

@@ -7,6 +7,10 @@ import { uploadImageToSupabase } from '../services/uploadImage';
 import { Tarjeta, TarjetaDatosValores, TarjetaMaterialItem } from '../types/kanban';
 import { MaterialRowItem, StockInfo } from '../components/almacen/formulario/types';
 import { useFormularioStockDisponibles } from './useFormularioStockDisponibles';
+import {
+  clasificarMovimientoAlmacen,
+  obtenerImpactoMovimiento,
+} from '../services/almacenService';
 
 interface UseFormularioReciboMaterialParams {
   formData: TarjetaDatosValores;
@@ -24,16 +28,11 @@ export function useFormularioReciboMaterial({
   const [modalPrecargadosIndex, setModalPrecargadosIndex] = useState<number | null>(null);
   const [subiendoImagen, setSubiendoImagen] = useState(false);
 
-  const tipoUpper = (formData.tipoCarga || '').toUpperCase();
-  const isDevolucionCentralMode =
-    tipoUpper.includes('ALMACÉN CENTRAL') || tipoUpper.includes('ALMACEN CENTRAL');
-  const isDevolucionAsignacionMode =
-    (tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN')) &&
-    !isDevolucionCentralMode;
+  const movTipo = clasificarMovimientoAlmacen(formData.tipoCarga);
+  const isDevolucionCentralMode = movTipo === 'DEVOLUCION_CENTRAL';
+  const isDevolucionAsignacionMode = movTipo === 'DEVOLUCION_ASIGNACION';
   const isDevolucionMode = isDevolucionCentralMode || isDevolucionAsignacionMode;
-  const isAsignadoMode =
-    !isDevolucionMode &&
-    (tipoUpper ? tipoUpper.includes('ASIGNA') : Boolean(formData.asignadoA && formData.asignadoA.trim()));
+  const isAsignadoMode = movTipo === 'MATERIAL_ASIGNADO';
 
   const { miembrosList, stockDisponibles, stockCustodiaMiembro } =
     useFormularioStockDisponibles({
@@ -193,16 +192,16 @@ export function useFormularioReciboMaterial({
       if (data) {
         (data as unknown as Tarjeta[]).forEach((row) => {
           const val = row.datos_valores || {};
-          const tipo = (val.tipoCarga || '').toString().trim().toUpperCase();
-          const isDevCentral = tipo.includes('ALMACÉN CENTRAL') || tipo.includes('ALMACEN CENTRAL');
-          const isDevAsig = !isDevCentral && (tipo.includes('DEVOLUCIÓN') || tipo.includes('DEVOLUCION'));
-          const isAsig = !isDevCentral && !isDevAsig && (tipo ? tipo.includes('ASIGNA') : Boolean(val.asignadoA && val.asignadoA.toString().trim()));
+          const movTipo = clasificarMovimientoAlmacen(val.tipoCarga);
+          const impacto = obtenerImpactoMovimiento(movTipo);
+          if (!impacto.afectaAlmacen) return;
+
           const rowItems = Array.isArray(val.items) ? val.items : [val];
           (rowItems as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((subItem) => {
             if ((subItem.codigoMaterial || '').trim().toUpperCase() === cleanCodigo) {
               encontrado = true;
               const cant = parseFloat((subItem.cantidadRecibida as string) || '0');
-              if (!isNaN(cant)) totalStock += (isAsig || isDevCentral) ? -cant : cant;
+              if (!isNaN(cant)) totalStock += impacto.deltaAlmacen * cant;
               if (!primerNombre && subItem.nombreMaterial) primerNombre = subItem.nombreMaterial;
               if (!primerModelo && subItem.modeloMaterial) primerModelo = subItem.modeloMaterial;
             }

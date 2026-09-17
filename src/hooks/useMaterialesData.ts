@@ -8,6 +8,10 @@ import {
   MovimientoItem,
   ListaAlmacenRel,
 } from '../components/almacen/materiales/types';
+import {
+  clasificarMovimientoAlmacen,
+  obtenerMiembroResponsable,
+} from '../services/almacenService';
 
 export function useMaterialesData(empresaId: string | null, nombreCompleto: string | null) {
   const [isLoading, setIsLoading] = useState(true);
@@ -91,25 +95,19 @@ export function useMaterialesData(empresaId: string | null, nombreCompleto: stri
 
       (data as unknown as Tarjeta[]).forEach((row) => {
         const v = row.datos_valores || {};
-        const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
-        const asignadoA = (v.asignadoA || v.recibidoPor || '').toString().trim().toUpperCase();
+        const movTipo = clasificarMovimientoAlmacen(v.tipoCarga);
+        if (movTipo !== 'MATERIAL_ASIGNADO' && movTipo !== 'DEVOLUCION_ASIGNACION') return;
 
+        const miembro = obtenerMiembroResponsable(movTipo, v);
         const matchMiembro =
-          asignadoA === targetName ||
+          miembro === targetName ||
           (targetName &&
-            asignadoA &&
-            (asignadoA.includes(targetName) || targetName.includes(asignadoA)));
+            miembro &&
+            (miembro.includes(targetName) || targetName.includes(miembro)));
         if (!matchMiembro) return;
 
-        const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
-        const hasAsignadoA = Boolean(
-          v.asignadoA &&
-            v.asignadoA.toString().trim() !== '' &&
-            v.asignadoA.toString().trim() !== '—'
-        );
-        const isAsignacion = !isDevolucion && (tipo.includes('ASIGNA') || hasAsignadoA);
-
-        if (!isDevolucion && !isAsignacion) return;
+        const isAsignacion = movTipo === 'MATERIAL_ASIGNADO';
+        const isDevolucion = movTipo === 'DEVOLUCION_ASIGNACION';
 
         const rawItems = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
         const mappedItems: Array<{

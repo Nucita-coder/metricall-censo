@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { TarjetaDatosValores, TarjetaMaterialItem } from '../types/kanban';
+import { clasificarMovimientoAlmacen } from './almacenService';
 
 export interface ParametrosPostCreacionTarjeta {
   currentLista: { id: string; tablero_id: string; nombre: string } | null;
@@ -88,6 +89,7 @@ export async function ejecutarPostCreacionTarjeta({
 
   // 4. Procesamiento de Materiales y Notificaciones
   if (isMaterialesMode && formData.tipoCarga && currentLista?.tablero_id && nuevaTarjetaId) {
+    const movTipo = clasificarMovimientoAlmacen(formData.tipoCarga);
     try {
       const { data: tableroListas } = await supabase
         .from('listas')
@@ -95,34 +97,9 @@ export async function ejecutarPostCreacionTarjeta({
         .eq('tablero_id', currentLista.tablero_id);
 
       if (tableroListas && tableroListas.length > 0) {
-        const normalizeStr = (s: string) =>
-          s
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .trim();
-
-        const targetNorm = normalizeStr(String(formData.tipoCarga || ''));
-        const isDevCentral = targetNorm.includes('central');
-        const isDevAsignacion =
-          !isDevCentral &&
-          (targetNorm.includes('devolucion de asignacion') || targetNorm === 'devolucion' || targetNorm.includes('devolucion'));
-
         const targetList = tableroListas.find((l) => {
           if (!l.nombre) return false;
-          const lNorm = normalizeStr(l.nombre);
-          if (lNorm === targetNorm) return true;
-
-          if (isDevAsignacion) {
-            return lNorm.includes('devolucion de asignacion') || (lNorm.includes('devolucion') && !lNorm.includes('central'));
-          }
-          if (isDevCentral) {
-            return lNorm.includes('central');
-          }
-          if (targetNorm.includes('recibido') && lNorm.includes('recibido')) return true;
-          if (targetNorm.includes('asigna') && lNorm.includes('asigna') && !lNorm.includes('devolucion')) return true;
-          if (targetNorm.includes('recuperado') && lNorm.includes('recuperado')) return true;
-          return lNorm.includes(targetNorm) || targetNorm.includes(lNorm);
+          return clasificarMovimientoAlmacen(l.nombre) === movTipo;
         });
 
         if (targetList && targetList.id !== currentLista.id) {
@@ -140,13 +117,9 @@ export async function ejecutarPostCreacionTarjeta({
       console.error('Error al mover tarjeta de almacén:', err);
     }
 
-    const tipoUpper = String(formData.tipoCarga || '').toUpperCase();
-    const isDevolucion = tipoUpper.includes('DEVOLUCION') || tipoUpper.includes('DEVOLUCIÓN');
-    const isAsignado =
-      !isDevolucion &&
-      (tipoUpper.includes('ASIGNA') || Boolean(formData.asignadoA && String(formData.asignadoA).trim()));
+    const esMovimientoPersonal = movTipo === 'MATERIAL_ASIGNADO' || movTipo === 'DEVOLUCION_ASIGNACION';
 
-    if ((isAsignado || isDevolucion) && formData.asignadoA && String(formData.asignadoA).trim()) {
+    if (esMovimientoPersonal && formData.asignadoA && String(formData.asignadoA).trim()) {
       try {
         const targetName = String(formData.asignadoA).trim().toLowerCase();
         const { data: perfiles, error: perfilError } = await supabase
@@ -181,7 +154,8 @@ export async function ejecutarPostCreacionTarjeta({
                 `${it.cantidadRecibida || '0'} und. de ${(it.nombreMaterial || it.codigoMaterial || 'Material').toUpperCase()}`
             )
             .join(', ');
-          const mensaje = isDevolucion
+          const esDevolucion = movTipo === 'DEVOLUCION_ASIGNACION';
+          const mensaje = esDevolucion
             ? `Se registró la devolución de ${resumenItems} al almacén correctamente.`
             : `Se te asignó ${resumenItems}. Este material está ahora en tu custodia.`;
 

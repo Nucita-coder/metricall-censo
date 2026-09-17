@@ -124,10 +124,11 @@ export async function ejecutarPostCreacionTarjeta({
         let assignedUserId = formData.asignado_a;
         if (!assignedUserId) {
           const targetNorm = normalizarTextoAlmacen(String(formData.asignadoA || ''));
-          const { data: perfiles, error: perfilError } = await supabase
-            .from('perfiles')
-            .select('id, nombre_completo')
-            .eq('empresa_id', empresaId);
+          let qPerfiles = supabase.from('perfiles').select('id, nombre_completo');
+          if (empresaId) {
+            qPerfiles = qPerfiles.eq('empresa_id', empresaId);
+          }
+          const { data: perfiles, error: perfilError } = await qPerfiles;
 
           if (perfilError) {
             console.error('Error al buscar perfiles para notificación:', perfilError);

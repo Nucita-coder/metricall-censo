@@ -13,6 +13,7 @@ import {
   obtenerMiembroResponsable,
   normalizarTextoAlmacen,
 } from '../services/almacenService';
+import { fetchTodasLasTarjetas } from '../services/tarjetasService';
 
 export function useMaterialesData(
   empresaId: string | null,
@@ -78,19 +79,19 @@ export function useMaterialesData(
   };
 
   const fetchMaterialesData = useCallback(async () => {
-    if (!empresaId || !nombreCompleto) {
+    if (!nombreCompleto) {
       setIsLoading(false);
       return;
     }
 
     try {
-      const { data, error } = await supabase
-        .from('tarjetas')
-        .select('id, datos_valores, created_at')
-        .eq('empresa_id', empresaId)
-        .order('created_at', { ascending: false });
+      const data = await fetchTodasLasTarjetas({
+        empresaId,
+        select: 'id, datos_valores, created_at, lista_id, listas(nombre)',
+        orderBy: 'created_at',
+        ascending: false,
+      });
 
-      if (error) throw error;
       if (!data) return;
 
       const normTarget = normalizarTextoAlmacen(nombreCompleto);
@@ -98,9 +99,11 @@ export function useMaterialesData(
       const mapaDevueltos: Record<string, CustodiaItem> = {};
       const movimientos: Array<MovimientoItem & { createdAt?: string }> = [];
 
-      (data as unknown as Tarjeta[]).forEach((row) => {
+      data.forEach((row) => {
         const v = row.datos_valores || {};
-        const movTipo = clasificarMovimientoAlmacen(v.tipoCarga);
+        const listaNombre = (row as unknown as { listas?: { nombre?: string } })?.listas?.nombre;
+        const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
+        const movTipo = clasificarMovimientoAlmacen(tipo, listaNombre);
         if (movTipo !== 'MATERIAL_ASIGNADO' && movTipo !== 'DEVOLUCION_ASIGNACION') return;
 
         const miembro = obtenerMiembroResponsable(movTipo, v);
@@ -136,7 +139,7 @@ export function useMaterialesData(
 
         (rawItems as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((sub) => {
           const cod = (sub.codigoMaterial || '').trim().toUpperCase();
-          const cant = parseFloat(String(sub.cantidadRecibida || '0')) || 0;
+          const cant = parseFloat(String(sub.cantidadRecibida || sub.cantidad || '0')) || 0;
           if (cod || cant > 0) {
             const itemCod = cod || 'SIN-CÓDIGO';
             const itemName = (sub.nombreMaterial || 'Material').toUpperCase();

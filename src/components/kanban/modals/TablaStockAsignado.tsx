@@ -8,6 +8,7 @@ import { ModalHistorialAsignaciones } from './ModalHistorialAsignaciones';
 import {
   clasificarMovimientoAlmacen,
   obtenerMiembroResponsable,
+  normalizarTextoAlmacen,
 } from '../../../services/almacenService';
 
 export interface AssignedStockRecord {
@@ -53,6 +54,7 @@ export const TablaStockAsignado = ({ empresaId, searchQuery = '' }: TablaStockAs
         if (movTipo !== 'MATERIAL_ASIGNADO' && movTipo !== 'DEVOLUCION_ASIGNACION') return;
 
         const miembro = obtenerMiembroResponsable(movTipo, v) || 'SIN ASIGNAR';
+        const miembroNorm = normalizarTextoAlmacen(miembro);
         const fecha = v.fechaRecibido || row.created_at?.split('T')[0] || '';
         const nroOrden = v.nroOrdenEntrega || '—';
 
@@ -62,7 +64,7 @@ export const TablaStockAsignado = ({ empresaId, searchQuery = '' }: TablaStockAs
           const cod = (item.codigoMaterial || '').toString().trim().toUpperCase();
           if (!cod) return;
           const cant = parseFloat(item.cantidadRecibida as string || '0') || 0;
-          const key = `${miembro}___${cod}`;
+          const key = `${miembroNorm}___${cod}`;
 
           if (!mapa[key]) {
             mapa[key] = {

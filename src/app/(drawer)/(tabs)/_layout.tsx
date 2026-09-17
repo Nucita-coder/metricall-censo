@@ -53,7 +53,6 @@ export default function TabLayout() {
         options={{
           title: 'Mis Materiales',
           tabBarIcon: ({ color }) => <Package size={24} color={color} />,
-          href: canSeeAdmin ? '/(drawer)/(tabs)/materiales' : null,
         }}
       />
       <Tabs.Screen

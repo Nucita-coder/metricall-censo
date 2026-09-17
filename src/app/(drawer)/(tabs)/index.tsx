@@ -10,8 +10,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { useGlobalUi } from '../../../context/GlobalUiContext';
 import { Tablero, useDashboardData } from '../../../hooks/useDashboardData';
 import { supabase } from '../../../lib/supabase';
-import { styles } from './dashboard.styles';
-import { getListasPorDefecto, TipoTableroCreacion } from './dashboardHelpers';
+import { styles } from '../../../components/dashboard/dashboard.styles';
+import { getListasPorDefecto, TipoTableroCreacion } from '../../../components/dashboard/dashboardHelpers';
 
 export default function DashboardScreen() {
   const { userRol, empresaId, nombreCompleto } = useAuth();

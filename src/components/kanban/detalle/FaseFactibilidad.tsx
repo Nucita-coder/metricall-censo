@@ -38,7 +38,7 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        const url = await uploadImageToSupabase(asset.uri, 'evidencias', 'lch');
+        const url = await uploadImageToSupabase(asset.uri, 'adjuntos', 'evidencias/lch');
         if (url) {
           setLchImagen(url);
           setErrorFactibilidad(null);

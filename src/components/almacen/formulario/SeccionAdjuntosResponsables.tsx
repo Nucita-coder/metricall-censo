@@ -16,6 +16,7 @@ interface SeccionAdjuntosResponsablesProps {
   updateHeaderField: (key: string, val: unknown) => void;
   readOnly?: boolean;
   isDevolucionMode: boolean;
+  isAsignadoMode?: boolean;
   adjuntos: string[];
   subiendoImagen: boolean;
   handleAdjuntarFotoFactura: () => void;
@@ -28,6 +29,7 @@ export const SeccionAdjuntosResponsables: React.FC<SeccionAdjuntosResponsablesPr
   updateHeaderField,
   readOnly = false,
   isDevolucionMode,
+  isAsignadoMode = false,
   adjuntos,
   subiendoImagen,
   handleAdjuntarFotoFactura,
@@ -80,7 +82,9 @@ export const SeccionAdjuntosResponsables: React.FC<SeccionAdjuntosResponsablesPr
 
       {/* 4. RESPONSABLES Y MOTIVO */}
       <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>4. RESPONSABLES Y MOTIVO</Text>
+        <Text style={styles.sectionTitle}>
+          {isDevolucionMode || isAsignadoMode ? '4. RESPONSABLES Y MOTIVO' : '4. RESPONSABLES'}
+        </Text>
         <View style={styles.row}>
           {isDevolucionMode ? (
             <>
@@ -129,36 +133,41 @@ export const SeccionAdjuntosResponsables: React.FC<SeccionAdjuntosResponsablesPr
             </>
           )}
         </View>
-        <SelectDropdown
-          label={isDevolucionMode ? 'Motivo de Devolución' : 'Motivo de Asignación'}
-          value={formData.motivoAsignacion}
-          onSelect={(v) => updateHeaderField('motivoAsignacion', v)}
-          options={
-            isDevolucionMode
-              ? [
-                  'Sobrante de Instalación',
-                  'Material Defectuoso',
-                  'Cambio de Equipo',
-                  'Fin de Proyecto',
-                  'Otras',
-                ]
-              : [
-                  'Instalaciones',
-                  'Construcción',
-                  'Verticales',
-                  'Fallas FTTH',
-                  'Fallas FTTX',
-                  'Otras',
-                ]
-          }
-          placeholder={
-            isDevolucionMode
-              ? 'Seleccionar motivo de devolución...'
-              : 'Seleccionar motivo...'
-          }
-          isRequired
-          disabled={readOnly}
-        />
+        {isDevolucionMode && (
+          <SelectDropdown
+            label="Motivo de Devolución"
+            value={formData.motivoAsignacion}
+            onSelect={(v) => updateHeaderField('motivoAsignacion', v)}
+            options={[
+              'Sobrante de Instalación',
+              'Material Defectuoso',
+              'Cambio de Equipo',
+              'Fin de Proyecto',
+              'Otras',
+            ]}
+            placeholder="Seleccionar motivo de devolución..."
+            isRequired
+            disabled={readOnly}
+          />
+        )}
+        {isAsignadoMode && (
+          <SelectDropdown
+            label="Motivo de Asignación"
+            value={formData.motivoAsignacion}
+            onSelect={(v) => updateHeaderField('motivoAsignacion', v)}
+            options={[
+              'Instalaciones',
+              'Construcción',
+              'Verticales',
+              'Fallas FTTH',
+              'Fallas FTTX',
+              'Otras',
+            ]}
+            placeholder="Seleccionar motivo..."
+            isRequired
+            disabled={readOnly}
+          />
+        )}
       </View>
     </>
   );

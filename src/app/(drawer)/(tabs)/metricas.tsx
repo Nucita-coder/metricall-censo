@@ -22,7 +22,7 @@ import { ModuloCobranza } from '../../../components/metricas/ModuloCobranza';
 import { ModuloAlmacen } from '../../../components/metricas/ModuloAlmacen';
 import { ModuloGestionOnline } from '../../../components/metricas/ModuloGestionOnline';
 import { ModuloMetricasOperaciones } from '../../../components/metricas/ModuloMetricasOperaciones';
-import { styles } from './metricas.styles';
+import { styles } from '../../../components/metricas/metricas.styles';
 
 export type SubTabMetricas =
   | 'cobranza'

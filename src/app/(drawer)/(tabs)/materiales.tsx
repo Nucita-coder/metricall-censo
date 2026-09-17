@@ -26,22 +26,7 @@ import { TabHistorialMovimientos } from '../../../components/almacen/materiales/
 export type { CustodiaItem, MovimientoItem };
 
 export default function MaterialesScreen() {
-  const { empresaId, nombreCompleto, userRol, isDeveloper, etiquetas = [] } = useAuth();
-  const rolLower = (userRol || '').toLowerCase();
-  const isLiderEtiqueta = (etiquetas || []).some(
-    (e) => e.toLowerCase() === 'líder' || e.toLowerCase() === 'lider'
-  );
-  const canSeeAdmin =
-    isDeveloper ||
-    isLiderEtiqueta ||
-    ['admin', 'lider', 'administrador', 'supervisor', 'developer', 'desarrollador'].includes(
-      rolLower
-    );
-
-  if (!canSeeAdmin) {
-    return <Redirect href="/(drawer)/(tabs)" />;
-  }
-
+  const { session, empresaId, nombreCompleto } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
@@ -55,7 +40,7 @@ export default function MaterialesScreen() {
     devueltosList,
     movimientosList,
     handleDevolverMaterial,
-  } = useMaterialesData(empresaId, nombreCompleto);
+  } = useMaterialesData(empresaId, nombreCompleto, session?.user?.id);
 
   return (
     <View style={styles.container}>

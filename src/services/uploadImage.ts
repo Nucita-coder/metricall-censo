@@ -49,6 +49,8 @@ export const uploadImageToSupabase = async (
     const sanitizedFolder = folderName.replace(/^\/+|\/+$/g, '').replace(/[^a-zA-Z0-9_\-\/]/g, '');
     const fileName = sanitizedFolder ? `${sanitizedFolder}/${uniqueId}.${ext}` : `${uniqueId}.${ext}`;
 
+    let targetBucket = bucket;
+    let targetPath = fileName;
     let error: { message?: string } | null = null;
 
     if (Platform.OS === 'web') {
@@ -73,12 +75,29 @@ export const uploadImageToSupabase = async (
       }
 
       const response = await supabase.storage
-        .from(bucket)
-        .upload(fileName, blob, {
+        .from(targetBucket)
+        .upload(targetPath, blob, {
           contentType: blob.type || mimeType,
           upsert: true,
         });
       error = response.error;
+
+      // Fallback a 'adjuntos' si el bucket solicitado no existe
+      if (error && targetBucket !== 'adjuntos') {
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('bucket not found') || msg.includes('not found')) {
+          console.warn(`[uploadImageToSupabase] Bucket '${targetBucket}' no encontrado. Reintentando en 'adjuntos'...`);
+          targetBucket = 'adjuntos';
+          targetPath = `${bucket}/${fileName}`;
+          const retryRes = await supabase.storage
+            .from(targetBucket)
+            .upload(targetPath, blob, {
+              contentType: blob.type || mimeType,
+              upsert: true,
+            });
+          error = retryRes.error;
+        }
+      }
     } else {
       // 3. (Móvil)
       let fileData: ArrayBuffer;
@@ -94,12 +113,29 @@ export const uploadImageToSupabase = async (
 
       // 4. Subir a Supabase usando decode de base64-arraybuffer
       const response = await supabase.storage
-        .from(bucket)
-        .upload(fileName, fileData, {
+        .from(targetBucket)
+        .upload(targetPath, fileData, {
           contentType: mimeType,
           upsert: true,
         });
       error = response.error;
+
+      // Fallback a 'adjuntos' si el bucket solicitado no existe
+      if (error && targetBucket !== 'adjuntos') {
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('bucket not found') || msg.includes('not found')) {
+          console.warn(`[uploadImageToSupabase] Bucket '${targetBucket}' no encontrado. Reintentando en 'adjuntos'...`);
+          targetBucket = 'adjuntos';
+          targetPath = `${bucket}/${fileName}`;
+          const retryRes = await supabase.storage
+            .from(targetBucket)
+            .upload(targetPath, fileData, {
+              contentType: mimeType,
+              upsert: true,
+            });
+          error = retryRes.error;
+        }
+      }
     }
 
     if (error) {
@@ -108,7 +144,7 @@ export const uploadImageToSupabase = async (
     }
 
     // 5. Obtener URL Pública
-    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
+    const { data: urlData } = supabase.storage.from(targetBucket).getPublicUrl(targetPath);
 
     if (!urlData?.publicUrl) {
       throw new Error('Supabase no retornó una URL pública válida.');

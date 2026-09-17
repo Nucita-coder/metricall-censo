@@ -173,6 +173,7 @@ export function obtenerMiembroResponsable(
   if (tipo === 'MATERIAL_ASIGNADO') {
     return (
       (v.asignadoA as string) ||
+      (v.tecnicoAsignado as string) ||
       (v.recibidoPor as string) ||
       ''
     )
@@ -185,6 +186,7 @@ export function obtenerMiembroResponsable(
     return (
       (v.entregadoPor as string) ||
       (v.asignadoA as string) ||
+      (v.tecnicoAsignado as string) ||
       ''
     )
       .toString()

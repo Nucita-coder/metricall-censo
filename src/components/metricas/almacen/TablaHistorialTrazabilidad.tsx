@@ -7,6 +7,7 @@ import {
   Package,
   Calendar,
   MapPin,
+  RotateCcw,
 } from 'lucide-react-native';
 import { AsignacionDetallada } from './types';
 
@@ -68,6 +69,7 @@ export const TablaHistorialTrazabilidad: React.FC<TablaHistorialTrazabilidadProp
             asignacionesDelTecnico.map((item, index) => {
               const isAlt = index % 2 === 1;
               const isConsumo = item.tipoMovimiento === 'INSTALACION_CONSUMO';
+              const isDevolucion = item.tipoMovimiento === 'DEVOLUCION';
 
               return (
                 <View key={item.id} style={[styles.tableDataRow, isAlt && styles.tableDataRowAlt]}>
@@ -77,6 +79,11 @@ export const TablaHistorialTrazabilidad: React.FC<TablaHistorialTrazabilidadProp
                       <View style={styles.badgeConsumido}>
                         <CheckCircle2 size={11} color="#9CA3AF" style={{ marginRight: 4 }} />
                         <Text style={styles.badgeConsumidoTxt}>INSTALADO</Text>
+                      </View>
+                    ) : isDevolucion ? (
+                      <View style={styles.badgeConsumido}>
+                        <RotateCcw size={11} color="#9CA3AF" style={{ marginRight: 4 }} />
+                        <Text style={styles.badgeConsumidoTxt}>DEVUELTO</Text>
                       </View>
                     ) : (
                       <View style={styles.badgeAsignado}>
@@ -105,10 +112,10 @@ export const TablaHistorialTrazabilidad: React.FC<TablaHistorialTrazabilidadProp
                     style={[
                       styles.colNum,
                       styles.cellNumBold,
-                      isConsumo && styles.cellNumConsumo,
+                      (isConsumo || isDevolucion) && styles.cellNumConsumo,
                     ]}
                   >
-                    {isConsumo ? `-${item.cantidad}` : `+${item.cantidad}`} und.
+                    {isConsumo || isDevolucion ? `-${item.cantidad}` : `+${item.cantidad}`} und.
                   </Text>
 
                   {/* FECHA */}
@@ -128,7 +135,9 @@ export const TablaHistorialTrazabilidad: React.FC<TablaHistorialTrazabilidadProp
                     <Text style={styles.cellEntregadoTxt} numberOfLines={1}>
                       {isConsumo
                         ? `Cliente: ${item.tarjetaDestino}`
-                        : `Despachado por: ${item.entregadoPor}`}
+                        : isDevolucion
+                          ? `Devuelto a: ${item.entregadoPor}`
+                          : `Despachado por: ${item.entregadoPor}`}
                     </Text>
                   </View>
                 </View>

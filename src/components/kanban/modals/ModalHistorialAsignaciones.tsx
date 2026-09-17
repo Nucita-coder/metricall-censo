@@ -7,6 +7,7 @@ import { Tarjeta, TarjetaMaterialItem } from '../../../types/kanban';
 import {
   clasificarMovimientoAlmacen,
   obtenerMiembroResponsable,
+  normalizarTextoAlmacen,
 } from '../../../services/almacenService';
 
 export interface AssignmentHistoryItem {
@@ -31,10 +32,11 @@ interface ModalHistorialAsignacionesProps {
   visible: boolean;
   onClose: () => void;
   miembroNombre: string | null;
+  miembroId?: string | null;
   empresaId: string | null;
 }
 
-export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, empresaId }: ModalHistorialAsignacionesProps) {
+export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, miembroId, empresaId }: ModalHistorialAsignacionesProps) {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width > 768;
 
@@ -60,7 +62,7 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
       if (!data) return;
 
       const results: Array<AssignmentHistoryItem & { createdAt: string }> = [];
-      const targetName = (miembroNombre || '').trim().toUpperCase();
+      const targetNorm = normalizarTextoAlmacen(miembroNombre || '');
 
       (data as unknown as Tarjeta[]).forEach((row) => {
         const v = row.datos_valores || {};
@@ -68,9 +70,19 @@ export function ModalHistorialAsignaciones({ visible, onClose, miembroNombre, em
         if (movTipo !== 'MATERIAL_ASIGNADO' && movTipo !== 'DEVOLUCION_ASIGNACION') return;
 
         const miembro = obtenerMiembroResponsable(movTipo, v);
+        const miembroNorm = normalizarTextoAlmacen(miembro);
+        const matchId = Boolean(
+          miembroId &&
+          v.asignado_a &&
+          String(v.asignado_a).trim().toLowerCase() === String(miembroId).trim().toLowerCase()
+        );
         const matchMiembro =
-          miembro === targetName ||
-          (targetName && miembro && (miembro.includes(targetName) || targetName.includes(miembro)));
+          matchId ||
+          (targetNorm &&
+            miembroNorm &&
+            (miembroNorm === targetNorm ||
+              miembroNorm.includes(targetNorm) ||
+              targetNorm.includes(miembroNorm)));
         if (!matchMiembro) return;
 
         const isDevolucion = movTipo === 'DEVOLUCION_ASIGNACION';

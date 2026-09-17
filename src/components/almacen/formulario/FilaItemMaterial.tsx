@@ -47,7 +47,8 @@ export const FilaItemMaterial: React.FC<FilaItemMaterialProps> = ({
   const isAlmacenStockMode = !readOnly && (isAsignadoMode || isDevolucionCentralMode);
 
   const handleSelectFromList = (sel: string, list: StockItemDisponible[]) => {
-    const found = list.find((s) => sel.startsWith(s.codigo));
+    const codePart = sel.split(' - ')[0]?.trim();
+    const found = list.find((s) => s.codigo === codePart || sel.startsWith(`${s.codigo} - `));
     if (found) {
       updateMultipleItemFields(idx, {
         codigoMaterial: found.codigo,

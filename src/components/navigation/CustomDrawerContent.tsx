@@ -77,7 +77,7 @@ export function CustomDrawerContent(props: CustomDrawerContentProps) {
       {isDesktop && (
         <>
           <MenuItem label="Operaciones" icon={FolderKanban} route="/(drawer)/(tabs)" />
-          {isAdmin && <MenuItem label="Mis Materiales" icon={Package} route="/(drawer)/(tabs)/materiales" />}
+          <MenuItem label="Mis Materiales" icon={Package} route="/(drawer)/(tabs)/materiales" />
           {isAdmin && <MenuItem label="Métricas" icon={BarChart3} route="/(drawer)/(tabs)/metricas" />}
           <MenuItem label="Messenger" icon={MessageSquare} route="/(drawer)/(tabs)/mensajes" />
           {isDevUser && <MenuItem label="WhatsApp Bot" icon={Bot} route="/(drawer)/(tabs)/whatsapp" />}

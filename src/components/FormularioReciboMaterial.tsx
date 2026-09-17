@@ -22,6 +22,7 @@ export default function FormularioReciboMaterial({
     setModalPrecargadosIndex,
     subiendoImagen,
     miembrosList,
+    miembrosDetallados,
     stockDisponibles,
     stockCustodiaMiembro,
     isDevolucionMode,
@@ -53,6 +54,7 @@ export default function FormularioReciboMaterial({
         isDevolucionAsignacionMode={isDevolucionAsignacionMode}
         isAsignadoMode={isAsignadoMode}
         miembrosList={miembrosList}
+        miembrosDetallados={miembrosDetallados}
         nombreCompleto={nombreCompleto}
       />
 
@@ -82,6 +84,7 @@ export default function FormularioReciboMaterial({
         updateHeaderField={updateHeaderField}
         readOnly={readOnly}
         isDevolucionMode={isDevolucionMode}
+        isAsignadoMode={isAsignadoMode}
         adjuntos={adjuntos}
         subiendoImagen={subiendoImagen}
         handleAdjuntarFotoFactura={handleAdjuntarFotoFactura}

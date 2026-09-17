@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { TarjetaDatosValores, TarjetaMaterialItem } from '../types/kanban';
-import { clasificarMovimientoAlmacen } from './almacenService';
+import { clasificarMovimientoAlmacen, normalizarTextoAlmacen } from './almacenService';
 
 export interface ParametrosPostCreacionTarjeta {
   currentLista: { id: string; tablero_id: string; nombre: string } | null;
@@ -119,28 +119,38 @@ export async function ejecutarPostCreacionTarjeta({
 
     const esMovimientoPersonal = movTipo === 'MATERIAL_ASIGNADO' || movTipo === 'DEVOLUCION_ASIGNACION';
 
-    if (esMovimientoPersonal && formData.asignadoA && String(formData.asignadoA).trim()) {
+    if (esMovimientoPersonal && (formData.asignado_a || (formData.asignadoA && String(formData.asignadoA).trim()))) {
       try {
-        const targetName = String(formData.asignadoA).trim().toLowerCase();
-        const { data: perfiles, error: perfilError } = await supabase
-          .from('perfiles')
-          .select('id, nombre_completo')
-          .eq('empresa_id', empresaId);
+        let assignedUserId = formData.asignado_a;
+        if (!assignedUserId) {
+          const targetNorm = normalizarTextoAlmacen(String(formData.asignadoA || ''));
+          const { data: perfiles, error: perfilError } = await supabase
+            .from('perfiles')
+            .select('id, nombre_completo')
+            .eq('empresa_id', empresaId);
 
-        if (perfilError) {
-          console.error('Error al buscar perfiles para notificación:', perfilError);
+          if (perfilError) {
+            console.error('Error al buscar perfiles para notificación:', perfilError);
+          }
+
+          const matchedProfile = perfiles?.find((p) => {
+            const pNorm = normalizarTextoAlmacen(p.nombre_completo || '');
+            return (
+              pNorm === targetNorm ||
+              (pNorm && targetNorm && (pNorm.includes(targetNorm) || targetNorm.includes(pNorm)))
+            );
+          });
+
+          if (matchedProfile?.id) {
+            assignedUserId = matchedProfile.id;
+          }
         }
 
-        const matchedProfile = perfiles?.find((p) => {
-          const pName = (p.nombre_completo || '').trim().toLowerCase();
-          return pName === targetName || (pName && targetName && (pName.includes(targetName) || targetName.includes(pName)));
-        });
-
-        if (matchedProfile?.id) {
+        if (assignedUserId) {
           await supabase
             .from('tarjetas')
             .update({
-              datos_valores: { ...formData, asignado_a: matchedProfile.id },
+              datos_valores: { ...formData, asignado_a: assignedUserId },
             })
             .eq('id', nuevaTarjetaId);
 
@@ -160,7 +170,7 @@ export async function ejecutarPostCreacionTarjeta({
             : `Se te asignó ${resumenItems}. Este material está ahora en tu custodia.`;
 
           const { error: notifError } = await supabase.from('notificaciones').insert({
-            usuario_id: matchedProfile.id,
+            usuario_id: assignedUserId,
             tarjeta_id: nuevaTarjetaId,
             mensaje,
             leida: false,

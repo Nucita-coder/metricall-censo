@@ -18,6 +18,7 @@ import { SeccionGestion } from './detalle/SeccionGestion';
 import { SeccionRegistro } from './detalle/SeccionRegistro';
 import { FaseProps, Miembro } from './detalle/types';
 import { validarDatosVenta } from '../venta/validacionesVenta';
+import { clasificarMovimientoAlmacen } from '../../services/almacenService';
 import { ejecutarConversionCensoAVenta, notificarAsignacionMaterialDetalle } from './detalle/modalDetalleHelpers';
 
 export interface ModalDetalleTarjetaProps {
@@ -119,7 +120,11 @@ export const ModalDetalleTarjeta = ({
 
   const listaActualNombre = nombreListaRemota || listas.find(l => l.id === tarjetaSeleccionada.lista_id)?.nombre || '';
   const isCensoFormat = ['censo', 'si desea', 'no desea', 'es posible', 'sí desea'].includes(listaActualNombre.toLowerCase().trim());
-  const isMaterialesFormat = ['carga de materiales', 'material recibido', 'material asignado', 'devolución de asignación', 'devolución a almacén central', 'recuperados'].includes(listaActualNombre.toLowerCase().trim()) || tarjetaSeleccionada?.datos_valores?.codigoMaterial !== undefined || tarjetaSeleccionada?.datos_valores?.nroOrdenEntrega !== undefined;
+  const isMaterialesFormat =
+    clasificarMovimientoAlmacen(listaActualNombre) !== 'OTRO' ||
+    clasificarMovimientoAlmacen(tarjetaSeleccionada?.datos_valores?.tipoCarga) !== 'OTRO' ||
+    tarjetaSeleccionada?.datos_valores?.codigoMaterial !== undefined ||
+    tarjetaSeleccionada?.datos_valores?.nroOrdenEntrega !== undefined;
   const isClienteActivo = listaActualNombre.toLowerCase().trim().includes('activo');
 
   const faseProps: FaseProps = {

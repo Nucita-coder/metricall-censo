@@ -11,12 +11,24 @@ import { checkIsCensoFormat } from '../../components/kanban/detalle/types';
 import CardLayoutWrapper from '../../components/layout/CardLayoutWrapper';
 import { ModalMapaUbicacion } from '../../components/tarjetas/ModalMapaUbicacion';
 import { validarDatosVenta } from '../../components/venta/validacionesVenta';
+import { validarDatosAlmacen } from '../../components/almacen/formulario/validacionesAlmacen';
+import { ModalAvisoFaltantes } from '../../components/common/ModalAvisoFaltantes';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { ejecutarPostCreacionTarjeta } from '../../services/tarjetaCreacionService';
+import { clasificarMovimientoAlmacen } from '../../services/almacenService';
 import { TarjetaDatosValores, TarjetaMaterialItem } from '../../types/kanban';
 
-const LISTAS_ALMACEN = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Recuperados', 'Devolución de Asignación', 'Devolución a Almacén Central'];
+const LISTAS_ALMACEN = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Recuperados', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Devolución al Almacén Central'];
+
+const checkIsMaterialesMode = (nombre?: string, tipo?: string): boolean => {
+  if (!nombre && !tipo) return false;
+  return (
+    LISTAS_ALMACEN.includes(nombre || '') ||
+    clasificarMovimientoAlmacen(nombre || '') !== 'OTRO' ||
+    clasificarMovimientoAlmacen(tipo || '') !== 'OTRO'
+  );
+};
 
 export default function NuevaTarjetaScreen() {
   const {
@@ -45,6 +57,7 @@ export default function NuevaTarjetaScreen() {
   const [mapaVisible, setMapaVisible] = useState(false);
   const [ubicacionTemporal, setUbicacionTemporal] = useState<{ latitude: number, longitude: number } | null>(null);
   const [listaNombre, setListaNombre] = useState<string>(lista_nombre || '');
+  const [faltantesAviso, setFaltantesAviso] = useState<string[]>([]);
 
   React.useEffect(() => {
     setFormData(prev => ({
@@ -71,10 +84,17 @@ export default function NuevaTarjetaScreen() {
     if (lista_id) {
       supabase.from('listas').select('nombre').eq('id', lista_id).single()
         .then(({ data }) => {
-          if (data) setListaNombre(data.nombre);
+          if (data) {
+            setListaNombre(data.nombre);
+            if (clasificarMovimientoAlmacen(data.nombre) !== 'OTRO') {
+              setFormData(prev => (!prev.tipoCarga ? { ...prev, tipoCarga: data.nombre } : prev));
+            }
+          }
         });
+    } else if (lista_nombre && clasificarMovimientoAlmacen(lista_nombre) !== 'OTRO') {
+      setFormData(prev => (!prev.tipoCarga ? { ...prev, tipoCarga: lista_nombre } : prev));
     }
-  }, [lista_id]);
+  }, [lista_id, lista_nombre]);
 
   React.useEffect(() => {
     const loadCachedCiudad = async () => {
@@ -132,11 +152,12 @@ export default function NuevaTarjetaScreen() {
       return;
     }
 
-    const isMaterialesMode = LISTAS_ALMACEN.includes(listaNombre || (lista_nombre as string) || '');
+    const isMaterialesMode = checkIsMaterialesMode(
+      listaNombre || (lista_nombre as string) || '',
+      formData.tipoCarga || paramTipoCarga
+    );
 
     if (isMaterialesMode) {
-      const items = Array.isArray(formData.items) && formData.items.length > 0 ? (formData.items as TarjetaMaterialItem[]) : [formData as unknown as TarjetaMaterialItem];
-      const hasValidItem = items.some((i) => i.codigoMaterial && i.nombreMaterial && i.cantidadRecibida);
       const tipoCargaStr = String(formData.tipoCarga || '').toUpperCase();
       const isDevolucionCentral = tipoCargaStr.includes('ALMACÉN CENTRAL') || tipoCargaStr.includes('ALMACEN CENTRAL');
       const isDevolucion = tipoCargaStr.includes('DEVOLUCION') || tipoCargaStr.includes('DEVOLUCIÓN');
@@ -151,40 +172,20 @@ export default function NuevaTarjetaScreen() {
         formData.tipoCarga = 'DEVOLUCIÓN A ALMACÉN CENTRAL';
       }
 
-      if ((!isDevolucion && !formData.nroOrdenEntrega) || !formData.recibidoPor || !formData.entregadoPor || !formData.tipoCarga || !formData.origen || !hasValidItem) {
-        Alert.alert('Campos incompletos', 'Por favor, completa los campos obligatorios de la orden (incluyendo el Origen), el tipo de carga y al menos un material válido.');
+      const { esValido, faltantes } = validarDatosAlmacen(formData);
+      if (!esValido) {
+        setFaltantesAviso(faltantes);
         return;
-      }
-      if (typeof formData.tipoCarga === 'string' && formData.tipoCarga.toUpperCase() === 'MATERIAL ASIGNADO') {
-        if (!formData.asignadoA) {
-          Alert.alert('Campo incompleto', 'Por favor, selecciona el miembro o personal al cual se le va a asignar el material.');
-          return;
-        }
-        const hasUnselectedItem = items.some((i) => !i.codigoMaterial || !i.codigoMaterial.trim());
-        if (hasUnselectedItem) {
-          Alert.alert('Material no seleccionado', 'Por favor, selecciona el material de Almacén a asignar utilizando el menú desplegable.');
-          return;
-        }
-      }
-      if (isDevolucion) {
-        const hasUnselectedItem = items.some((i) => !i.codigoMaterial || !i.codigoMaterial.trim());
-        if (hasUnselectedItem) {
-          Alert.alert('Material no seleccionado', 'Por favor, selecciona el material en tu poder a devolver utilizando el menú desplegable.');
-          return;
-        }
       }
     } else if (listaNombre !== 'Censo') {
       const { esValido, faltantes } = validarDatosVenta(formData);
       if (!esValido) {
-        Alert.alert(
-          'Casillas Obligatorias Requeridas',
-          'Para proseguir, debes completar las siguientes casillas obligatorias:\n\n• ' + faltantes.join('\n• ')
-        );
+        setFaltantesAviso(faltantes);
         return;
       }
     } else {
       if (formData.cuentaConInternet === 'Sí' && !formData.dispuestoCambiar) {
-        Alert.alert('Error', 'Debe indicar si está dispuesto a cambiar de operador.');
+        setFaltantesAviso(['Disposición a cambiar de operador (Requerido al contar con internet)']);
         return;
       }
     }
@@ -245,7 +246,10 @@ export default function NuevaTarjetaScreen() {
   };
 
   const isCensoMode = checkIsCensoFormat(listaNombre || lista_nombre);
-  const isMaterialesMode = LISTAS_ALMACEN.includes(listaNombre || (lista_nombre as string) || '');
+  const isMaterialesMode = checkIsMaterialesMode(
+    listaNombre || (lista_nombre as string) || '',
+    formData.tipoCarga || paramTipoCarga
+  );
 
   return (
     <>
@@ -291,6 +295,12 @@ export default function NuevaTarjetaScreen() {
           setMapaVisible(false);
         }}
         onCancelar={() => setMapaVisible(false)}
+      />
+
+      <ModalAvisoFaltantes
+        visible={faltantesAviso.length > 0}
+        faltantes={faltantesAviso}
+        onClose={() => setFaltantesAviso([])}
       />
     </>
   );

@@ -23,7 +23,7 @@ export function useFormularioReciboMaterial({
   handleChange,
   readOnly = false,
 }: UseFormularioReciboMaterialParams) {
-  const { empresaId, nombreCompleto } = useAuth();
+  const { empresaId, nombreCompleto, session } = useAuth();
   const [stockInfoMap, setStockInfoMap] = useState<Record<number, StockInfo>>({});
   const [modalPrecargadosIndex, setModalPrecargadosIndex] = useState<number | null>(null);
   const [subiendoImagen, setSubiendoImagen] = useState(false);
@@ -34,7 +34,7 @@ export function useFormularioReciboMaterial({
   const isDevolucionMode = isDevolucionCentralMode || isDevolucionAsignacionMode;
   const isAsignadoMode = movTipo === 'MATERIAL_ASIGNADO';
 
-  const { miembrosList, stockDisponibles, stockCustodiaMiembro } =
+  const { miembrosList, miembrosDetallados, stockDisponibles, stockCustodiaMiembro } =
     useFormularioStockDisponibles({
       empresaId,
       nombreCompleto,
@@ -61,12 +61,15 @@ export function useFormularioReciboMaterial({
           handleChange('entregadoPor', nombreCompleto);
         }
       }
+      if (isDevolucionAsignacionMode && session?.user?.id && formData.asignado_a !== session.user.id) {
+        handleChange('asignado_a', session.user.id);
+      }
     } else if (isAsignadoMode && handleChange) {
       if (formData.origen !== 'ALMACÉN PRINCIPAL') {
         handleChange('origen', 'ALMACÉN PRINCIPAL');
       }
     }
-  }, [isDevolucionMode, isDevolucionAsignacionMode, isAsignadoMode, nombreCompleto]);
+  }, [isDevolucionMode, isDevolucionAsignacionMode, isAsignadoMode, nombreCompleto, session]);
 
   const adjuntos: string[] = Array.isArray(formData.adjuntos) ? formData.adjuntos : [];
 
@@ -249,9 +252,11 @@ export function useFormularioReciboMaterial({
   const processUpload = async (uri: string) => {
     setSubiendoImagen(true);
     try {
-      const publicUrl = await uploadImageToSupabase(uri, 'facturas');
-      const cur = Array.isArray(formData.adjuntos) ? formData.adjuntos : [];
-      handleChange?.('adjuntos', [...cur, publicUrl]);
+      const publicUrl = await uploadImageToSupabase(uri, 'adjuntos', 'facturas');
+      if (publicUrl) {
+        const cur = Array.isArray(formData.adjuntos) ? formData.adjuntos : [];
+        handleChange?.('adjuntos', [...cur, publicUrl]);
+      }
     } catch (e: unknown) {
       Alert.alert('Error', (e as Error).message);
     } finally {
@@ -314,6 +319,7 @@ export function useFormularioReciboMaterial({
     setModalPrecargadosIndex,
     subiendoImagen,
     miembrosList,
+    miembrosDetallados,
     stockDisponibles,
     stockCustodiaMiembro,
     isDevolucionMode,

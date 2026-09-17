@@ -6,7 +6,13 @@ import {
   clasificarMovimientoAlmacen,
   obtenerImpactoMovimiento,
   obtenerMiembroResponsable,
+  normalizarTextoAlmacen,
 } from '../services/almacenService';
+
+export interface MiembroResumen {
+  id: string;
+  nombre: string;
+}
 
 interface UseFormularioStockParams {
   empresaId: string | null;
@@ -22,6 +28,7 @@ export function useFormularioStockDisponibles({
   asignadoA,
 }: UseFormularioStockParams) {
   const [miembrosList, setMiembrosList] = useState<string[]>([]);
+  const [miembrosDetallados, setMiembrosDetallados] = useState<MiembroResumen[]>([]);
   const [stockDisponibles, setStockDisponibles] = useState<StockItemDisponible[]>([]);
   const [stockCustodiaMiembro, setStockCustodiaMiembro] = useState<StockItemDisponible[]>([]);
 
@@ -30,13 +37,15 @@ export function useFormularioStockDisponibles({
 
     supabase
       .from('perfiles')
-      .select('nombre_completo')
+      .select('id, nombre_completo')
       .eq('empresa_id', empresaId)
       .then(({ data }) => {
         if (data) {
-          setMiembrosList(
-            (data as Array<{ nombre_completo: string }>).map((m) => m.nombre_completo).filter(Boolean)
-          );
+          const list = (data as Array<{ id: string; nombre_completo: string }>)
+            .filter((m) => Boolean(m.nombre_completo))
+            .map((m) => ({ id: m.id, nombre: m.nombre_completo }));
+          setMiembrosDetallados(list);
+          setMiembrosList(list.map((m) => m.nombre));
         }
       });
 
@@ -82,7 +91,7 @@ export function useFormularioStockDisponibles({
   useEffect(() => {
     if (!empresaId || !isDevolucionMode) return;
 
-    const targetMiembro = (asignadoA || nombreCompleto || '').trim().toUpperCase();
+    const targetNorm = normalizarTextoAlmacen(asignadoA || nombreCompleto || '');
     supabase
       .from('tarjetas')
       .select('datos_valores')
@@ -95,13 +104,13 @@ export function useFormularioStockDisponibles({
           const movTipo = clasificarMovimientoAlmacen(v.tipoCarga);
           if (movTipo !== 'MATERIAL_ASIGNADO' && movTipo !== 'DEVOLUCION_ASIGNACION') return;
 
-          const miembro = obtenerMiembroResponsable(movTipo, v);
+          const miembroNorm = normalizarTextoAlmacen(obtenerMiembroResponsable(movTipo, v));
           const matchMiembro =
-            targetMiembro === '' ||
-            miembro === targetMiembro ||
-            (targetMiembro &&
-              miembro &&
-              (miembro.includes(targetMiembro) || targetMiembro.includes(miembro)));
+            targetNorm === '' ||
+            miembroNorm === targetNorm ||
+            (targetNorm !== '' &&
+              miembroNorm !== '' &&
+              (miembroNorm.includes(targetNorm) || targetNorm.includes(miembroNorm)));
           if (!matchMiembro) return;
 
           const impacto = obtenerImpactoMovimiento(movTipo);
@@ -133,6 +142,7 @@ export function useFormularioStockDisponibles({
 
   return {
     miembrosList,
+    miembrosDetallados,
     stockDisponibles,
     stockCustodiaMiembro,
   };

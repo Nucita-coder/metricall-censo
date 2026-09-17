@@ -100,9 +100,9 @@ export function TablaStockGeneral({ empresaId, searchQuery = '' }: TablaStockGen
           if (movTipo === 'MATERIAL_ASIGNADO') {
             mapa[key].totalAsignado += cant;
           } else if (movTipo === 'DEVOLUCION_ASIGNACION') {
-            mapa[key].totalAsignado = Math.max(0, mapa[key].totalAsignado - cant);
+            mapa[key].totalAsignado -= cant;
           } else if (movTipo === 'DEVOLUCION_CENTRAL') {
-            mapa[key].totalRecibido = Math.max(0, mapa[key].totalRecibido - cant);
+            mapa[key].totalRecibido -= cant;
           } else if (movTipo === 'MATERIAL_RECIBIDO' || movTipo === 'RECUPERADOS') {
             mapa[key].totalRecibido += cant;
           }
@@ -111,7 +111,13 @@ export function TablaStockGeneral({ empresaId, searchQuery = '' }: TablaStockGen
         });
       });
 
-      setItems(Object.values(mapa));
+      const processedItems = Object.values(mapa).map((item) => ({
+        ...item,
+        totalRecibido: Math.max(0, item.totalRecibido),
+        totalAsignado: Math.max(0, item.totalAsignado),
+        stockDisponible: Math.max(0, item.stockDisponible),
+      }));
+      setItems(processedItems);
     } catch (err) {
       console.error('Error al obtener stock general:', err);
     } finally {

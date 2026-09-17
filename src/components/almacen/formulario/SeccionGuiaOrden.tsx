@@ -2,6 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { DatePickerInput, InputTexto, SelectDropdown } from '../../venta/CamposVenta';
 import { TarjetaDatosValores } from '../../../types/kanban';
+import {
+  clasificarMovimientoAlmacen,
+  normalizarTextoAlmacen,
+} from '../../../services/almacenService';
+import { MiembroResumen } from '../../../hooks/useFormularioStockDisponibles';
 
 interface SeccionGuiaOrdenProps {
   formData: TarjetaDatosValores;
@@ -12,6 +17,7 @@ interface SeccionGuiaOrdenProps {
   isDevolucionAsignacionMode: boolean;
   isAsignadoMode: boolean;
   miembrosList: string[];
+  miembrosDetallados?: MiembroResumen[];
   nombreCompleto?: string | null;
 }
 
@@ -24,6 +30,7 @@ export const SeccionGuiaOrden: React.FC<SeccionGuiaOrdenProps> = ({
   isDevolucionAsignacionMode,
   isAsignadoMode,
   miembrosList,
+  miembrosDetallados,
 }) => {
   return (
     <View style={styles.sectionCard}>
@@ -64,11 +71,18 @@ export const SeccionGuiaOrden: React.FC<SeccionGuiaOrdenProps> = ({
         }
         onSelect={(v) => {
           updateHeaderField('tipoCarga', v);
-          if (v.toUpperCase().includes('ASIGNA')) {
+          const mov = clasificarMovimientoAlmacen(v);
+          if (mov === 'MATERIAL_ASIGNADO' || mov === 'DEVOLUCION_CENTRAL') {
             updateHeaderField('origen', 'ALMACÉN PRINCIPAL');
-          } else if (v.toUpperCase().includes('RECIBIDO')) {
-            if (formData.origen === 'ALMACÉN PRINCIPAL') {
+          } else if (mov === 'DEVOLUCION_ASIGNACION') {
+            updateHeaderField('origen', 'EMPLEADO');
+          } else if (mov === 'MATERIAL_RECIBIDO') {
+            if (!formData.origen || formData.origen === 'ALMACÉN PRINCIPAL') {
               updateHeaderField('origen', 'PROVEEDOR');
+            }
+          } else if (mov === 'RECUPERADOS') {
+            if (!formData.origen || formData.origen === 'ALMACÉN PRINCIPAL') {
+              updateHeaderField('origen', 'CLIENTE');
             }
           }
         }}
@@ -105,6 +119,15 @@ export const SeccionGuiaOrden: React.FC<SeccionGuiaOrdenProps> = ({
           onSelect={(v) => {
             updateHeaderField('asignadoA', v);
             updateHeaderField('recibidoPor', v);
+            if (miembrosDetallados && miembrosDetallados.length > 0) {
+              const vNorm = normalizarTextoAlmacen(v);
+              const match = miembrosDetallados.find(
+                (m) => m.nombre === v || normalizarTextoAlmacen(m.nombre) === vNorm
+              );
+              if (match?.id) {
+                updateHeaderField('asignado_a', match.id);
+              }
+            }
           }}
           options={miembrosList.length > 0 ? miembrosList : ['No hay miembros registrados']}
           placeholder="Seleccionar miembro a asignar..."

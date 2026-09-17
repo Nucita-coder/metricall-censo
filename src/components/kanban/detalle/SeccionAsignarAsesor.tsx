@@ -84,7 +84,7 @@ export const SeccionAsignarAsesor = ({
   };
 
   return renderSection(
-    'Derivación a Asesor Comercial',
+    'Reasignación',
     <View>
       {/* ── CARD INFORMATIVA SI YA TIENE ASESOR ASIGNADO ───── */}
       {Boolean(asesorActualNombre) && !mostrarSelector && (

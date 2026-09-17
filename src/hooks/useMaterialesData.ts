@@ -11,9 +11,14 @@ import {
 import {
   clasificarMovimientoAlmacen,
   obtenerMiembroResponsable,
+  normalizarTextoAlmacen,
 } from '../services/almacenService';
 
-export function useMaterialesData(empresaId: string | null, nombreCompleto: string | null) {
+export function useMaterialesData(
+  empresaId: string | null,
+  nombreCompleto: string | null,
+  userId?: string | null
+) {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [custodiaList, setCustodiaList] = useState<CustodiaItem[]>([]);
@@ -88,7 +93,7 @@ export function useMaterialesData(empresaId: string | null, nombreCompleto: stri
       if (error) throw error;
       if (!data) return;
 
-      const targetName = nombreCompleto.trim().toUpperCase();
+      const normTarget = normalizarTextoAlmacen(nombreCompleto);
       const mapaCustodia: Record<string, CustodiaItem> = {};
       const mapaDevueltos: Record<string, CustodiaItem> = {};
       const movimientos: Array<MovimientoItem & { createdAt?: string }> = [];
@@ -99,12 +104,22 @@ export function useMaterialesData(empresaId: string | null, nombreCompleto: stri
         if (movTipo !== 'MATERIAL_ASIGNADO' && movTipo !== 'DEVOLUCION_ASIGNACION') return;
 
         const miembro = obtenerMiembroResponsable(movTipo, v);
-        const matchMiembro =
-          miembro === targetName ||
-          (targetName &&
-            miembro &&
-            (miembro.includes(targetName) || targetName.includes(miembro)));
-        if (!matchMiembro) return;
+        const normMiembro = normalizarTextoAlmacen(miembro);
+
+        const matchId = Boolean(
+          userId &&
+          v.asignado_a &&
+          String(v.asignado_a).trim().toLowerCase() === String(userId).trim().toLowerCase()
+        );
+        const matchName = Boolean(
+          normTarget &&
+          normMiembro &&
+          (normMiembro === normTarget ||
+            normMiembro.includes(normTarget) ||
+            normTarget.includes(normMiembro))
+        );
+
+        if (!matchId && !matchName) return;
 
         const isAsignacion = movTipo === 'MATERIAL_ASIGNADO';
         const isDevolucion = movTipo === 'DEVOLUCION_ASIGNACION';
@@ -229,7 +244,7 @@ export function useMaterialesData(empresaId: string | null, nombreCompleto: stri
       setIsLoading(false);
       setRefreshing(false);
     }
-  }, [empresaId, nombreCompleto]);
+  }, [empresaId, nombreCompleto, userId]);
 
   useEffect(() => {
     fetchMaterialesData();

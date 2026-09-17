@@ -247,13 +247,13 @@ export function useFormularioReciboMaterial({
     const upperCodigo = codigo ? codigo.toUpperCase() : '';
     updateItemField(index, 'codigoMaterial', upperCodigo);
 
-    // Si el código coincide con el catálogo, auto-rellenar nombre y modelo
+    // Si el código coincide con el catálogo, auto-rellenar SOLO el nombre
+    // El campo "Modelo Material" es libre — se respeta la lógica de checkStockForCodigo
     const insumoRef = INSUMOS_PRECARGADOS.find((i) => i.codigo.toUpperCase() === upperCodigo);
     if (insumoRef) {
       updateMultipleItemFields(index, {
         codigoMaterial: insumoRef.codigo,
         nombreMaterial: insumoRef.nombre,
-        modeloMaterial: insumoRef.modelo,
       });
     }
 

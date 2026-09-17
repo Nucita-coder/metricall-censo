@@ -168,7 +168,6 @@ export const FilaItemMaterial: React.FC<FilaItemMaterialProps> = ({
                 updateMultipleItemFields(idx, {
                   nombreMaterial: found.nombre,
                   codigoMaterial: found.codigo,
-                  modeloMaterial: found.modelo,
                 });
                 handleCodigoChangeForItem(idx, found.codigo);
               } else {

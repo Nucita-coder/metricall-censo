@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { uploadImageToSupabase } from '../services/uploadImage';
 import { Tarjeta, TarjetaDatosValores, TarjetaMaterialItem } from '../types/kanban';
-import { MaterialRowItem, StockInfo } from '../components/almacen/formulario/types';
+import { MaterialRowItem, StockInfo, INSUMOS_PRECARGADOS } from '../components/almacen/formulario/types';
 import { useFormularioStockDisponibles } from './useFormularioStockDisponibles';
 import {
   clasificarMovimientoAlmacen,
@@ -246,6 +246,17 @@ export function useFormularioReciboMaterial({
   const handleCodigoChangeForItem = (index: number, codigo: string) => {
     const upperCodigo = codigo ? codigo.toUpperCase() : '';
     updateItemField(index, 'codigoMaterial', upperCodigo);
+
+    // Si el código coincide con el catálogo, auto-rellenar nombre y modelo
+    const insumoRef = INSUMOS_PRECARGADOS.find((i) => i.codigo.toUpperCase() === upperCodigo);
+    if (insumoRef) {
+      updateMultipleItemFields(index, {
+        codigoMaterial: insumoRef.codigo,
+        nombreMaterial: insumoRef.nombre,
+        modeloMaterial: insumoRef.modelo,
+      });
+    }
+
     checkStockForCodigo(index, upperCodigo);
   };
 

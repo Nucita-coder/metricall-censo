@@ -98,11 +98,11 @@ export async function ejecutarPostCreacionTarjeta({
 
       if (tableroListas && tableroListas.length > 0) {
         const targetList = tableroListas.find((l) => {
-          if (!l.nombre) return false;
+          if (!l.nombre || l.id === currentLista.id) return false;
           return clasificarMovimientoAlmacen(l.nombre) === movTipo;
         });
 
-        if (targetList && targetList.id !== currentLista.id) {
+        if (targetList) {
           const { error: rpcError } = await supabase.rpc('mover_tarjeta_seguro', {
             p_tarjeta_id: nuevaTarjetaId,
             p_lista_destino_id: targetList.id,

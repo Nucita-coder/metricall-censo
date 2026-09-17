@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchTodasLasTarjetas } from '../services/tarjetasService';
 import { TarjetaMaterialItem } from '../types/kanban';
 import { MaterialStockItem } from '../components/kanban/modals/inventario/types';
+import { INSUMOS_PRECARGADOS } from '../components/almacen/formulario/types';
 import {
   clasificarMovimientoAlmacen,
   obtenerImpactoMovimiento,
@@ -28,9 +29,16 @@ export function useModalInventarioData(visible: boolean, empresaId: string | nul
         const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
 
         (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((subItem) => {
-          const nombre = (subItem.nombreMaterial || '').trim().toUpperCase();
           const cod = (subItem.codigoMaterial || '').trim().toUpperCase();
+          const storedNombre = (subItem.nombreMaterial || '').trim().toUpperCase();
+          // Si el código está en el catálogo oficial, usar el nombre y modelo del catálogo
+          const insumoRef = INSUMOS_PRECARGADOS.find((i) => i.codigo.toUpperCase() === cod);
+          const nombre = insumoRef ? insumoRef.nombre.toUpperCase() : (storedNombre || cod);
+          const modeloDisplay = insumoRef
+            ? insumoRef.modelo.toUpperCase()
+            : (subItem.modeloMaterial || 'GENERAL').toString().toUpperCase();
           const key = nombre || cod;
+
           if (!key) return;
           const cant = parseFloat((subItem.cantidadRecibida as string) || '0') || 0;
           const fechaIngreso = v.fechaRecibido || row.created_at || '';
@@ -39,7 +47,7 @@ export function useModalInventarioData(visible: boolean, empresaId: string | nul
             mapa[key] = {
               codigoMaterial: cod || key,
               nombreMaterial: nombre || cod,
-              modeloMaterial: (subItem.modeloMaterial || 'GENERAL').toUpperCase(),
+              modeloMaterial: modeloDisplay,
               stockTotal: 0,
               numRegistros: 0,
               ultimoIngreso: fechaIngreso,
@@ -66,10 +74,11 @@ export function useModalInventarioData(visible: boolean, empresaId: string | nul
             motivo: (v.motivoAsignacion as string) || (v.motivoDevolucion as string) || (v.motivo as string) || 'Sin motivo registrado',
             codigoMaterial: cod || key,
             nombreMaterial: nombre || cod,
-            modeloMaterial: (subItem.modeloMaterial || 'GENERAL').toUpperCase(),
+            modeloMaterial: modeloDisplay,
             serialMaterial: subItem.serialMaterial || undefined,
             cantidad: cant,
             adjuntos: Array.isArray(v.adjuntos) ? (v.adjuntos as string[]) : [],
+
           });
 
           const movTipo = clasificarMovimientoAlmacen(tipo);

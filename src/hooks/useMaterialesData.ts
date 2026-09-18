@@ -1,19 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
-import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { Tarjeta, TarjetaMaterialItem } from '../types/kanban';
+import { TarjetaDatosValores, TarjetaMaterialItem } from '../types/kanban';
 import {
   CustodiaItem,
   MovimientoItem,
-  ListaAlmacenRel,
 } from '../components/almacen/materiales/types';
 import {
   clasificarMovimientoAlmacen,
   obtenerMiembroResponsable,
   normalizarTextoAlmacen,
+  fetchTarjetasAlmacen,
 } from '../services/almacenService';
-import { fetchTodasLasTarjetas } from '../services/tarjetasService';
 
 export function useMaterialesData(
   empresaId: string | null,
@@ -26,58 +23,6 @@ export function useMaterialesData(
   const [devueltosList, setDevueltosList] = useState<CustodiaItem[]>([]);
   const [movimientosList, setMovimientosList] = useState<MovimientoItem[]>([]);
 
-  const handleDevolverMaterial = async (item: CustodiaItem) => {
-    if (!empresaId) return;
-    try {
-      const { data: listasData, error } = await supabase
-        .from('listas')
-        .select('id, nombre, tablero_id, tableros!inner(tipo, empresa_id)')
-        .eq('tableros.empresa_id', empresaId);
-
-      if (error) throw error;
-
-      const devList =
-        (listasData as unknown as ListaAlmacenRel[])?.find(
-          (l) =>
-            l.tableros?.tipo === 'almacen' &&
-            (l.nombre.toLowerCase().includes('devolución de asignación') ||
-              l.nombre.toLowerCase().includes('devolucion de asignacion') ||
-              l.nombre.toLowerCase().includes('devolucion'))
-        ) ||
-        (listasData as unknown as ListaAlmacenRel[])?.find((l) =>
-          l.nombre.toLowerCase().includes('devolucion')
-        );
-
-      if (!devList) {
-        Alert.alert(
-          'Almacén no encontrado',
-          'No se encontró la lista de Devolución de Asignación en los tableros de Almacén de tu empresa.'
-        );
-        return;
-      }
-
-      router.push({
-        pathname: '/tarjeta/nueva',
-        params: {
-          lista_id: devList.id,
-          lista_nombre: devList.nombre,
-          tipoCarga: 'DEVOLUCIÓN DE ASIGNACIÓN',
-          codigoMaterial: item.codigo,
-          nombreMaterial: item.nombre,
-          modeloMaterial: item.modelo,
-          serialMaterial: item.serial || '',
-          cantidad: String(item.cantidad),
-        },
-      });
-    } catch (e: unknown) {
-      console.error('Error al buscar lista de devolución:', e);
-      Alert.alert(
-        'Error',
-        (e as Error).message || 'No se pudo abrir el formulario de devolución.'
-      );
-    }
-  };
-
   const fetchMaterialesData = useCallback(async () => {
     if (!nombreCompleto) {
       setIsLoading(false);
@@ -85,12 +30,27 @@ export function useMaterialesData(
     }
 
     try {
-      const data = await fetchTodasLasTarjetas({
+      // 1. Cargar saldo de custodia directamente desde tabla indexada stock_custodia_personal
+      let qCustodia = supabase
+        .from('stock_custodia_personal')
+        .select('codigo_material, nombre_material, modelo_material, cantidad')
+        .gt('cantidad', 0);
+
+      if (userId) {
+        qCustodia = qCustodia.eq('usuario_id', userId);
+      } else if (nombreCompleto) {
+        qCustodia = qCustodia.ilike('usuario_nombre', `%${nombreCompleto}%`);
+      }
+
+      const { data: custodiaDb, error: errCustodia } = await qCustodia;
+
+      // 2. Cargar tarjetas EXCLUSIVAMENTE de listas del tablero de almacén
+      const data = await fetchTarjetasAlmacen(
         empresaId,
-        select: 'id, datos_valores, created_at, lista_id, listas(nombre)',
-        orderBy: 'created_at',
-        ascending: false,
-      });
+        'id, datos_valores, created_at, lista_id, listas(nombre)',
+        'created_at',
+        false
+      );
 
       if (!data) return;
 
@@ -236,9 +196,18 @@ export function useMaterialesData(
         return 0;
       };
 
-      movimientos.sort((a, b) => getTimestamp(b) - getTimestamp(a));
+      if (!errCustodia && custodiaDb) {
+        const mappedCustodia: CustodiaItem[] = custodiaDb.map((row) => ({
+          codigo: row.codigo_material,
+          nombre: row.nombre_material,
+          modelo: row.modelo_material || 'GENERAL',
+          cantidad: Number(row.cantidad) || 0,
+        }));
+        setCustodiaList(mappedCustodia);
+      } else {
+        setCustodiaList(Object.values(mapaCustodia).filter((i) => i.cantidad > 0));
+      }
 
-      setCustodiaList(Object.values(mapaCustodia).filter((i) => i.cantidad > 0));
       setDevueltosList(Object.values(mapaDevueltos).filter((i) => i.cantidad > 0));
       setMovimientosList(movimientos);
     } catch (e) {
@@ -265,6 +234,5 @@ export function useMaterialesData(
     custodiaList,
     devueltosList,
     movimientosList,
-    handleDevolverMaterial,
   };
 }

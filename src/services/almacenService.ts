@@ -1,4 +1,6 @@
+import { supabase } from '../lib/supabase';
 import { TarjetaDatosValores } from '../types/kanban';
+import { fetchTodasLasTarjetas } from './tarjetasService';
 
 export type TipoMovimientoAlmacen =
   | 'MATERIAL_RECIBIDO'
@@ -65,11 +67,24 @@ export function clasificarMovimientoAlmacen(
   }
 
   // 3. Material Asignado (Almacén local hacia Personal)
+  const esAsignacionVentas =
+    combinada.includes('asignado a') ||
+    combinada.includes('por asignar') ||
+    combinada.includes('asignar a') ||
+    combinada.includes('por_asignar');
+
   if (
     !esDevolucion &&
-    (combinada.includes('asignad') ||
-      combinada.includes('asigna') ||
-      combinada.includes('material asignado'))
+    !esAsignacionVentas &&
+    (combinada.includes('material asignad') ||
+      combinada.includes('materiales asignad') ||
+      combinada.includes('asignacion de material') ||
+      combinada.includes('asignacion material') ||
+      normTipo === 'material asignado' ||
+      normTipo === 'materiales asignados' ||
+      normLista === 'material asignado' ||
+      normLista === 'materiales asignados' ||
+      normLista === 'asignacion')
   ) {
     return 'MATERIAL_ASIGNADO';
   }
@@ -90,6 +105,58 @@ export function clasificarMovimientoAlmacen(
   }
 
   return 'OTRO';
+}
+
+/**
+ * Determina de forma estricta si una tarjeta corresponde a un movimiento
+ * de Almacén (evitando falsos positivos con tarjetas de Clientes, Ventas o Soporte).
+ */
+export function esTarjetaFormatoAlmacen(
+  datosValores?: Record<string, unknown> | null,
+  nombreLista?: string | null
+): boolean {
+  if (!datosValores && !nombreLista) return false;
+
+  // 1. Si contiene campos propios de contratos, ventas o soporte técnico jamás es formato almacén
+  if (
+    Boolean(datosValores?.tipoServicio) ||
+    Boolean(datosValores?.cedula) ||
+    Boolean(datosValores?.tipoFalla) ||
+    datosValores?.origenImportacion === 'COBRANZA-RECUPERO-CHURN'
+  ) {
+    return false;
+  }
+
+  // 2. Si tiene propiedades explícitas de una tarjeta de almacén
+  if (
+    datosValores?.codigoMaterial !== undefined ||
+    datosValores?.nroOrdenEntrega !== undefined
+  ) {
+    return true;
+  }
+
+  if (
+    datosValores?.tipoCarga &&
+    clasificarMovimientoAlmacen(String(datosValores.tipoCarga)) !== 'OTRO'
+  ) {
+    return true;
+  }
+
+  // 3. Evaluar lista kanban descartando listas operativas de ventas
+  if (nombreLista) {
+    const cleanLista = normalizarTextoAlmacen(nombreLista);
+    if (
+      cleanLista.includes('asignado a') ||
+      cleanLista.includes('por asignar') ||
+      cleanLista.includes('en proceso') ||
+      cleanLista.includes('por instalar')
+    ) {
+      return false;
+    }
+    return clasificarMovimientoAlmacen(undefined, nombreLista) !== 'OTRO';
+  }
+
+  return false;
 }
 
 /**
@@ -196,3 +263,72 @@ export function obtenerMiembroResponsable(
 
   return '';
 }
+
+export interface TarjetaAlmacenRow {
+  id: string;
+  datos_valores: TarjetaDatosValores | null;
+  created_at: string | null;
+  lista_id?: string;
+  listas?: { nombre?: string };
+}
+
+/**
+ * Consulta de alto rendimiento para Almacén:
+ * Obtiene únicamente las tarjetas de las listas del tablero de Almacén.
+ */
+export async function fetchTarjetasAlmacen(
+  empresaId: string | null,
+  select = 'id, datos_valores, created_at, lista_id, listas(nombre)',
+  orderBy = 'created_at',
+  ascending = false
+): Promise<TarjetaAlmacenRow[]> {
+  try {
+    let qListas = supabase
+      .from('listas')
+      .select('id, tableros!inner(tipo, empresa_id)')
+      .eq('tableros.tipo', 'almacen');
+
+    if (empresaId) {
+      qListas = qListas.eq('tableros.empresa_id', empresaId);
+    }
+
+    const { data: listasAlmacen, error: errListas } = await qListas;
+    if (errListas) {
+      console.warn('[fetchTarjetasAlmacen] Error obteniendo listas almacén:', errListas);
+    }
+
+    const listaIds = (listasAlmacen || []).map((l) => (l as { id: string }).id);
+
+    if (listaIds.length > 0) {
+      let qTarjetas = supabase
+        .from('tarjetas')
+        .select(select)
+        .in('lista_id', listaIds)
+        .order(orderBy, { ascending });
+
+      if (empresaId) {
+        qTarjetas = qTarjetas.eq('empresa_id', empresaId);
+      }
+
+      const { data: tarjetas, error: errTarjetas } = await qTarjetas;
+      if (errTarjetas) {
+        console.error('[fetchTarjetasAlmacen] Error obteniendo tarjetas:', errTarjetas);
+        return [];
+      }
+      return (tarjetas || []) as unknown as TarjetaAlmacenRow[];
+    }
+
+    // Fallback defensivo si aún no existen listas clasificadas como 'almacen'
+    const fallback = await fetchTodasLasTarjetas({
+      empresaId,
+      select,
+      orderBy,
+      ascending,
+    });
+    return (fallback || []) as unknown as TarjetaAlmacenRow[];
+  } catch (err) {
+    console.error('[fetchTarjetasAlmacen] Excepción:', err);
+    return [];
+  }
+}
+

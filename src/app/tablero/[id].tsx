@@ -32,9 +32,11 @@ import { ModalTablerosArchivados } from '../../components/kanban/modals/ModalTab
 import { ModalDetalleTarjeta } from '../../components/kanban/ModalDetalleTarjeta';
 import { ModalTrazabilidad } from '../../components/kanban/ModalTrazabilidad';
 import { ModalFiltrosTablero, FILTROS_DEFAULT } from '../../components/kanban/modals/ModalFiltrosTablero';
+import { ModalReubicarTarjeta } from '../../components/kanban/modals/ModalReubicarTarjeta';
 import { BoardHeader } from '../../components/kanban/BoardHeader';
 import { BoardActionButtons } from '../../components/kanban/BoardActionButtons';
 import { Lista, Tarjeta } from '../../types/kanban';
+import { useReubicarTarjeta } from '../../hooks/useReubicarTarjeta';
 
 export default function KanbanTableroScreen() {
   const { userRol, session, permisosEspeciales, empresaId, nombreCompleto, isDeveloper } = useAuth();
@@ -98,6 +100,7 @@ export default function KanbanTableroScreen() {
   const filtros       = useKanbanFiltros({ listas, userRol });
   const gestionLista  = useKanbanGestionLista({ setListas, fetchKanbanData, tablerosDisponibles });
   const fondoTablero  = useKanbanFondoTablero({ tableroInfo, setTableroInfo, id });
+  const reubicar      = useReubicarTarjeta(listas, setListas);
   const cardActions   = useKanbanCardActions({
     state:   { listas, tarjetaSeleccionada, tarjetaEnMovimiento },
     setters: { setListas, setTarjetaSeleccionada, setTarjetaEnMovimiento },
@@ -237,12 +240,18 @@ export default function KanbanTableroScreen() {
         onReasignarCaso={() => {}}
         onArchivarTarjeta={cardActions.handleArchiveCard}
         onEliminarTarjeta={cardActions.handleDeleteCardDirecta}
+        onReubicarTarjeta={canSeeAdmin ? reubicar.iniciarReubicacion : undefined}
+      />
+      <ModalReubicarTarjeta
+        tarjeta={reubicar.tarjetaParaReubicar}
+        listas={listas}
+        isProcessing={reubicar.isProcessing}
+        onCancelar={reubicar.cancelarReubicacion}
+        onConfirmar={reubicar.confirmarReubicacion}
       />
       <ModalTableroMenu
-        visible={modalMenuVisible}
-        onClose={() => setModalMenuVisible(false)}
-        tableroInfo={tableroInfo}
-        miembros={miembros}
+        visible={modalMenuVisible} onClose={() => setModalMenuVisible(false)}
+        tableroInfo={tableroInfo} miembros={miembros}
         toggleFavorite={tableroConfig.toggleFavorite}
         handleCloneTablero={() => Alert.alert('Info', 'Lógica de clonado')}
         saveDescripcion={tableroConfig.saveDescripcion}
@@ -255,72 +264,50 @@ export default function KanbanTableroScreen() {
         onVerHistorial={isCobranzaBoard ? () => { setModalMenuVisible(false); setModalHistorialVisible(true); } : undefined}
       />
       <ModalGestionLista
-        visible={gestionLista.modalListaVisible}
-        onClose={() => gestionLista.setModalListaVisible(false)}
+        visible={gestionLista.modalListaVisible} onClose={() => gestionLista.setModalListaVisible(false)}
         gestionMenuPos={gestionLista.gestionMenuPos}
         gestionMenuAction={gestionLista.gestionMenuAction} setGestionMenuAction={gestionLista.setGestionMenuAction}
         listaActiva={gestionLista.listaActivaGestion}
         editListaNombre={gestionLista.editListaNombre} setEditListaNombre={gestionLista.setEditListaNombre}
         editListaColor={gestionLista.editListaColor} setEditListaColor={gestionLista.setEditListaColor}
-        handleActualizarLista={gestionLista.handleActualizarLista}
-        handleArchivarLista={gestionLista.handleArchivarLista}
-        tablerosDisponibles={tablerosDisponibles}
-        selectedTableroId={gestionLista.selectedTableroId} setSelectedTableroId={gestionLista.setSelectedTableroId}
-        handleMoverListaTablero={gestionLista.handleMoverListaTablero}
+        handleActualizarLista={gestionLista.handleActualizarLista} handleArchivarLista={gestionLista.handleArchivarLista}
+        tablerosDisponibles={tablerosDisponibles} selectedTableroId={gestionLista.selectedTableroId}
+        setSelectedTableroId={gestionLista.setSelectedTableroId} handleMoverListaTablero={gestionLista.handleMoverListaTablero}
       />
       <ModalArchivadas
-        visible={tableroConfig.modalArchivadasVisible}
-        onClose={() => tableroConfig.setModalArchivadasVisible(false)}
-        tarjetasArchivadas={tableroConfig.tarjetasArchivadas}
-        listasArchivadas={tableroConfig.listasArchivadas}
-        restoreCard={tableroConfig.handleRestoreCard}
-        restoreList={tableroConfig.handleRestoreList}
+        visible={tableroConfig.modalArchivadasVisible} onClose={() => tableroConfig.setModalArchivadasVisible(false)}
+        tarjetasArchivadas={tableroConfig.tarjetasArchivadas} listasArchivadas={tableroConfig.listasArchivadas}
+        restoreCard={tableroConfig.handleRestoreCard} restoreList={tableroConfig.handleRestoreList}
       />
       <BoardActionButtons
-        tarjetaEnMovimiento={tarjetaEnMovimiento}
-        listas={listas}
-        userRol={userRol}
+        tarjetaEnMovimiento={tarjetaEnMovimiento} listas={listas} userRol={userRol}
         onEdit={() => { setStartInEditMode(true); setTarjetaSeleccionada(tarjetaEnMovimiento); setTarjetaEnMovimiento(null); }}
-        onDuplicar={cardActions.handleDuplicarTarjeta}
-        onDelete={cardActions.handleDeleteCard}
+        onDuplicar={cardActions.handleDuplicarTarjeta} onDelete={cardActions.handleDeleteCard}
       />
       <ModalDetalleTarjeta
         tarjetaSeleccionada={tarjetaSeleccionada}
         setTarjetaSeleccionada={(t) => { setTarjetaSeleccionada(t); if (!t) setStartInEditMode(false); }}
-        startInEditMode={startInEditMode}
-        listas={listas}
-        miembros={miembros}
-        onUpdateTarjeta={cardActions.onUpdateTarjetaSeleccionada}
-        autoMoverTarjeta={cardActions.autoMoverTarjeta}
-        nuevoComentario={nuevoComentario}
-        setNuevoComentario={setNuevoComentario}
+        startInEditMode={startInEditMode} listas={listas} miembros={miembros}
+        onUpdateTarjeta={cardActions.onUpdateTarjetaSeleccionada} autoMoverTarjeta={cardActions.autoMoverTarjeta}
+        nuevoComentario={nuevoComentario} setNuevoComentario={setNuevoComentario}
         handleEnviarComentario={handleEnviarComentario}
-        onOpenTrazabilidad={(t) => setTarjetaTrazabilidad(t)}
-        isResaltada={!!activeHighlightTarjeta}
+        onOpenTrazabilidad={(t) => setTarjetaTrazabilidad(t)} isResaltada={!!activeHighlightTarjeta}
       />
       <ModalAuditoria visible={!!tarjetaAuditoria} tarjetaAuditoria={tarjetaAuditoria} onClose={() => setTarjetaAuditoria(null)} />
       <ModalTrazabilidad visible={!!tarjetaTrazabilidad} tarjeta={tarjetaTrazabilidad} onClose={() => setTarjetaTrazabilidad(null)} />
       <ModalFiltrosTablero
-        visible={filtros.modalFiltrosVisible}
-        onClose={() => filtros.setModalFiltrosVisible(false)}
-        filtros={filtros.filtrosTablero}
-        setFiltros={filtros.setFiltrosTablero}
+        visible={filtros.modalFiltrosVisible} onClose={() => filtros.setModalFiltrosVisible(false)}
+        filtros={filtros.filtrosTablero} setFiltros={filtros.setFiltrosTablero}
         onLimpiar={() => filtros.setFiltrosTablero(FILTROS_DEFAULT)}
-        isCobranzaBoard={isCobranzaBoard}
-        listas={listas}
+        isCobranzaBoard={isCobranzaBoard} listas={listas}
       />
       <ModalCambiarTablero
-        visible={showBoardMenu}
-        onClose={() => setShowBoardMenu(false)}
-        tablerosDisponibles={tablerosDisponibles}
-        tableroActualId={id}
-        tableroInfo={tableroInfo}
+        visible={showBoardMenu} onClose={() => setShowBoardMenu(false)}
+        tablerosDisponibles={tablerosDisponibles} tableroActualId={id} tableroInfo={tableroInfo}
       />
       <ModalPantallaDividida
-        visible={showSplitMenu}
-        onClose={() => setShowSplitMenu(false)}
-        tablerosDisponibles={tablerosDisponibles}
-        tableroActualId={id}
+        visible={showSplitMenu} onClose={() => setShowSplitMenu(false)}
+        tablerosDisponibles={tablerosDisponibles} tableroActualId={id}
         onSeleccionarSecundario={(secId) => setSecondaryBoardId(secId)}
       />
       <ModalInventarioAlmacen visible={modalInventarioVisible} onClose={() => setModalInventarioVisible(false)} />

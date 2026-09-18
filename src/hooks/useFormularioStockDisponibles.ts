@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Tarjeta, TarjetaMaterialItem } from '../types/kanban';
 import { StockItemDisponible } from '../components/almacen/formulario/types';
-import { fetchTodasLasTarjetas } from '../services/tarjetasService';
 import {
   clasificarMovimientoAlmacen,
   obtenerImpactoMovimiento,
   obtenerMiembroResponsable,
   normalizarTextoAlmacen,
+  fetchTarjetasAlmacen,
 } from '../services/almacenService';
 
 export interface MiembroResumen {
@@ -62,10 +62,10 @@ export function useFormularioStockDisponibles({
 
     const cargarStockAlmacen = async () => {
       try {
-        const data = await fetchTodasLasTarjetas({
+        const data = await fetchTarjetasAlmacen(
           empresaId,
-          select: 'id, datos_valores, created_at, lista_id, listas(nombre)',
-        });
+          'id, datos_valores, created_at, lista_id, listas(nombre)'
+        );
         if (!data || !isMounted) return;
 
         const mapa: Record<string, StockItemDisponible> = {};
@@ -130,10 +130,41 @@ export function useFormularioStockDisponibles({
     const cargarCustodia = async () => {
       try {
         const targetNorm = normalizarTextoAlmacen(asignadoA || nombreCompleto || '');
-        const data = await fetchTodasLasTarjetas({
+
+        // 1. Intentar lectura directa e instantánea desde tabla indexada stock_custodia_personal
+        let q = supabase
+          .from('stock_custodia_personal')
+          .select('codigo_material, nombre_material, modelo_material, cantidad')
+          .gt('cantidad', 0);
+
+        const targetUser = miembrosDetallados.find(
+          (m) => normalizarTextoAlmacen(m.nombre) === targetNorm
+        );
+
+        if (targetUser?.id) {
+          q = q.eq('usuario_id', targetUser.id);
+        } else if (targetNorm) {
+          q = q.ilike('usuario_nombre', `%${asignadoA || nombreCompleto}%`);
+        }
+
+        const { data: dbData, error: dbError } = await q;
+
+        if (!dbError && dbData && isMounted) {
+          const items: StockItemDisponible[] = dbData.map((row) => ({
+            codigo: row.codigo_material,
+            nombre: row.nombre_material,
+            modelo: row.modelo_material || 'GENERAL',
+            stock: Number(row.cantidad) || 0,
+          }));
+          setStockCustodiaMiembro(items);
+          return;
+        }
+
+        // 2. Fallback defensivo a tarjetas si la tabla no está creada aún
+        const data = await fetchTarjetasAlmacen(
           empresaId,
-          select: 'id, datos_valores, created_at, lista_id, listas(nombre)',
-        });
+          'id, datos_valores, created_at, lista_id, listas(nombre)'
+        );
         if (!data || !isMounted) return;
 
         const mapa: Record<string, StockItemDisponible> = {};
@@ -195,7 +226,7 @@ export function useFormularioStockDisponibles({
     return () => {
       isMounted = false;
     };
-  }, [empresaId, isDevolucionMode, asignadoA, nombreCompleto]);
+  }, [empresaId, isDevolucionMode, asignadoA, nombreCompleto, miembrosDetallados]);
 
   return {
     miembrosList,

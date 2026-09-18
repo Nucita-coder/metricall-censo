@@ -2,13 +2,13 @@ import { Calendar, History, Package, User } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../../../lib/supabase';
-import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
 import { TarjetaMaterialItem } from '../../../types/kanban';
 import { ModalHistorialAsignaciones } from './ModalHistorialAsignaciones';
 import {
   clasificarMovimientoAlmacen,
   obtenerMiembroResponsable,
   normalizarTextoAlmacen,
+  fetchTarjetasAlmacen,
 } from '../../../services/almacenService';
 
 export interface AssignedStockRecord {
@@ -33,16 +33,16 @@ export const TablaStockAsignado = ({ empresaId, searchQuery = '' }: TablaStockAs
   const [selectedMiembroHistorial, setSelectedMiembroHistorial] = useState<string | null>(null);
 
   useEffect(() => {
-    if (empresaId) fetchAssignedStock();
+    fetchAssignedStock();
   }, [empresaId]);
 
   const fetchAssignedStock = async () => {
     setIsLoading(true);
     try {
-      const data = await fetchTodasLasTarjetas({
+      const data = await fetchTarjetasAlmacen(
         empresaId,
-        select: 'id, datos_valores, created_at',
-      });
+        'id, datos_valores, created_at, lista_id, listas(nombre)'
+      );
 
       if (!data) return;
 

@@ -39,7 +39,6 @@ export default function MaterialesScreen() {
     custodiaList,
     devueltosList,
     movimientosList,
-    handleDevolverMaterial,
   } = useMaterialesData(empresaId, nombreCompleto, session?.user?.id);
 
   return (
@@ -109,7 +108,6 @@ export default function MaterialesScreen() {
             {activeTab === 'custodia' && (
               <TabCustodiaActiva
                 custodiaList={custodiaList}
-                onDevolverMaterial={handleDevolverMaterial}
               />
             )}
             {activeTab === 'devoluciones' && (

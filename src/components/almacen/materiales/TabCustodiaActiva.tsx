@@ -1,16 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Package, RotateCcw } from 'lucide-react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Package } from 'lucide-react-native';
 import { CustodiaItem } from './types';
 
 interface TabCustodiaActivaProps {
   custodiaList: CustodiaItem[];
-  onDevolverMaterial: (item: CustodiaItem) => void;
 }
 
 export const TabCustodiaActiva: React.FC<TabCustodiaActivaProps> = ({
   custodiaList,
-  onDevolverMaterial,
 }) => {
   if (custodiaList.length === 0) {
     return (
@@ -37,14 +35,6 @@ export const TabCustodiaActiva: React.FC<TabCustodiaActivaProps> = ({
             <View style={styles.qtyBadgeActive}>
               <Text style={styles.qtyTextActive}>{item.cantidad} und.</Text>
             </View>
-            <TouchableOpacity
-              style={styles.btnDevolverMini}
-              activeOpacity={0.7}
-              onPress={() => onDevolverMaterial(item)}
-            >
-              <RotateCcw size={12} color="#8C9BAB" />
-              <Text style={styles.btnDevolverMiniText}>Devolver</Text>
-            </TouchableOpacity>
           </View>
         </View>
       ))}
@@ -110,21 +100,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 13,
-  },
-  btnDevolverMini: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#1D2125',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#384148',
-  },
-  btnDevolverMiniText: {
-    color: '#B6C2CF',
-    fontSize: 11,
-    fontWeight: 'bold',
   },
 });

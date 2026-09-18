@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { fetchTodasLasTarjetas } from '../services/tarjetasService';
 import { TarjetaMaterialItem } from '../types/kanban';
 import { MaterialStockItem } from '../components/kanban/modals/inventario/types';
 import { INSUMOS_PRECARGADOS } from '../components/almacen/formulario/types';
 import {
   clasificarMovimientoAlmacen,
   obtenerImpactoMovimiento,
+  fetchTarjetasAlmacen,
 } from '../services/almacenService';
 
 export function useModalInventarioData(visible: boolean, empresaId: string | null) {
@@ -13,13 +13,12 @@ export function useModalInventarioData(visible: boolean, empresaId: string | nul
   const [materiales, setMateriales] = useState<MaterialStockItem[]>([]);
 
   const fetchStock = useCallback(async () => {
-    if (!empresaId) return;
     setIsLoading(true);
     try {
-      const data = await fetchTodasLasTarjetas({
+      const data = await fetchTarjetasAlmacen(
         empresaId,
-        select: 'id, datos_valores, created_at',
-      });
+        'id, datos_valores, created_at, lista_id, listas(nombre)'
+      );
       if (!data) return;
 
       const mapa: Record<string, MaterialStockItem> = {};
@@ -92,10 +91,10 @@ export function useModalInventarioData(visible: boolean, empresaId: string | nul
   }, [empresaId]);
 
   useEffect(() => {
-    if (visible && empresaId) {
+    if (visible) {
       fetchStock();
     }
-  }, [visible, empresaId, fetchStock]);
+  }, [visible, fetchStock]);
 
   const nombresMaterialesUnicos = useMemo(() => {
     const set = new Set<string>();

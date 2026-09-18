@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { History, Package, Calendar, User, FileText } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
-import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
+import { fetchTarjetasAlmacen } from '../../../services/almacenService';
 import { TarjetaMaterialItem } from '../../../types/kanban';
 
 export interface LoadHistoryRecord {
@@ -32,18 +32,18 @@ export function TablaHistorialCargas({ empresaId, searchQuery }: TablaHistorialC
   const [records, setRecords] = useState<LoadHistoryRecord[]>([]);
 
   useEffect(() => {
-    if (empresaId) fetchLoadHistory();
+    fetchLoadHistory();
   }, [empresaId]);
 
   const fetchLoadHistory = async () => {
     setIsLoading(true);
     try {
-      const data = await fetchTodasLasTarjetas({
+      const data = await fetchTarjetasAlmacen(
         empresaId,
-        select: 'id, datos_valores, created_at',
-        orderBy: 'created_at',
-        ascending: false,
-      });
+        'id, datos_valores, created_at, lista_id, listas(nombre)',
+        'created_at',
+        false
+      );
 
       if (!data) return;
 

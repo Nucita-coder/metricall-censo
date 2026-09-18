@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { Package } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
-import { fetchTodasLasTarjetas } from '../../../services/tarjetasService';
+import { fetchTarjetasAlmacen, clasificarMovimientoAlmacen } from '../../../services/almacenService';
 import { TarjetaMaterialItem } from '../../../types/kanban';
-import { clasificarMovimientoAlmacen } from '../../../services/almacenService';
 
 export interface SubItemLoteGeneral {
   codigoMaterial: string;
@@ -33,16 +32,16 @@ export function TablaStockGeneral({ empresaId, searchQuery = '' }: TablaStockGen
   const [items, setItems] = useState<GeneralStockItem[]>([]);
 
   useEffect(() => {
-    if (empresaId) fetchGeneralStock();
+    fetchGeneralStock();
   }, [empresaId]);
 
   const fetchGeneralStock = async () => {
     setIsLoading(true);
     try {
-      const data = await fetchTodasLasTarjetas({
+      const data = await fetchTarjetasAlmacen(
         empresaId,
-        select: 'datos_valores',
-      });
+        'id, datos_valores, created_at, lista_id, listas(nombre)'
+      );
 
       if (!data) return;
 

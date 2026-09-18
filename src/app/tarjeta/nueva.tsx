@@ -23,10 +23,13 @@ const LISTAS_ALMACEN = ['Carga de Materiales', 'Material Recibido', 'Material As
 
 const checkIsMaterialesMode = (nombre?: string, tipo?: string): boolean => {
   if (!nombre && !tipo) return false;
+  const n = (nombre || '').toLowerCase().trim();
+  if (n.includes('asignado a') || n.includes('por asignar') || n.includes('en proceso') || n.includes('por instalar')) {
+    return false;
+  }
   return (
     LISTAS_ALMACEN.includes(nombre || '') ||
-    clasificarMovimientoAlmacen(nombre || '') !== 'OTRO' ||
-    clasificarMovimientoAlmacen(tipo || '') !== 'OTRO'
+    clasificarMovimientoAlmacen(tipo, nombre) !== 'OTRO'
   );
 };
 

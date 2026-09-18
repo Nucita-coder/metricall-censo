@@ -1,4 +1,4 @@
-import { Archive, Calendar, Columns, Copy, Info, Tag, Trash2, UserPlus } from 'lucide-react-native';
+import { Archive, ArrowLeftRight, Calendar, Columns, Copy, Info, Tag, Trash2, UserPlus } from 'lucide-react-native';
 import { Alert, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Lista, Tarjeta } from '../../../types/kanban';
@@ -15,8 +15,10 @@ interface ModalContextMenuProps {
   onReasignarCaso: (tarjeta: Tarjeta) => void;
   onArchivarTarjeta: (tarjeta: Tarjeta) => void;
   onEliminarTarjeta?: (tarjeta: Tarjeta) => void;
+  onReubicarTarjeta?: (tarjeta: Tarjeta) => void;
   tableroId: string;
 }
+
 
 export const ModalContextMenu = ({
   contextMenu,
@@ -29,11 +31,14 @@ export const ModalContextMenu = ({
   onReasignarCaso,
   onArchivarTarjeta,
   onEliminarTarjeta,
+  onReubicarTarjeta,
   tableroId
 }: ModalContextMenuProps) => {
   const { isDeveloper } = useAuth();
   const rol = (userRol || '').toLowerCase();
   const canDelete = isDeveloper || ['lider', 'admin', 'administrador', 'developer', 'desarrollador'].includes(rol);
+  const canReubicar = isDeveloper || ['admin', 'administrador', 'lider', 'developer', 'desarrollador'].includes(rol);
+
 
   if (!contextMenu.visible || !contextMenu.tarjeta) return null;
 
@@ -104,6 +109,18 @@ export const ModalContextMenu = ({
               </TouchableOpacity>
             )}
           </>
+        )}
+
+        <View style={{ height: 1, backgroundColor: '#384148', marginVertical: 4 }} />
+
+        {canReubicar && onReubicarTarjeta && (
+          <TouchableOpacity style={[styles.menuListItem, { paddingVertical: 8 }]} onPress={() => {
+            onClose();
+            onReubicarTarjeta(contextMenu.tarjeta!);
+          }}>
+            <ArrowLeftRight size={16} color="#A0B2C6" style={{ marginLeft: 16 }} />
+            <Text style={[styles.menuListText, { fontSize: 14, color: '#A0B2C6', fontWeight: 'bold' }]}>Reubicar tarjeta</Text>
+          </TouchableOpacity>
         )}
 
         <View style={{ height: 1, backgroundColor: '#384148', marginVertical: 4 }} />

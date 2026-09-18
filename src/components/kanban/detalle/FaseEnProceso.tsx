@@ -8,6 +8,7 @@ import { renderSection } from './SeccionRegistro';
 import { Tarjeta, TarjetaMaterialItem } from '../../../types/kanban';
 import { SeccionMaterialesEnProceso } from './SeccionMaterialesEnProceso';
 import { SeccionGeolocalizacionEnProceso } from './SeccionGeolocalizacionEnProceso';
+import { obtenerStockCustodiaTecnico } from '../../../services/custodiaService';
 
 export const FaseEnProceso = ({
   tarjeta,
@@ -20,7 +21,7 @@ export const FaseEnProceso = ({
   onRemoveTarjetaLocal,
   setTarjetaSeleccionada,
 }: FaseProps) => {
-  const { nombreCompleto, empresaId } = useAuth();
+  const { nombreCompleto, empresaId, session } = useAuth();
   const data = tarjeta.datos_valores || {};
 
   const matchLista = listasGlobales.find(l => l.id === tarjeta.lista_id);
@@ -48,6 +49,8 @@ export const FaseEnProceso = ({
   const [geoFotos, setGeoFotos] = useState<string[]>(data.geofotos || []);
 
   const [materiales, setMateriales] = useState<Record<string, string>>((data.materiales as Record<string, string>) || {
+    ontConWifi: '',
+    ontSinWifi: '',
     tensorPlastico: '',
     tensorHierro: '',
     grapas: '',
@@ -67,74 +70,31 @@ export const FaseEnProceso = ({
   const [stockCustodia, setStockCustodia] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    const targetTecnico = (data.tecnicoAsignado || data.asignadoA || nombreCompleto || '').toString().trim().toUpperCase();
-    const targetEmpresa = tarjeta.empresa_id || empresaId;
-    if (!targetEmpresa || !targetTecnico) return;
+    let isMounted = true;
+    // Usar siempre el UUID del usuario autenticado actualmente.
+    // tarjeta.asignado_a puede ser un texto (nombre), no un UUID,
+    // lo que causaba que la query a stock_custodia_personal retornara vacío.
+    const targetUserId = session?.user?.id || null;
+    const targetTecnico = nombreCompleto || null;
 
-    supabase.from('tarjetas').select('id, datos_valores').eq('empresa_id', targetEmpresa).then(({ data: rows }) => {
-      if (!rows) return;
-      const mapaStock: Record<string, number> = {};
-
-      (rows as unknown as Tarjeta[]).forEach((row) => {
-        const v = row.datos_valores || {};
-        const tipo = (v.tipoCarga || '').toString().trim().toUpperCase();
-        const miembro = (v.asignadoA || (v.recibidoPor as string) || '').toString().trim().toUpperCase();
-        const isMatch = miembro === targetTecnico || (miembro && targetTecnico && (miembro.includes(targetTecnico) || targetTecnico.includes(miembro)));
-
-        const isDevolucion = tipo.includes('DEVOLUCION') || tipo.includes('DEVOLUCIÓN');
-        const isAsignado = !isDevolucion && (tipo.includes('ASIGNA') || Boolean(v.asignadoA && v.asignadoA.toString().trim()));
-
-        if (isMatch && (isAsignado || isDevolucion)) {
-          const itemsList = Array.isArray(v.items) && v.items.length > 0 ? v.items : [v];
-          (itemsList as Array<TarjetaMaterialItem & Record<string, unknown>>).forEach((item) => {
-            const cod = (item.codigoMaterial || '').trim().toUpperCase();
-            const nom = (item.nombreMaterial || '').trim().toUpperCase();
-            const cant = parseFloat(item.cantidadRecibida as string || '0') || 0;
-            const key = cod || nom;
-            if (key) {
-              if (!mapaStock[key]) mapaStock[key] = 0;
-              if (isAsignado) mapaStock[key] += cant;
-              else if (isDevolucion) mapaStock[key] -= cant;
-            }
-          });
-        }
-
-        const tecCard = (v.tecnicoAsignado || v.asignadoA || v.creadorNombre || '').toString().trim().toUpperCase();
-        const matchTec = tecCard === targetTecnico || (tecCard && targetTecnico && (tecCard.includes(targetTecnico) || targetTecnico.includes(miembro)));
-        if (matchTec && row.id !== tarjeta.id && v.materiales && typeof v.materiales === 'object') {
-          const fieldMap: Record<string, string> = {
-            tensorPlastico: 'MAT-TENSOR-PLASTICO',
-            tensorHierro: 'MAT-TENSOR-HIERRO',
-            grapas: 'MAT-GRAPAS',
-            tirrap: 'MAT-TIRRAP',
-            pachCordApc: 'MAT-PACH-APC',
-            pachCordUpc: 'MAT-PACH-UPC',
-            pachCordApcUpc: 'MAT-PACH-APC-UPC',
-            cajaTerminalCon: 'MAT-CAJA-TERM-CON',
-            cajaTerminalSin: 'MAT-CAJA-TERM-SIN',
-            conectorAcople: 'MAT-CONECTOR-ACOPLE-HH',
-            conectorMecanicoApc: 'MAT-CONECTOR-MEC-APC',
-            conectorMecanicoUpc: 'MAT-CONECTOR-MEC-UPC',
-            precinto: 'MAT-PRECINTO',
-            cablePreconectorizado: 'MAT-CABLE-PRECONECTORIZADO',
-            cableDrop: 'MAT-CABLE-DROP'
-          };
-
-          if (v.materiales && typeof v.materiales === 'object') {
-            Object.keys(v.materiales).forEach((fk) => {
-              const cantUsed = parseFloat(String(v.materiales?.[fk] || '0')) || 0;
-              if (cantUsed > 0 && fieldMap[fk]) {
-                const k = fieldMap[fk];
-                if (mapaStock[k] !== undefined) mapaStock[k] -= cantUsed;
-              }
-            });
-          }
-        }
-      });
-
-      setStockCustodia(mapaStock);
+    obtenerStockCustodiaTecnico({
+      userId: targetUserId,
+      nombreTecnico: targetTecnico,
+      empresaId: tarjeta.empresa_id || empresaId,
+    }).then((mapa) => {
+      if (isMounted) setStockCustodia(mapa);
     });
-  }, [tarjeta.id, tarjeta.empresa_id, empresaId, nombreCompleto, data.tecnicoAsignado, data.asignadoA]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    tarjeta.id,
+    tarjeta.empresa_id,
+    empresaId,
+    nombreCompleto,
+    session?.user?.id,
+  ]);
 
   return renderSection("Informe de Atención Técnica", (
     <View>
@@ -171,16 +131,19 @@ export const FaseEnProceso = ({
 
         <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8, textTransform: 'uppercase' }}>TIPO DE INSTALACIÓN / ATENCIÓN</Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          {['fibra', 'inalambrico'].map(tipo => (
-            <TouchableOpacity
-              key={tipo}
-              style={{ flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: tipoInstalacion === tipo ? '#0C66E4' : '#384148', backgroundColor: tipoInstalacion === tipo ? '#0C66E4' : '#1D2125', alignItems: 'center' }}
-              onPress={() => !readOnly && !isSaving && setTipoInstalacion(tipo)}
-              disabled={readOnly || isSaving}
-            >
-              <Text style={{ fontWeight: 'bold', color: tipoInstalacion === tipo ? '#FFF' : '#B6C2CF', textTransform: 'capitalize' }}>{tipo}</Text>
-            </TouchableOpacity>
-          ))}
+          {['tradicional', 'preconectorizado'].map(tipo => {
+            const isSelected = tipoInstalacion.toLowerCase() === tipo;
+            return (
+              <TouchableOpacity
+                key={tipo}
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: isSelected ? '#0C66E4' : '#384148', backgroundColor: isSelected ? '#0C66E4' : '#1D2125', alignItems: 'center' }}
+                onPress={() => !readOnly && !isSaving && setTipoInstalacion(tipo)}
+                disabled={readOnly || isSaving}
+              >
+                <Text style={{ fontWeight: 'bold', color: isSelected ? '#FFF' : '#B6C2CF', textTransform: 'capitalize' }}>{tipo}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, marginTop: 12 }}>

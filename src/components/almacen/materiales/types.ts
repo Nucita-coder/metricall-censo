@@ -24,11 +24,4 @@ export interface MovimientoItem {
   totalUnidades: number;
 }
 
-export interface ListaAlmacenRel {
-  id: string;
-  nombre: string;
-  tablero_id: string;
-  tableros?: { tipo?: string; empresa_id?: string } | null;
-}
-
 export type ActiveMaterialTab = 'custodia' | 'devoluciones' | 'historial';

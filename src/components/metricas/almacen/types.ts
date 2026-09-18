@@ -48,6 +48,8 @@ export interface ModuloAlmacenProps {
 
 // Mapa de correspondencia de campos de formulario de instalación a SKUs
 export const MAPA_CAMPOS_INSTALACION: Record<string, { cod: string; nombre: string }> = {
+  ontConWifi: { cod: 'MAT-ONT-CON-WIFI', nombre: 'ONT CON WIFI' },
+  ontSinWifi: { cod: 'MAT-ONT-SIN-WIFI', nombre: 'ONT SIN WIFI' },
   tensorPlastico: { cod: 'MAT-TENSOR-PLASTICO', nombre: 'TENSOR PLÁSTICO' },
   tensorHierro: { cod: 'MAT-TENSOR-HIERRO', nombre: 'TENSOR HIERRO' },
   grapas: { cod: 'MAT-GRAPAS', nombre: 'GRAPAS' },

@@ -1,6 +1,7 @@
 import {
   enviarMenuPrincipal,
   enviarFormularioPago,
+  enviarSelectorFechaPago,
   enviarFormularioFalla,
   enviarMenuFallas,
   enviarInstruccionesSuscripcion,
@@ -8,7 +9,6 @@ import {
   enviarConfirmacionPago,
   enviarConfirmacionFalla,
   enviarMensajeTexto,
-  enviarResumenParaConfirmacion,
   enviarSolicitudComprobante,
   obtenerEstadoSesionRest,
   actualizarEstadoSesionRest,
@@ -19,7 +19,7 @@ import {
   verificarContactoBloqueado,
   registrarContactoWhatsApp
 } from '../services/whatsapp.js';
-import { extraerDatosSuscripcion, extraerDatosPago, extraerDatosFalla } from '../services/gemini.js';
+import { extraerDatosSuscripcion, extraerDatosFalla } from '../services/gemini.js';
 import { insertarLog } from '../services/logger.js';
 
 // Etiquetas legibles para tipos de falla
@@ -31,10 +31,6 @@ const FALLA_LABELS = {
   falla_sin_datos:     '📵 No recibe datos'
 };
 
-// Palabras que el usuario puede escribir para confirmar
-const PALABRAS_SI = ['si', 'sí', 'si!', 'sí!', 'yes', 'correcto', 'ok', 'dale', 'confirmar', 'confirmo', '1'];
-// Palabras que el usuario puede escribir para rechazar
-const PALABRAS_NO = ['no', 'no!', 'nope', 'cancelar', 'reintentar', 'mal', 'incorrecto', 'cambiar', '2'];
 // Palabras clave para salir o cancelar cualquier flujo activo
 const PALABRAS_CANCELAR = ['cancelar', 'salir', 'menu', 'menú', 'inicio', '0'];
 
@@ -114,19 +110,12 @@ export default async function handler(req, res) {
 
         await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Botón: ${buttonTitle}`, contenido: { buttonId } });
 
-        // ── Validar clics en botones de confirmación obsoletos ────────────────
-        if ((buttonId === 'btn_confirmar_pago' || buttonId === 'btn_rechazar_pago') && estadoActual !== 'CONFIRMANDO_PAGO') {
-          await enviarMensajeTexto(fromPhone, '⚠️ *Esta confirmación ya expiró o fue procesada.*');
-          await enviarMenuPrincipal(fromPhone);
-          return res.status(200).json({ status: 'boton_confirmacion_expirado' });
-        }
-
         // ── Botones del menú principal ────────────────────────────────────────
         if (buttonId === 'btn_reporte_pago') {
           if (enFlujoActivo) {
             await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un nuevo Reporte de Pago.');
           }
-          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
+          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_CEDULA_PAGO');
           await enviarFormularioPago(fromPhone);
 
         } else if (buttonId === 'btn_reporte_falla') {
@@ -143,33 +132,45 @@ export default async function handler(req, res) {
           }
           await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_SUSCRIPCION');
           await enviarInstruccionesSuscripcion(fromPhone);
-
-        // ── Botones de confirmación de pago válidos ─────────────────────────
-        } else if (buttonId === 'btn_confirmar_pago') {
-          const datosGuardados = sesion.datos_temporales || {};
-          await crearTarjetaCobranzaRest(datosGuardados);
-          await actualizarEstadoSesionRest(fromPhone, 'INICIO');
-          await enviarConfirmacionPago(fromPhone, datosGuardados);
-          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Pago confirmado vía botón: Ref ${datosGuardados.referencia}` });
-          return res.status(200).json({ status: 'pago_confirmado_y_registrado' });
-
-        } else if (buttonId === 'btn_rechazar_pago') {
-          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
-          await enviarFormularioPago(fromPhone);
-          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Usuario rechazó datos vía botón, se reinicia el formulario' });
-          return res.status(200).json({ status: 'pago_rechazado_reintento' });
         }
 
         await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Respuesta a botón: ${buttonId}` });
         return res.status(200).json({ status: 'button_handled' });
       }
 
-      // ── 4. Selección de lista (fallas) ───────────────────────────────────────
+      // ── 4. Selección de lista (fallas y almanaque de fechas de pago) ─────────
       if (messageType === 'interactive' && message.interactive?.type === 'list_reply') {
         const itemId    = message.interactive.list_reply.id;
         const itemTitle = message.interactive.list_reply.title;
-        const label     = FALLA_LABELS[itemId] || itemTitle;
 
+        // Selección de fecha de pago en el almanaque
+        if (itemId.startsWith('pago_fecha_')) {
+          const datosTemp = sesion.datos_temporales || {};
+          await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Fecha pago seleccionada: ${itemTitle}`, contenido: { itemId } });
+
+          if (itemId === 'pago_fecha_otra') {
+            await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_FECHA_MANUAL', datosTemp);
+            await enviarMensajeTexto(fromPhone, '📅 Por favor escribe la fecha en que realizaste el pago (ejemplo: 15/09/2026):');
+            return res.status(200).json({ status: 'esperando_fecha_manual' });
+          }
+
+          const fechaElegida = message.interactive.list_reply.description || itemId.replace('pago_fecha_', '');
+          const datosConFecha = { ...datosTemp, fechaPago: fechaElegida };
+
+          if (datosConFecha.comprobante_url) {
+            await crearTarjetaCobranzaRest({ ...datosConFecha, telefono: fromPhone });
+            await actualizarEstadoSesionRest(fromPhone, 'INICIO');
+            await enviarConfirmacionPago(fromPhone, datosConFecha);
+            return res.status(200).json({ status: 'pago_registrado_directo' });
+          }
+
+          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_COMPROBANTE', datosConFecha);
+          await enviarSolicitudComprobante(fromPhone, fechaElegida);
+          return res.status(200).json({ status: 'fecha_seleccionada_esperando_comprobante' });
+        }
+
+        // Selección de tipo de falla técnica
+        const label = FALLA_LABELS[itemId] || itemTitle;
         await insertarLog({ tipo: 'button', numero_telefono: fromPhone, mensaje_texto: `Falla seleccionada: ${label}`, contenido: { itemId } });
 
         const datosCliente = sesion.datos_temporales || {};
@@ -212,79 +213,72 @@ export default async function handler(req, res) {
       }
 
       // ── ESTADO: CONFIRMANDO_PAGO ─ usuario responde por texto (Sí / No) ─────
-      if (estadoActual === 'CONFIRMANDO_PAGO') {
-        const respuesta = textBody.toLowerCase().trim();
-        const datosGuardados = sesion.datos_temporales || {};
-
-        if (PALABRAS_SI.includes(respuesta)) {
-          await crearTarjetaCobranzaRest(datosGuardados);
-          await actualizarEstadoSesionRest(fromPhone, 'INICIO');
-          await enviarConfirmacionPago(fromPhone, datosGuardados);
-          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Pago confirmado y registrado: Ref ${datosGuardados.referencia}` });
-          return res.status(200).json({ status: 'pago_confirmado_y_registrado' });
-
-        } else if (PALABRAS_NO.includes(respuesta)) {
-          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
-          await enviarFormularioPago(fromPhone);
-          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Usuario rechazó datos, se reinicia el formulario' });
-          return res.status(200).json({ status: 'pago_rechazado_reintento' });
-
-        } else {
-          await enviarMensajeTexto(fromPhone,
-            '❓ Por favor responde tocando uno de los botones (✅ Confirmar / ❌ Corregir datos) o escribe *Sí* / *No*. Escribe *cancelar* para volver al menú.');
-          return res.status(200).json({ status: 'confirmacion_pendiente' });
+      // ── ESTADO: ESPERANDO_CEDULA_PAGO (Paso 1: Cédula / Abonado) ────────────
+      if (estadoActual === 'ESPERANDO_CEDULA_PAGO' || estadoActual === 'ESPERANDO_DATOS_PAGO') {
+        if (messageType === 'image' && message.image?.id) {
+          const comprobanteUrl = await procesarImagenWhatsApp(message.image.id, fromPhone);
+          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_CEDULA_PAGO', { comprobante_url: comprobanteUrl || '' });
+          await enviarMensajeTexto(fromPhone, '📸 ¡Captura recibida! Ahora por favor indícanos tu número de *Cédula de Identidad* o *Abonado*:');
+          return res.status(200).json({ status: 'comprobante_recibido_esperando_cedula' });
         }
+
+        if (!textBody) return res.status(200).json({ status: 'sin_texto_cedula' });
+
+        const matchCedula = textBody.match(/(?:[VvEeJjPp]-?)?(\d{5,9})/);
+        const cedulaLimpia = matchCedula ? matchCedula[1] : textBody.replace(/\D/g, '');
+
+        if (!cedulaLimpia || cedulaLimpia.length < 5) {
+          await enviarMensajeTexto(fromPhone, '⚠️ Por favor envía un número de cédula válido (ejemplo: *24555666*).');
+          return res.status(200).json({ status: 'cedula_invalida' });
+        }
+
+        const datosActualizados = { ...(sesion.datos_temporales || {}), cedula: cedulaLimpia };
+        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_FECHA_PAGO', datosActualizados);
+        await enviarSelectorFechaPago(fromPhone, cedulaLimpia);
+        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Cédula ${cedulaLimpia} recibida, enviando selector de fecha` });
+        return res.status(200).json({ status: 'cedula_recibida_esperando_fecha' });
       }
 
-      // ── ESTADO: ESPERANDO_COMPROBANTE ─ Paso 2 de Pago: recibe la foto ──────
+      // ── ESTADO: ESPERANDO_FECHA_MANUAL o ESPERANDO_FECHA_PAGO (Paso 2: Fecha) ─
+      if (estadoActual === 'ESPERANDO_FECHA_MANUAL' || estadoActual === 'ESPERANDO_FECHA_PAGO') {
+        if (!textBody) return res.status(200).json({ status: 'sin_texto_fecha' });
+        const fechaIngresada = textBody.trim();
+        const datosActualizados = { ...(sesion.datos_temporales || {}), fechaPago: fechaIngresada };
+
+        if (datosActualizados.comprobante_url) {
+          await crearTarjetaCobranzaRest({ ...datosActualizados, telefono: fromPhone });
+          await actualizarEstadoSesionRest(fromPhone, 'INICIO');
+          await enviarConfirmacionPago(fromPhone, datosActualizados);
+          return res.status(200).json({ status: 'pago_completado_con_fecha_manual' });
+        }
+
+        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_COMPROBANTE', datosActualizados);
+        await enviarSolicitudComprobante(fromPhone, fechaIngresada);
+        return res.status(200).json({ status: 'fecha_manual_recibida_esperando_comprobante' });
+      }
+
+      // ── ESTADO: ESPERANDO_COMPROBANTE (Paso 3: Foto del Comprobante) ──────────
       if (estadoActual === 'ESPERANDO_COMPROBANTE') {
         const datosTemp = sesion.datos_temporales || {};
+        const esSinFoto = textBody.toLowerCase().includes('sin foto') || textBody.toLowerCase().includes('no tengo');
 
-        if (messageType === 'image' && message.image?.id) {
-          console.log('[WEBHOOK PASO2] Comprobante recibido, mediaId:', message.image.id);
-          const comprobanteUrl = await procesarImagenWhatsApp(message.image.id, fromPhone);
-          console.log('[WEBHOOK PASO2] comprobanteUrl:', comprobanteUrl);
+        if ((messageType === 'image' && message.image?.id) || esSinFoto) {
+          const comprobanteUrl = (messageType === 'image' && message.image?.id)
+            ? await procesarImagenWhatsApp(message.image.id, fromPhone)
+            : '';
+          const datosFinales = { ...datosTemp, comprobante_url: comprobanteUrl || '', telefono: fromPhone };
 
-          const datosPago = { ...datosTemp };
-          if (comprobanteUrl) datosPago.comprobante_url = comprobanteUrl;
-
-          await actualizarEstadoSesionRest(fromPhone, 'CONFIRMANDO_PAGO', datosPago);
-          await enviarResumenParaConfirmacion(fromPhone, datosPago);
-          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Comprobante recibido, resumen enviado para confirmación' });
-          return res.status(200).json({ status: 'comprobante_recibido_esperando_confirmacion' });
-
-        } else if (textBody.toLowerCase().includes('sin foto') || textBody.toLowerCase().includes('no tengo')) {
-          const datosPago = { ...datosTemp };
-          await actualizarEstadoSesionRest(fromPhone, 'CONFIRMANDO_PAGO', datosPago);
-          await enviarResumenParaConfirmacion(fromPhone, datosPago);
-          return res.status(200).json({ status: 'sin_comprobante_esperando_confirmacion' });
+          await crearTarjetaCobranzaRest(datosFinales);
+          await actualizarEstadoSesionRest(fromPhone, 'INICIO');
+          await enviarConfirmacionPago(fromPhone, datosFinales);
+          await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Pago registrado para CI: ${datosFinales.cedula}` });
+          return res.status(200).json({ status: 'pago_registrado_exitoso' });
 
         } else if (messageType === 'text') {
           await enviarMensajeTexto(fromPhone,
-            '📸 Por favor envía la *foto del comprobante* de pago. Si no tienes la foto, escribe *sin foto*. Escribe *cancelar* para salir.');
+            '📸 Por favor envía la *foto o captura* del comprobante de pago. Si no la tienes, escribe *sin foto*. Escribe *cancelar* para salir.');
           return res.status(200).json({ status: 'esperando_foto' });
         }
-      }
-
-      // ── ESTADO: ESPERANDO_DATOS_PAGO ─ Paso 1: recibe texto con datos ────────
-      if (estadoActual === 'ESPERANDO_DATOS_PAGO') {
-        if (messageType === 'image') {
-          await enviarMensajeTexto(fromPhone,
-            '✏️ Por favor envía primero los *datos del pago en texto* (cédula, referencia, monto, banco). Luego te pediré la foto.');
-          return res.status(200).json({ status: 'imagen_en_paso1_rechazada' });
-        }
-
-        if (!textBody) {
-          return res.status(200).json({ status: 'sin_texto' });
-        }
-
-        const datosPago = await extraerDatosPago(textBody, fromPhone);
-        console.log('[WEBHOOK PASO1] datosPago extraídos:', JSON.stringify(datosPago));
-
-        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_COMPROBANTE', datosPago);
-        await enviarSolicitudComprobante(fromPhone);
-        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Datos recibidos, solicitando comprobante (paso 2)' });
-        return res.status(200).json({ status: 'datos_recibidos_esperando_comprobante' });
       }
 
       // ── ESTADO: ESPERANDO_DATOS_SUSCRIPCION ──────────────────────────────────
@@ -318,7 +312,7 @@ export default async function handler(req, res) {
       // Si el usuario escribe "pago", "pagar", "reportar pago" o "2" desde cualquier estado
       if (textLower.includes('pago') || textLower.includes('pagar') || textLower === '2') {
         if (enFlujoActivo) await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un nuevo Reporte de Pago.');
-        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_PAGO');
+        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_CEDULA_PAGO');
         await enviarFormularioPago(fromPhone);
         await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Formulario de pago enviado por comando de texto' });
         return res.status(200).json({ status: 'formulario_pago_enviado' });

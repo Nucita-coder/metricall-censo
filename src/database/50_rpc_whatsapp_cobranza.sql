@@ -5,12 +5,13 @@
 
 CREATE OR REPLACE FUNCTION public.bot_crear_tarjeta_cobranza(
   p_cedula          TEXT,
-  p_referencia      TEXT,
-  p_monto           TEXT,
-  p_banco           TEXT,
-  p_telefono        TEXT,
+  p_referencia      TEXT DEFAULT '',
+  p_monto           TEXT DEFAULT '',
+  p_banco           TEXT DEFAULT '',
+  p_telefono        TEXT DEFAULT '',
   p_comprobante_url TEXT DEFAULT NULL,
-  p_nombre          TEXT DEFAULT NULL
+  p_nombre          TEXT DEFAULT NULL,
+  p_fecha_pago      TEXT DEFAULT NULL
 )
 RETURNS UUID
 LANGUAGE plpgsql
@@ -99,7 +100,7 @@ BEGIN
       'comprobantePagoUrl',  COALESCE(p_comprobante_url, ''),
       'adjuntos',            CASE WHEN p_comprobante_url IS NOT NULL AND p_comprobante_url <> '' THEN jsonb_build_array(p_comprobante_url) ELSE jsonb_build_array() END,
       'origen',              'WhatsApp Bot',
-      'fechaPago',           to_char(now(), 'YYYY-MM-DD'),
+      'fechaPago',           COALESCE(NULLIF(p_fecha_pago, ''), to_char(now(), 'YYYY-MM-DD')),
       'estadoCobranza',      'Pendiente Verificación'
     )
   )
@@ -109,6 +110,6 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.bot_crear_tarjeta_cobranza(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO anon;
-GRANT EXECUTE ON FUNCTION public.bot_crear_tarjeta_cobranza(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bot_crear_tarjeta_cobranza(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION public.bot_crear_tarjeta_cobranza(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
 

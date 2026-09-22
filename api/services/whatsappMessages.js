@@ -82,25 +82,83 @@ export async function enviarMenuPrincipal(toPhone) {
 // ─── 3. Instrucciones de Reporte de Pago (con datos de Pago Móvil) ────────────
 export async function enviarFormularioPago(toPhone) {
   const mensaje =
-`💰 *REPORTE DE PAGO — Paso 1 de 2*
+`💰 *REPORTE DE PAGO*
 
-📲 *DATOS PARA REALIZAR TU PAGO MÓVIL:*
+📲 *DATOS PARA PAGO MÓVIL:*
 🏦 *Banco:* ${DATOS_PAGO_MOVIL.banco}
 📱 *Teléfono:* ${DATOS_PAGO_MOVIL.telefono}
 📋 *RIF:* ${DATOS_PAGO_MOVIL.rif}
 🏢 *Titular:* ${DATOS_PAGO_MOVIL.titular}
 
-Una vez realizado tu pago móvil, envíame los datos en *un solo mensaje de texto* con este formato:
-
-💿 *Cédula / Nº Abonado:* [tu cédula]
-🔢 *Referencia (completo):* [número de referencia]
-💵 *Monto:* [monto pagado]
-📱 *Teléfono pago móvil:* [número desde el que pagaste]
-🏦 *Banco emisor:* [nombre de tu banco]
-
-_⚠️ Escribe y envía el texto primero. Luego te pediré la foto del comprobante por separado._`;
+Por favor, indícanos tu número de *Cédula de Identidad* o *Abonado*:`;
 
   return await enviarTexto(toPhone, mensaje);
+}
+
+// ─── 3.1. Almanaque Interactivo de Selección de Fecha de Pago ────────────────
+export async function enviarSelectorFechaPago(toPhone, cedula) {
+  const { accessToken, phoneNumberId } = getCredentials();
+  if (!accessToken) return;
+
+  const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+  const rows = [];
+  const hoy = new Date();
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(hoy);
+    d.setDate(hoy.getDate() - i);
+    const diaNum = String(d.getDate()).padStart(2, '0');
+    const mesNum = String(d.getMonth() + 1).padStart(2, '0');
+    const anio = d.getFullYear();
+    const isoDate = `${diaNum}/${mesNum}/${anio}`;
+    const nombreDia = DIAS_SEMANA[d.getDay()];
+    const mesStr = MESES[d.getMonth()];
+
+    let title = `${nombreDia} ${diaNum} ${mesStr}`;
+    let description = `${diaNum}/${mesNum}/${anio}`;
+    if (i === 0) title = `Hoy — ${diaNum} ${mesStr}`;
+    if (i === 1) title = `Ayer — ${diaNum} ${mesStr}`;
+
+    rows.push({
+      id: `pago_fecha_${isoDate}`,
+      title: title.slice(0, 24),
+      description: description
+    });
+  }
+
+  rows.push({
+    id: 'pago_fecha_otra',
+    title: 'Otra fecha',
+    description: 'Escribir fecha manualmente'
+  });
+
+  try {
+    return await apiPost(phoneNumberId, accessToken, {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'interactive',
+      interactive: {
+        type: 'list',
+        header: { type: 'text', text: 'Fecha del Pago' },
+        body: { text: `Cédula: *${cedula}*\n\nSelecciona en el almanaque la fecha en que realizaste el pago:` },
+        footer: { text: 'Toca para desplegar las fechas' },
+        action: {
+          button: 'Elegir Fecha 📅',
+          sections: [
+            {
+              title: 'Días recientes',
+              rows: rows
+            }
+          ]
+        }
+      }
+    });
+  } catch (err) {
+    console.error('[WHATSAPP FECHA ERROR]:', err);
+  }
 }
 
 // ─── 3.5. Instrucciones de Reporte de Falla ──────────────────────────────────
@@ -224,28 +282,29 @@ ${comprobante}`;
 }
 
 // ─── 5.7. Solicitud de Foto de Comprobante ──────────────────────────────────
-export async function enviarSolicitudComprobante(toPhone) {
+export async function enviarSolicitudComprobante(toPhone, fechaTexto) {
+  const detalleFecha = fechaTexto ? `\n📅 *Fecha seleccionada:* ${fechaTexto}` : '';
   const mensaje =
-`📸 *REPORTE DE PAGO — Paso 2 de 2*
+`📸 *CAPTURA DEL COMPROBANTE*${detalleFecha}
 
-¡Datos recibidos! Ahora envíame la *foto del comprobante* de pago.
+Por favor envía la *foto o captura de pantalla* del comprobante de pago.
 
-_Presiona el ícono de adjunto 📎 y selecciona la imagen del comprobante._`;
+_Presiona el ícono de adjunto 📎 y selecciona la imagen de tu pago._`;
 
   return await enviarTexto(toPhone, mensaje);
 }
 
 // ─── 7. Confirmación de Pago Recibido ────────────────────────────────────────
 export async function enviarConfirmacionPago(toPhone, datos) {
+  const fechaTexto = datos.fechaPago || datos.fecha || 'Hoy';
   const mensaje =
 `✅ *Reporte de pago recibido*
 
-📋 *Cédula/Abonado:* ${datos.cedula || 'No especificada'}
-🔢 *Referencia:* ${datos.referencia || 'S/N'}
-💵 *Monto:* ${datos.monto || 'Por verificar'}
-🏦 *Banco:* ${datos.banco || 'No especificado'}
+🆔 *Cédula/Abonado:* ${datos.cedula || 'No especificada'}
+📅 *Fecha de Pago:* ${fechaTexto}
+📎 *Comprobante:* Recibido ✅
 
-Un asesor de cobranza verificará la transacción en un plazo de 24 a 48 horas. ¡Gracias por preferir Fibex Telecom Anaco!`;
+Un asesor de cobranza verificará la transacción en breve. ¡Gracias por tu reporte!`;
 
   return await enviarTexto(toPhone, mensaje);
 }

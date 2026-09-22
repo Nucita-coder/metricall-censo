@@ -160,12 +160,13 @@ export async function crearTarjetaCobranzaRest(datos) {
     console.log('[CREAR TARJETA COBRANZA RPC] Invocando bot_crear_tarjeta_cobranza:', JSON.stringify(datos));
     const rpcBody = JSON.stringify({
       p_cedula:          datos.cedula || '',
+      p_fecha_pago:      datos.fechaPago || datos.fecha || '',
       p_referencia:      datos.referencia || '',
       p_monto:           datos.monto || '',
       p_banco:           datos.banco || '',
       p_telefono:        datos.telefono || '',
       p_comprobante_url: datos.comprobante_url || '',
-      p_nombre:          datos.nombre || 'Cliente Pago WhatsApp'
+      p_nombre:          datos.nombre || ''
     });
 
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/bot_crear_tarjeta_cobranza`, {

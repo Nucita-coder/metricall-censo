@@ -72,7 +72,7 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
     );
 
     const isReportePago = !isReporteFalla && Boolean(
-      data.comprobantePagoUrl || data.bancoOrigen || data.montoPago ||
+      data.comprobantePagoUrl || data.fechaPago || data.bancoOrigen || data.montoPago ||
       (data.estadoCobranza && ['Pago Procesado', 'Pago Rechazado', 'Pago Pendiente Revisión', 'Pago En Revisión', 'Pendiente Verificación'].includes(data.estadoCobranza)) ||
       nombreAp.toLowerCase().startsWith('pago (')
     );
@@ -100,9 +100,7 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
       if (k === 'fechaOrdenGenerada') return 'FECHA ORDEN GENERADA';
       if (isReportePago) {
         if (k === 'nombreApellido') return 'NRO DE ABONADO';
-        if (k === 'montoPago' || k === 'monto') return 'MONTO PAGADO';
-        if (k === 'bancoOrigen' || k === 'banco') return 'BANCO ORIGEN';
-        if (k === 'referencia') return 'REFERENCIA BANCARIA';
+        if (k === 'fechaPago') return 'FECHA DE PAGO';
       }
       return defaultKey.toUpperCase();
     };
@@ -111,8 +109,8 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
       GROUPS[0],
       GROUPS[1],
       {
-        title: '3. Datos del Pago y Referencia Bancaria',
-        keys: ['montoPago', 'monto', 'bancoOrigen', 'banco', 'referencia', 'estado', 'ciudad', 'zona', 'sector', 'calle', 'edificio', 'piso', 'direccionFiscal']
+        title: '3. Fecha de Pago',
+        keys: ['fechaPago']
       },
       GROUPS[4],
       GROUPS[5]

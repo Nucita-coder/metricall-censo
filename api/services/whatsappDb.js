@@ -15,51 +15,39 @@ if (!global.whatsappSessions) {
 const SESSION_TIMEOUT_MINUTOS = 5;
 
 function sesionExpirada(sesion) {
-  if (!sesion || sesion.estado === 'INICIO') return false;
-  if (!sesion.updated_at) return false;
-  const ultimaActualizacion = new Date(sesion.updated_at).getTime();
-  const ahora = Date.now();
-  const minutosTranscurridos = (ahora - ultimaActualizacion) / 1000 / 60;
-  return minutosTranscurridos >= SESSION_TIMEOUT_MINUTOS;
+  if (!sesion || sesion.estado === 'INICIO' || !sesion.updated_at) return false;
+  return (Date.now() - new Date(sesion.updated_at).getTime()) / 60000 >= SESSION_TIMEOUT_MINUTOS;
 }
 
 export async function obtenerEstadoSesionRest(numeroTelefono) {
   const cleanNumber = (numeroTelefono || '').replace(/\D/g, '');
   if (!cleanNumber) return { numero_telefono: cleanNumber, estado: 'INICIO' };
 
-  // 1. Verificar cache en memoria primero
-  if (global.whatsappSessions[cleanNumber]) {
-    const cached = global.whatsappSessions[cleanNumber];
-    // Si la sesión expiró por inactividad → resetear
+  const cached = global.whatsappSessions[cleanNumber];
+  if (cached) {
     if (sesionExpirada(cached)) {
-      console.log(`[SESION TIMEOUT] ${cleanNumber} inactivo >=${SESSION_TIMEOUT_MINUTOS}min, reseteando a INICIO`);
-      const resetSesion = { numero_telefono: cleanNumber, estado: 'INICIO', datos_temporales: {}, updated_at: new Date().toISOString() };
-      global.whatsappSessions[cleanNumber] = resetSesion;
+      const reset = { numero_telefono: cleanNumber, estado: 'INICIO', datos_temporales: {}, updated_at: new Date().toISOString() };
+      global.whatsappSessions[cleanNumber] = reset;
       actualizarEstadoSesionRest(cleanNumber, 'INICIO').catch(() => {});
-      return resetSesion;
+      return reset;
     }
     return cached;
   }
 
-  // 2. Verificar Supabase REST
   if (SUPABASE_URL && SUPABASE_KEY) {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sesiones?numero_telefono=eq.${cleanNumber}&select=*`, {
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`
-        }
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data[0]) {
+        if (data?.[0]) {
           const sesion = data[0];
           if (sesionExpirada(sesion)) {
-            console.log(`[SESION TIMEOUT] ${cleanNumber} inactivo >=${SESSION_TIMEOUT_MINUTOS}min (Supabase), reseteando`);
-            const resetSesion = { numero_telefono: cleanNumber, estado: 'INICIO', datos_temporales: {}, updated_at: new Date().toISOString() };
-            global.whatsappSessions[cleanNumber] = resetSesion;
+            const reset = { numero_telefono: cleanNumber, estado: 'INICIO', datos_temporales: {}, updated_at: new Date().toISOString() };
+            global.whatsappSessions[cleanNumber] = reset;
             actualizarEstadoSesionRest(cleanNumber, 'INICIO').catch(() => {});
-            return resetSesion;
+            return reset;
           }
           global.whatsappSessions[cleanNumber] = sesion;
           return sesion;
@@ -70,9 +58,9 @@ export async function obtenerEstadoSesionRest(numeroTelefono) {
     }
   }
 
-  const defaultSesion = { numero_telefono: cleanNumber, estado: 'INICIO' };
-  global.whatsappSessions[cleanNumber] = defaultSesion;
-  return defaultSesion;
+  const def = { numero_telefono: cleanNumber, estado: 'INICIO' };
+  global.whatsappSessions[cleanNumber] = def;
+  return def;
 }
 
 export async function actualizarEstadoSesionRest(numeroTelefono, nuevoEstado, datosTemporales = {}) {
@@ -109,42 +97,14 @@ export async function actualizarEstadoSesionRest(numeroTelefono, nuevoEstado, da
 }
 
 export async function crearTarjetaVentaOnlineRest(datos) {
-  if (!SUPABASE_URL) {
-    console.error('[CREAR TARJETA REST]: Falta variable de entorno SUPABASE_URL');
-    return false;
-  }
-  const keyToUse = SUPABASE_KEY;
-  if (!keyToUse) {
-    console.error('[CREAR TARJETA REST]: Falta SUPABASE_KEY o EXPO_PUBLIC_SUPABASE_ANON_KEY');
-    return false;
-  }
+  if (!SUPABASE_URL || !SUPABASE_KEY) return false;
   try {
-    console.log('[CREAR TARJETA RPC] Invocando bot_crear_tarjeta_suscripcion:', JSON.stringify(datos));
-    const rpcBody = JSON.stringify({
-      p_nombre:   datos.nombre,
-      p_sector:   datos.sector,
-      p_telefono: datos.telefono
-    });
-
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/bot_crear_tarjeta_suscripcion`, {
       method: 'POST',
-      headers: {
-        'apikey': keyToUse,
-        'Authorization': `Bearer ${keyToUse}`,
-        'Content-Type': 'application/json'
-      },
-      body: rpcBody
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_nombre: datos.nombre, p_sector: datos.sector, p_telefono: datos.telefono })
     });
-
-    const resText = await res.text();
-    console.log('[CREAR TARJETA RPC] Resultado:', res.status, resText.slice(0, 300));
-
-    if (!res.ok) {
-      console.error('[CREAR TARJETA RPC ERROR]:', res.status, resText);
-      return false;
-    }
-
-    return true;
+    return res.ok;
   } catch (err) {
     console.error('[CREAR TARJETA RPC EXCEPTION]:', err);
     return false;
@@ -184,12 +144,70 @@ export async function crearTarjetaCobranzaRest(datos) {
 
     if (!res.ok) {
       console.error('[CREAR TARJETA COBRANZA RPC ERROR]:', res.status, resText);
-      return false;
+      return null;
     }
 
-    return true;
+    try {
+      const parsed = JSON.parse(resText);
+      return typeof parsed === 'string' ? parsed : true;
+    } catch {
+      return true;
+    }
   } catch (err) {
     console.error('[CREAR TARJETA COBRANZA RPC EXCEPTION]:', err);
+    return null;
+  }
+}
+
+export async function actualizarFechaPagoTarjetaRest(tarjetaId, fromPhone, nuevaFecha) {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !nuevaFecha) return false;
+
+  try {
+    let tId = tarjetaId;
+    if (!tId && fromPhone) {
+      const cleanPhone = fromPhone.replace(/\D/g, '').slice(-8);
+      const resSearch = await fetch(
+        `${SUPABASE_URL}/rest/v1/tarjetas?datos_valores->>telefonoMovil=like.*${cleanPhone}*&order=created_at.desc&limit=1&select=id`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+      );
+      if (resSearch.ok) {
+        const rows = await resSearch.json();
+        if (rows?.[0]) tId = rows[0].id;
+      }
+    }
+    if (!tId) return false;
+
+    const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/bot_actualizar_fecha_pago`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ p_tarjeta_id: tId, p_nueva_fecha: nuevaFecha })
+    });
+    if (rpcRes.ok) return true;
+
+    const resGet = await fetch(`${SUPABASE_URL}/rest/v1/tarjetas?id=eq.${tId}&select=datos_valores`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if (!resGet.ok) return false;
+    const items = await resGet.json();
+    if (!items?.[0]) return false;
+
+    const datosValores = { ...(items[0].datos_valores || {}), fechaPago: nuevaFecha };
+    const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/tarjetas?id=eq.${tId}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ datos_valores: datosValores, updated_at: new Date().toISOString() })
+    });
+    return patchRes.ok;
+  } catch (err) {
+    console.error('[ACTUALIZAR FECHA TARJETA ERROR]:', err);
     return false;
   }
 }
@@ -262,38 +280,19 @@ export async function procesarImagenWhatsApp(mediaId, fromPhone) {
 }
 
 export async function crearTarjetaFallaRest(datos) {
-  if (!SUPABASE_URL) return false;
-  const keyToUse = SUPABASE_KEY;
-  if (!keyToUse) return false;
-
+  if (!SUPABASE_URL || !SUPABASE_KEY) return false;
   try {
-    console.log('[CREAR TARJETA FALLA RPC] Invocando bot_crear_tarjeta_falla:', JSON.stringify(datos));
-    const rpcBody = JSON.stringify({
-      p_nombre:     datos.nombre || 'Cliente WhatsApp',
-      p_cedula:     datos.cedula || '',
-      p_telefono:   datos.telefono || '',
-      p_tipo_falla: datos.tipoFalla || 'Falla Técnica'
-    });
-
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/bot_crear_tarjeta_falla`, {
       method: 'POST',
-      headers: {
-        'apikey': keyToUse,
-        'Authorization': `Bearer ${keyToUse}`,
-        'Content-Type': 'application/json'
-      },
-      body: rpcBody
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p_nombre:     datos.nombre || 'Cliente WhatsApp',
+        p_cedula:     datos.cedula || '',
+        p_telefono:   datos.telefono || '',
+        p_tipo_falla: datos.tipoFalla || 'Falla Técnica'
+      })
     });
-
-    const resText = await res.text();
-    console.log('[CREAR TARJETA FALLA RPC] Resultado:', res.status, resText.slice(0, 300));
-
-    if (!res.ok) {
-      console.error('[CREAR TARJETA FALLA RPC ERROR]:', res.status, resText);
-      return false;
-    }
-
-    return true;
+    return res.ok;
   } catch (err) {
     console.error('[CREAR TARJETA FALLA RPC EXCEPTION]:', err);
     return false;

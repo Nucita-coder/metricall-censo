@@ -113,3 +113,28 @@ $$;
 GRANT EXECUTE ON FUNCTION public.bot_crear_tarjeta_cobranza(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.bot_crear_tarjeta_cobranza(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
 
+-- ============================================================
+-- Función RPC para actualizar la fecha de pago de una tarjeta
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.bot_actualizar_fecha_pago(
+  p_tarjeta_id  UUID,
+  p_nueva_fecha TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.tarjetas
+  SET datos_valores = datos_valores || jsonb_build_object('fechaPago', p_nueva_fecha),
+      updated_at = now()
+  WHERE id = p_tarjeta_id;
+
+  RETURN FOUND;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.bot_actualizar_fecha_pago(UUID, TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION public.bot_actualizar_fecha_pago(UUID, TEXT) TO authenticated;
+

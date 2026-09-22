@@ -79,20 +79,39 @@ export async function enviarMenuPrincipal(toPhone) {
   }
 }
 
-// ─── 3. Instrucciones de Reporte de Pago (con datos de Pago Móvil) ────────────
+// ─── 3. Instrucciones de Reporte de Pago ─────────────────────────────────────
 export async function enviarFormularioPago(toPhone) {
-  const mensaje =
-`💰 *REPORTE DE PAGO*
+  const { accessToken, phoneNumberId } = getCredentials();
+  const bodyText =
+`Por favor envía la *foto o captura* del comprobante con tu número de *Cédula de Identidad* (en el pie de foto o en un mensaje).
 
-📲 *DATOS PARA PAGO MÓVIL:*
-🏦 *Banco:* ${DATOS_PAGO_MOVIL.banco}
-📱 *Teléfono:* ${DATOS_PAGO_MOVIL.telefono}
-📋 *RIF:* ${DATOS_PAGO_MOVIL.rif}
-🏢 *Titular:* ${DATOS_PAGO_MOVIL.titular}
+📅 Registraremos el pago con fecha de *Hoy*. Si realizaste el pago en otra fecha, pulsa el botón abajo:`;
 
-Por favor, indícanos tu número de *Cédula de Identidad* o *Abonado*:`;
+  if (accessToken) {
+    try {
+      return await apiPost(phoneNumberId, accessToken, {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: toPhone,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          header: { type: 'text', text: '💰 Reporte de Pago' },
+          body: { text: bodyText },
+          footer: { text: 'Fibex Telecom Anaco' },
+          action: {
+            buttons: [
+              { type: 'reply', reply: { id: 'btn_cambiar_fecha_pago', title: '📅 No es de hoy' } }
+            ]
+          }
+        }
+      });
+    } catch (err) {
+      console.error('[WHATSAPP FORM PAGO ERROR]:', err);
+    }
+  }
 
-  return await enviarTexto(toPhone, mensaje);
+  return await enviarTexto(toPhone, `💰 *REPORTE DE PAGO*\n\n${bodyText}`);
 }
 
 // ─── 3.1. Almanaque Interactivo de Selección de Fecha de Pago ────────────────
@@ -244,43 +263,6 @@ Un asesor se estará contactando con usted en un plazo de 24 a 48 horas.`;
   return await enviarTexto(toPhone, mensaje);
 }
 
-// ─── 5.6. Resumen de Pago para Confirmación Interactiva ─────────────────────
-export async function enviarResumenParaConfirmacion(toPhone, datos) {
-  const { accessToken, phoneNumberId } = getCredentials();
-  if (!accessToken) return;
-
-  const comprobante = datos.comprobante_url ? '📎 Comprobante adjunto ✅' : '📎 Sin comprobante';
-  const resumen =
-`👤 *Cédula/Abonado:* ${datos.cedula || 'No especificada'}
-🔖 *Referencia:* ${datos.referencia || 'S/N'}
-💰 *Monto:* ${datos.monto || 'Por verificar'}
-🏦 *Banco:* ${datos.banco || 'No especificado'}
-${comprobante}`;
-
-  try {
-    return await apiPost(phoneNumberId, accessToken, {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: toPhone,
-      type: 'interactive',
-      interactive: {
-        type: 'button',
-        header: { type: 'text', text: '🔍 Verifica los datos del pago' },
-        body: { text: resumen },
-        footer: { text: '¿Es correcta esta información?' },
-        action: {
-          buttons: [
-            { type: 'reply', reply: { id: 'btn_confirmar_pago',  title: '✅ Confirmar' } },
-            { type: 'reply', reply: { id: 'btn_rechazar_pago',   title: '❌ Corregir datos' } }
-          ]
-        }
-      }
-    });
-  } catch (err) {
-    console.error('[WHATSAPP RESUMEN CONFIRMACION ERROR]:', err);
-  }
-}
-
 // ─── 5.7. Solicitud de Foto de Comprobante ──────────────────────────────────
 export async function enviarSolicitudComprobante(toPhone, fechaTexto) {
   const detalleFecha = fechaTexto ? `\n📅 *Fecha seleccionada:* ${fechaTexto}` : '';
@@ -296,17 +278,41 @@ _Presiona el ícono de adjunto 📎 y selecciona la imagen de tu pago._`;
 
 // ─── 7. Confirmación de Pago Recibido ────────────────────────────────────────
 export async function enviarConfirmacionPago(toPhone, datos) {
+  const { accessToken, phoneNumberId } = getCredentials();
   const fechaTexto = datos.fechaPago || datos.fecha || 'Hoy';
-  const mensaje =
-`✅ *Reporte de pago recibido*
-
-🆔 *Cédula/Abonado:* ${datos.cedula || 'No especificada'}
+  const cedulaTexto = datos.cedula || 'No especificada';
+  const bodyText =
+`🆔 *Cédula/Abonado:* ${cedulaTexto}
 📅 *Fecha de Pago:* ${fechaTexto}
 📎 *Comprobante:* Recibido ✅
 
 Un asesor de cobranza verificará la transacción en breve. ¡Gracias por tu reporte!`;
 
-  return await enviarTexto(toPhone, mensaje);
+  if (accessToken) {
+    try {
+      return await apiPost(phoneNumberId, accessToken, {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: toPhone,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          header: { type: 'text', text: '✅ Reporte de pago recibido' },
+          body: { text: bodyText },
+          footer: { text: '¿El pago no fue hoy? Puedes cambiarlo' },
+          action: {
+            buttons: [
+              { type: 'reply', reply: { id: 'btn_cambiar_fecha_pago', title: '📅 Cambiar fecha' } }
+            ]
+          }
+        }
+      });
+    } catch (err) {
+      console.error('[WHATSAPP CONFIRMACION PAGO ERROR]:', err);
+    }
+  }
+
+  return await enviarTexto(toPhone, `✅ *Reporte de pago recibido*\n\n${bodyText}`);
 }
 
 // ─── 8. Confirmación de Falla Recibida ───────────────────────────────────────

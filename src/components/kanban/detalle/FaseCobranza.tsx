@@ -67,6 +67,15 @@ export function FaseCobranza({
       return;
     }
 
+    const adjuntos = datos.adjuntos || [];
+    if (!Array.isArray(adjuntos) || adjuntos.length === 0) {
+      Alert.alert(
+        'Evidencia Obligatoria',
+        'Es obligatorio adjuntar al menos una imagen como evidencia en la sección "Archivos Adjuntos" antes de registrar el resultado de contacto.'
+      );
+      return;
+    }
+
     const resultadoLimpio = resultado.trim().toUpperCase();
     const esEfectiva = RESULTADOS_EFECTIVOS.some(
       (r) => r.trim().toUpperCase() === resultadoLimpio

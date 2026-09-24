@@ -76,7 +76,6 @@ export const RESULTADOS_EFECTIVOS_COBRANZA = [
   'CONVENIO DE PAGO',
   'ABONO PARCIALMENTE',
   'RECUPERADO',
-  'NO CONTESTO',
   'LUEGO PASA POR OFIC',
   'PIDE AJUSTE DE PLAN',
 ];
@@ -86,8 +85,9 @@ export const TODOS_LOS_RESULTADOS = [
   { clave: 'CONVENIO DE PAGO', label: 'CONVENIO DE PAGO', tipo: 'efectivo' },
   { clave: 'ABONO PARCIALMENTE', label: 'ABONO PARCIALMENTE', tipo: 'efectivo' },
   { clave: 'RECUPERADO', label: 'RECUPERADO', tipo: 'efectivo' },
-  { clave: 'NO CONTESTO', label: 'NO CONTESTO', tipo: 'efectivo' },
   { clave: 'LUEGO PASA POR OFIC', label: 'LUEGO PASA POR OFIC', tipo: 'efectivo' },
+  { clave: 'PIDE AJUSTE DE PLAN', label: 'PIDE AJUSTE DE PLAN', tipo: 'efectivo' },
+  { clave: 'NO CONTESTO', label: 'NO CONTESTO', tipo: 'negativo' },
   { clave: 'PIDE RETIRO', label: 'PIDE RETIRO', tipo: 'negativo' },
   { clave: 'FUERA DE ZONA', label: 'FUERA DE ZONA', tipo: 'negativo' },
   { clave: 'RECHAZO A PAGAR POR DIAS SIN SERVICIO', label: 'RECHAZO A PAGAR POR DIAS SIN SERVICIO', tipo: 'negativo' },
@@ -96,7 +96,6 @@ export const TODOS_LOS_RESULTADOS = [
   { clave: 'NO RECONOCE DEUDA', label: 'NO RECONOCE DEUDA', tipo: 'negativo' },
   { clave: 'REHUSA ENTREGAR EQUIPO', label: 'REHUSA ENTREGAR EQUIPO', tipo: 'negativo' },
   { clave: 'PUERTO LIBERADO', label: 'PUERTO LIBERADO', tipo: 'negativo' },
-  { clave: 'PIDE AJUSTE DE PLAN', label: 'PIDE AJUSTE DE PLAN', tipo: 'efectivo' },
   { clave: 'TIENE OTRO SERVICIO', label: 'TIENE OTRO SERVICIO', tipo: 'negativo' },
   { clave: 'NO DESEA PAGAR', label: 'NO DESEA PAGAR', tipo: 'negativo' },
 ];

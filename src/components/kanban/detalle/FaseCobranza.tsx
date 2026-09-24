@@ -10,16 +10,15 @@ import { ModalRechazarPago } from './ModalRechazarPago';
 import { SeccionEstadoPagoCobranza } from './SeccionEstadoPagoCobranza';
 import { SeccionHistorialCobranza } from './SeccionHistorialCobranza';
 import {
-  OPCIONES_TIPO_ACCION_COBRANZA,
   OPCIONES_TIPO_CONTACTO_COBRANZA,
   OPCIONES_RESULTADO_COBRANZA,
   RESULTADOS_EFECTIVOS,
   RESULTADOS_NEGATIVOS,
+  findListaCobranzaTarget,
 } from './faseCobranzaConstants';
 import { styles } from './FaseCobranza.styles';
 
 export {
-  OPCIONES_TIPO_ACCION_COBRANZA,
   OPCIONES_TIPO_CONTACTO_COBRANZA,
   OPCIONES_RESULTADO_COBRANZA,
   RESULTADOS_EFECTIVOS,
@@ -36,14 +35,6 @@ export function FaseCobranza({
 }: FaseProps) {
   const datos = tarjeta.datos_valores || {};
 
-  const [tipoAccion, setTipoAccion] = useState<string>(() => {
-    if (datos.tipoAccion) return String(datos.tipoAccion);
-    if (datos.categoriaAccion) return String(datos.categoriaAccion);
-    const prevRes = datos.resultadoContacto || datos.resultado || datos['RESULTADO'];
-    if (prevRes && RESULTADOS_EFECTIVOS.includes(String(prevRes))) return 'ACCIÓN EFECTIVA';
-    if (prevRes && RESULTADOS_NEGATIVOS.includes(String(prevRes))) return 'ACCIÓN NEGATIVA';
-    return '';
-  });
   const [tipoContacto, setTipoContacto] = useState<string>(
     datos.tipoContacto || datos['TIPO DE CONTACTO'] || ''
   );
@@ -76,7 +67,11 @@ export function FaseCobranza({
       return;
     }
 
-    const accionFinal = tipoAccion || (RESULTADOS_EFECTIVOS.includes(resultado) ? 'ACCIÓN EFECTIVA' : 'ACCIÓN NEGATIVA');
+    const resultadoLimpio = resultado.trim().toUpperCase();
+    const esEfectiva = RESULTADOS_EFECTIVOS.some(
+      (r) => r.trim().toUpperCase() === resultadoLimpio
+    );
+    const accionFinal = esEfectiva ? 'ACCIÓN EFECTIVA' : 'ACCIÓN NEGATIVA';
 
     setIsSaving(true);
     try {
@@ -106,18 +101,17 @@ export function FaseCobranza({
       await onUpdateTarjeta(updates);
 
       // Determinar si la tarjeta pertenece al flujo de Recupero o de Cobranza
-      const listaActual = listasGlobales?.find(l => l.id === tarjeta.lista_id);
+      const listaActual = listasGlobales?.find((l) => l.id === tarjeta.lista_id);
       const nombreListaActual = (listaActual?.nombre || '').toLowerCase();
       const esFlujoRecupero = nombreListaActual.includes('recupero');
 
-      const nombreTargetEfectiva = esFlujoRecupero ? 'Acción efectiva (Recupero)' : 'Acción efectiva';
-      const nombreTargetNegativa = esFlujoRecupero ? 'Acción negativa (Recupero)' : 'Acción negativa';
+      // Buscar determinísticamente la lista destino en base a la pauta
+      const listaDestino = findListaCobranzaTarget(
+        listasGlobales || [],
+        esEfectiva,
+        esFlujoRecupero
+      );
 
-      const esEfectiva = accionFinal === 'ACCIÓN EFECTIVA' || RESULTADOS_EFECTIVOS.includes(resultado);
-      const nombreTarget = esEfectiva ? nombreTargetEfectiva : nombreTargetNegativa;
-      const listaDestino = findListaTarget(listasGlobales, nombreTarget);
-
-      // Pasar tarjeta actualizada para no perder datos en optimistic update
       const updatedTarjeta: Tarjeta = {
         ...tarjeta,
         datos_valores: {
@@ -130,7 +124,7 @@ export function FaseCobranza({
         await autoMoverTarjeta(updatedTarjeta, listaDestino.id);
       }
 
-      Alert.alert('¡Gestión Registrada!', `Se guardó correctamente: ${accionFinal} - ${resultado}`);
+      Alert.alert('¡Gestión Registrada!', `Se guardó correctamente: ${resultado}`);
     } catch (err: unknown) {
       Alert.alert('Error', 'No se pudo guardar la gestión de cobranza: ' + ((err as Error)?.message || String(err)));
     } finally {
@@ -232,25 +226,7 @@ export function FaseCobranza({
       </View>
 
       <View style={styles.formContainer}>
-        {/* SELECTOR 1: TIPO DE ACCIÓN */}
-        <SelectDropdown
-          label="TIPO DE ACCIÓN"
-          value={tipoAccion}
-          onSelect={(v) => {
-            setTipoAccion(v);
-            if (v === 'ACCIÓN EFECTIVA' && RESULTADOS_NEGATIVOS.includes(resultado)) {
-              setResultado('');
-            } else if (v === 'ACCIÓN NEGATIVA' && RESULTADOS_EFECTIVOS.includes(resultado)) {
-              setResultado('');
-            }
-          }}
-          options={OPCIONES_TIPO_ACCION_COBRANZA}
-          placeholder="Seleccione tipo de acción..."
-          isRequired
-          disabled={isSaving}
-        />
-
-        {/* SELECTOR 2: TIPO DE CONTACTO */}
+        {/* SELECTOR 1: TIPO DE CONTACTO */}
         <SelectDropdown
           label="TIPO DE CONTACTO"
           value={tipoContacto}
@@ -261,25 +237,12 @@ export function FaseCobranza({
           disabled={isSaving}
         />
 
-        {/* SELECTOR 3: RESULTADO */}
+        {/* SELECTOR 2: RESULTADO */}
         <SelectDropdown
           label="RESULTADO"
           value={resultado}
-          onSelect={(v) => {
-            setResultado(v);
-            if (RESULTADOS_EFECTIVOS.includes(v)) {
-              setTipoAccion('ACCIÓN EFECTIVA');
-            } else if (RESULTADOS_NEGATIVOS.includes(v)) {
-              setTipoAccion('ACCIÓN NEGATIVA');
-            }
-          }}
-          options={
-            tipoAccion === 'ACCIÓN EFECTIVA'
-              ? RESULTADOS_EFECTIVOS
-              : tipoAccion === 'ACCIÓN NEGATIVA'
-              ? RESULTADOS_NEGATIVOS
-              : OPCIONES_RESULTADO_COBRANZA
-          }
+          onSelect={(v) => setResultado(v)}
+          options={OPCIONES_RESULTADO_COBRANZA}
           placeholder="Seleccione resultado de gestión..."
           isRequired
           disabled={isSaving}

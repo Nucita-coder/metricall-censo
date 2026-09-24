@@ -252,15 +252,8 @@ const KanbanCardComponent = ({
                   <Text style={styles.cardSubtitle} numberOfLines={1}>{middleRowText}</Text>
                 ) : null}
 
-                {(data.tipoAccion || data.tipoContacto || data.resultadoContacto) && (
+                {(data.tipoContacto || data.resultadoContacto) && (
                   <View style={styles.contactoRow}>
-                    {data.tipoAccion ? (
-                      <View style={[styles.badge, { backgroundColor: String(data.tipoAccion).includes('EFECTIVA') ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)' }]}>
-                        <Text style={[styles.badgeText, { color: String(data.tipoAccion).includes('EFECTIVA') ? '#4ADE80' : '#F87171', fontSize: 9 }]}>
-                          {String(data.tipoAccion)}
-                        </Text>
-                      </View>
-                    ) : null}
                     {data.tipoContacto ? (
                       <View style={styles.tipoContactoBadge}>
                         <Text style={styles.tipoContactoText}>{data.tipoContacto}</Text>

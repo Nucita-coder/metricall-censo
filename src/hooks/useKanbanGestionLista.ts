@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Lista, TableroInfo, TableroDisponible } from '../types/kanban';
 
 // Payload tipado para actualización parcial de lista (solo los campos que pueden cambiar)
-type ListaUpdatePayload = Partial<Pick<Lista, 'nombre' | 'color_fondo'>>;
+type ListaUpdatePayload = Partial<Pick<Lista, 'nombre'>>;
 
 interface UseKanbanGestionListaParams {
   setListas: React.Dispatch<React.SetStateAction<Lista[]>>;
@@ -20,16 +20,14 @@ export const useKanbanGestionLista = ({
   const [modalListaVisible, setModalListaVisible] = useState(false);
   const [listaActivaGestion, setListaActivaGestion] = useState<Lista | null>(null);
   const [gestionMenuPos, setGestionMenuPos] = useState<{ x: number; y: number } | null>(null);
-  const [gestionMenuAction, setGestionMenuAction] = useState<'main' | 'rename' | 'color' | 'move'>('main');
+  const [gestionMenuAction, setGestionMenuAction] = useState<'main' | 'rename' | 'move'>('main');
   const [editListaNombre, setEditListaNombre] = useState('');
-  const [editListaColor, setEditListaColor] = useState('');
   const [selectedTableroId, setSelectedTableroId] = useState('');
 
   /** Abre el modal de gestión de lista, posicionado opcionalmente cerca del elemento pulsado */
   const openGestionLista = (lista: Lista, x?: number, y?: number): void => {
     setListaActivaGestion(lista);
     setEditListaNombre(lista.nombre);
-    setEditListaColor(lista.color_fondo || '#22272B');
     setGestionMenuAction('main');
     setGestionMenuPos(x !== undefined && y !== undefined ? { x, y } : null);
     setModalListaVisible(true);
@@ -41,7 +39,6 @@ export const useKanbanGestionLista = ({
     try {
       const payload: ListaUpdatePayload = {};
       if (gestionMenuAction === 'rename') payload.nombre = editListaNombre;
-      if (gestionMenuAction === 'color') payload.color_fondo = editListaColor;
 
       const { error } = await supabase.from('listas').update(payload).eq('id', listaActivaGestion.id);
       if (error) throw error;
@@ -93,8 +90,6 @@ export const useKanbanGestionLista = ({
     setGestionMenuAction,
     editListaNombre,
     setEditListaNombre,
-    editListaColor,
-    setEditListaColor,
     selectedTableroId,
     setSelectedTableroId,
     openGestionLista,

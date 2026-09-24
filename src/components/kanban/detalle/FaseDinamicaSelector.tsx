@@ -71,6 +71,7 @@ export const FaseDinamicaSelector: React.FC<Props> = ({
     clean.includes('cobranza') ||
     clean.includes('efectiva') ||
     clean.includes('negativa') ||
+    clean.includes('recupero') ||
     datosVal.origenImportacion === 'COBRANZA-RECUPERO-CHURN'
   ) {
     return <FaseCobranza {...faseProps} />;

@@ -1,24 +1,29 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
 import { SelectDropdown } from '../../venta/CamposVenta';
-import { getResultadoColor } from '../../../constants/theme';
 import { FaseProps, findListaTarget } from './types';
-import { PhoneCall, CheckCircle2, History } from 'lucide-react-native';
-import { TarjetaDatosValores } from '../../../types/kanban';
+import { CheckCircle2, MessageCircle, PhoneCall } from 'lucide-react-native';
+import { Tarjeta, TarjetaDatosValores } from '../../../types/kanban';
 import { notificarPagoProcesado, notificarPagoRechazado } from '../../../services/whatsappNotificacionesService';
+import { contactarClientePorWhatsApp, formatMonto } from '../../../services/whatsappCobranzaService';
 import { ModalRechazarPago } from './ModalRechazarPago';
 import { SeccionEstadoPagoCobranza } from './SeccionEstadoPagoCobranza';
+import { SeccionHistorialCobranza } from './SeccionHistorialCobranza';
 import {
+  OPCIONES_TIPO_ACCION_COBRANZA,
   OPCIONES_TIPO_CONTACTO_COBRANZA,
   OPCIONES_RESULTADO_COBRANZA,
   RESULTADOS_EFECTIVOS,
+  RESULTADOS_NEGATIVOS,
 } from './faseCobranzaConstants';
 import { styles } from './FaseCobranza.styles';
 
 export {
+  OPCIONES_TIPO_ACCION_COBRANZA,
   OPCIONES_TIPO_CONTACTO_COBRANZA,
   OPCIONES_RESULTADO_COBRANZA,
   RESULTADOS_EFECTIVOS,
+  RESULTADOS_NEGATIVOS,
 };
 
 export function FaseCobranza({
@@ -31,6 +36,14 @@ export function FaseCobranza({
 }: FaseProps) {
   const datos = tarjeta.datos_valores || {};
 
+  const [tipoAccion, setTipoAccion] = useState<string>(() => {
+    if (datos.tipoAccion) return String(datos.tipoAccion);
+    if (datos.categoriaAccion) return String(datos.categoriaAccion);
+    const prevRes = datos.resultadoContacto || datos.resultado || datos['RESULTADO'];
+    if (prevRes && RESULTADOS_EFECTIVOS.includes(String(prevRes))) return 'ACCIÓN EFECTIVA';
+    if (prevRes && RESULTADOS_NEGATIVOS.includes(String(prevRes))) return 'ACCIÓN NEGATIVA';
+    return '';
+  });
   const [tipoContacto, setTipoContacto] = useState<string>(
     datos.tipoContacto || datos['TIPO DE CONTACTO'] || ''
   );
@@ -38,6 +51,19 @@ export function FaseCobranza({
     datos.resultadoContacto || datos.resultado || datos['RESULTADO'] || ''
   );
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
+
+  const rawSaldoCobranza = datos.saldo ?? datos['SALDO'] ?? datos.monto ?? datos.Monto ?? datos['MONTO'] ?? datos.montoDeuda;
+
+  const handleContactarWhatsApp = async () => {
+    const res = await contactarClientePorWhatsApp(datos);
+    if (!res.success) {
+      Alert.alert('Teléfono no disponible', res.error || 'Verifica el número telefónico del cliente.');
+    } else {
+      if (!tipoContacto) {
+        setTipoContacto('WhatsApp');
+      }
+    }
+  };
 
   const gestionesPrevias: Array<Record<string, unknown>> = (datos.gestionesCobranza as Array<Record<string, unknown>>) || [];
 
@@ -50,33 +76,31 @@ export function FaseCobranza({
       return;
     }
 
-    const adjuntos = datos.adjuntos || [];
-    if (!Array.isArray(adjuntos) || adjuntos.length === 0) {
-      Alert.alert(
-        'Evidencia Obligatoria',
-        'Es obligatorio adjuntar al menos una imagen como evidencia en la sección "Archivos Adjuntos" antes de registrar el resultado de contacto.'
-      );
-      return;
-    }
+    const accionFinal = tipoAccion || (RESULTADOS_EFECTIVOS.includes(resultado) ? 'ACCIÓN EFECTIVA' : 'ACCIÓN NEGATIVA');
 
     setIsSaving(true);
     try {
       const nuevaGestion = {
+        id: Date.now().toString(),
         fecha: new Date().toISOString(),
+        tipoAccion: accionFinal,
+        categoriaAccion: accionFinal,
         tipoContacto,
         resultado,
         autor: datos.asesorComercial || 'Analista de Cobranza',
       };
 
-      const updatedGestiones = [...gestionesPrevias, nuevaGestion];
+      const updatedGestiones = [nuevaGestion, ...gestionesPrevias];
 
       const updates: Partial<TarjetaDatosValores> = {
+        tipoAccion: accionFinal,
+        categoriaAccion: accionFinal,
         tipoContacto,
         resultadoContacto: resultado,
         'TIPO DE CONTACTO': tipoContacto,
         RESULTADO: resultado,
+        fechaUltimoContacto: new Date().toISOString(),
         gestionesCobranza: updatedGestiones,
-        adjuntosRegistrados: true,
       };
 
       await onUpdateTarjeta(updates);
@@ -89,20 +113,24 @@ export function FaseCobranza({
       const nombreTargetEfectiva = esFlujoRecupero ? 'Acción efectiva (Recupero)' : 'Acción efectiva';
       const nombreTargetNegativa = esFlujoRecupero ? 'Acción negativa (Recupero)' : 'Acción negativa';
 
-      // Auto-mover tarjeta según el resultado a la lista correspondiente de su flujo
-      if (RESULTADOS_EFECTIVOS.includes(resultado)) {
-        const listaDestino = findListaTarget(listasGlobales, nombreTargetEfectiva);
-        if (listaDestino && listaDestino.id !== tarjeta.lista_id) {
-          await autoMoverTarjeta(tarjeta, listaDestino.id);
-        }
-      } else {
-        const listaDestino = findListaTarget(listasGlobales, nombreTargetNegativa);
-        if (listaDestino && listaDestino.id !== tarjeta.lista_id) {
-          await autoMoverTarjeta(tarjeta, listaDestino.id);
-        }
+      const esEfectiva = accionFinal === 'ACCIÓN EFECTIVA' || RESULTADOS_EFECTIVOS.includes(resultado);
+      const nombreTarget = esEfectiva ? nombreTargetEfectiva : nombreTargetNegativa;
+      const listaDestino = findListaTarget(listasGlobales, nombreTarget);
+
+      // Pasar tarjeta actualizada para no perder datos en optimistic update
+      const updatedTarjeta: Tarjeta = {
+        ...tarjeta,
+        datos_valores: {
+          ...(tarjeta.datos_valores || {}),
+          ...updates,
+        },
+      };
+
+      if (listaDestino && listaDestino.id !== tarjeta.lista_id) {
+        await autoMoverTarjeta(updatedTarjeta, listaDestino.id);
       }
 
-      Alert.alert('¡Gestión Registrada!', `Se guardó correctamente: ${resultado}`);
+      Alert.alert('¡Gestión Registrada!', `Se guardó correctamente: ${accionFinal} - ${resultado}`);
     } catch (err: unknown) {
       Alert.alert('Error', 'No se pudo guardar la gestión de cobranza: ' + ((err as Error)?.message || String(err)));
     } finally {
@@ -177,8 +205,52 @@ export function FaseCobranza({
         <Text style={styles.sectionTitle}>Gestión de Cobranza / Contacto</Text>
       </View>
 
+      {/* ACCIÓN RÁPIDA: CONTACTAR POR WHATSAPP */}
+      <View style={styles.whatsappCard}>
+        <View style={styles.whatsappInfoRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.whatsappLabel}>CLIENTE A CONTACTAR</Text>
+            <Text style={styles.whatsappNombre} numberOfLines={1}>
+              {datos.nombreApellido || datos.nombre || 'Cliente'}
+            </Text>
+            <Text style={styles.whatsappMeta}>
+              {datos.nroAbonado ? `${String(datos.nroAbonado).startsWith('#') ? datos.nroAbonado : `#${datos.nroAbonado}`} • ` : ''}
+              {datos.telefonoMovil || datos.nroTelefonoMovil || 'Sin teléfono registrado'}
+              {rawSaldoCobranza ? ` • Deuda: ${formatMonto(rawSaldoCobranza)}` : ''}
+            </Text>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.btnWhatsApp}
+          onPress={handleContactarWhatsApp}
+          activeOpacity={0.7}
+        >
+          <MessageCircle size={16} color="#B6C2CF" />
+          <Text style={styles.btnWhatsAppText}>Contactar por WhatsApp</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.formContainer}>
-        {/* SELECTOR 1: TIPO DE CONTACTO */}
+        {/* SELECTOR 1: TIPO DE ACCIÓN */}
+        <SelectDropdown
+          label="TIPO DE ACCIÓN"
+          value={tipoAccion}
+          onSelect={(v) => {
+            setTipoAccion(v);
+            if (v === 'ACCIÓN EFECTIVA' && RESULTADOS_NEGATIVOS.includes(resultado)) {
+              setResultado('');
+            } else if (v === 'ACCIÓN NEGATIVA' && RESULTADOS_EFECTIVOS.includes(resultado)) {
+              setResultado('');
+            }
+          }}
+          options={OPCIONES_TIPO_ACCION_COBRANZA}
+          placeholder="Seleccione tipo de acción..."
+          isRequired
+          disabled={isSaving}
+        />
+
+        {/* SELECTOR 2: TIPO DE CONTACTO */}
         <SelectDropdown
           label="TIPO DE CONTACTO"
           value={tipoContacto}
@@ -189,22 +261,29 @@ export function FaseCobranza({
           disabled={isSaving}
         />
 
-        {/* SELECTOR 2: RESULTADO */}
+        {/* SELECTOR 3: RESULTADO */}
         <SelectDropdown
           label="RESULTADO"
           value={resultado}
-          onSelect={(v) => setResultado(v)}
-          options={OPCIONES_RESULTADO_COBRANZA}
+          onSelect={(v) => {
+            setResultado(v);
+            if (RESULTADOS_EFECTIVOS.includes(v)) {
+              setTipoAccion('ACCIÓN EFECTIVA');
+            } else if (RESULTADOS_NEGATIVOS.includes(v)) {
+              setTipoAccion('ACCIÓN NEGATIVA');
+            }
+          }}
+          options={
+            tipoAccion === 'ACCIÓN EFECTIVA'
+              ? RESULTADOS_EFECTIVOS
+              : tipoAccion === 'ACCIÓN NEGATIVA'
+              ? RESULTADOS_NEGATIVOS
+              : OPCIONES_RESULTADO_COBRANZA
+          }
           placeholder="Seleccione resultado de gestión..."
           isRequired
           disabled={isSaving}
         />
-
-        {!(Array.isArray(datos.adjuntos) && datos.adjuntos.length > 0) && (
-          <Text style={{ fontSize: 11, color: '#E2A3A3', marginTop: 4, fontStyle: 'italic' }}>
-            * Es obligatorio adjuntar al menos 1 imagen como evidencia en "Archivos Adjuntos"
-          </Text>
-        )}
 
         <TouchableOpacity
           style={[
@@ -226,30 +305,7 @@ export function FaseCobranza({
       </View>
 
       {/* HISTORIAL DE GESTIONES */}
-      {gestionesPrevias.length > 0 && (
-        <View style={styles.historialContainer}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <History size={14} color="#8C9BAB" />
-            <Text style={styles.historialTitle}>Historial de Contactos ({gestionesPrevias.length})</Text>
-          </View>
-          {gestionesPrevias.map((g, idx) => (
-            <View key={idx} style={styles.historialItem}>
-              <Text style={styles.historialFecha}>
-                {g.fecha ? new Date(String(g.fecha)).toLocaleString() : '—'}
-              </Text>
-              <Text style={styles.historialTxt}>
-                • Contacto: <Text style={{ color: '#B6C2CF' }}>{String(g.tipoContacto || '')}</Text>
-              </Text>
-              <Text style={styles.historialTxt}>
-                • Resultado:{' '}
-                <Text style={{ color: getResultadoColor(String(g.resultado || '')).text, fontWeight: 'bold' }}>
-                  {String(g.resultado || '')}
-                </Text>
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
+      <SeccionHistorialCobranza gestiones={gestionesPrevias} />
 
       {/* Modal obligatorio para especificar la causa de rechazo de pago y notificar al cliente */}
       <ModalRechazarPago

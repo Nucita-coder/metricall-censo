@@ -1,3 +1,8 @@
+export const OPCIONES_TIPO_ACCION_COBRANZA = [
+  'ACCIÓN EFECTIVA',
+  'ACCIÓN NEGATIVA',
+];
+
 export const OPCIONES_TIPO_CONTACTO_COBRANZA = [
   'LLAMADA TELEFONICA',
   'MENSAJE WHATSAPP',
@@ -6,9 +11,8 @@ export const OPCIONES_TIPO_CONTACTO_COBRANZA = [
   'VISITA RESIDENCIAL',
 ];
 
-// Opciones de resultado de cobranza
-export const OPCIONES_RESULTADO_COBRANZA = [
-  // --- ACCIÓN EFECTIVA (7 opciones) ---
+// --- ACCIÓN EFECTIVA (7 opciones) ---
+export const RESULTADOS_EFECTIVOS = [
   'COBRO EFECTIVO',
   'CONVENIO DE PAGO',
   'ABONO PARCIALMENTE',
@@ -16,7 +20,10 @@ export const OPCIONES_RESULTADO_COBRANZA = [
   'NO CONTESTO',
   'LUEGO PASA POR OFIC',
   'PIDE AJUSTE DE PLAN',
-  // --- ACCIÓN NEGATIVA (10 opciones) ---
+];
+
+// --- ACCIÓN NEGATIVA (10 opciones) ---
+export const RESULTADOS_NEGATIVOS = [
   'FUERA DE ZONA',
   'PIDE RETIRO',
   'RECHAZO A PAGAR POR DIAS SIN SERVICIO',
@@ -29,13 +36,9 @@ export const OPCIONES_RESULTADO_COBRANZA = [
   'NO DESEA PAGAR',
 ];
 
-// Positivos → Auto-mover a "Acción efectiva"
-export const RESULTADOS_EFECTIVOS = [
-  'COBRO EFECTIVO',
-  'CONVENIO DE PAGO',
-  'ABONO PARCIALMENTE',
-  'RECUPERADO',
-  'NO CONTESTO',
-  'LUEGO PASA POR OFIC',
-  'PIDE AJUSTE DE PLAN',
+// Opciones de resultado de cobranza combinadas
+export const OPCIONES_RESULTADO_COBRANZA = [
+  ...RESULTADOS_EFECTIVOS,
+  ...RESULTADOS_NEGATIVOS,
 ];
+

@@ -34,7 +34,7 @@ export function normalizarFilaExcel(row: Record<string, unknown>): TarjetaDatosV
       normalizado.documentoIdentidad = valueStr;
       normalizado.nroIdentidad = valueStr;
       normalizado['DOC IDENTIDAD'] = valueStr;
-    } else if (cleanKey.includes('abonado') || cleanKey.includes('suscriptor')) {
+    } else if (cleanKey.includes('abonado') || cleanKey.includes('suscriptor') || cleanKey === 'lch' || cleanKey === 'id contrato' || cleanKey === 'n° abonado' || cleanKey === 'nro abonado') {
       normalizado.nroAbonado = valueStr;
       normalizado['NRO SUSCRIPTOR'] = valueStr;
     } else if (cleanKey === 'observacion' || cleanKey === 'facturacion') {
@@ -43,20 +43,22 @@ export function normalizarFilaExcel(row: Record<string, unknown>): TarjetaDatosV
     } else if (cleanKey === 'estatus' || cleanKey === 'estado suscriptor') {
       normalizado.estatusSuscriptor = valueStr;
       normalizado['ESTATUS'] = valueStr;
-    } else if (cleanKey === 'saldo') {
+    } else if (cleanKey === 'saldo' || cleanKey === 'monto' || cleanKey === 'total factura' || cleanKey === 'restante factura') {
       normalizado.saldo = valueStr;
       normalizado['SALDO'] = valueStr;
-    } else if (cleanKey === 'suscripcion' || cleanKey === 'plan suscripcion' || cleanKey === 'plan') {
+      normalizado.monto = valueStr;
+      normalizado['MONTO'] = valueStr;
+    } else if (cleanKey === 'suscripcion' || cleanKey === 'plan suscripcion' || cleanKey === 'plan' || cleanKey === 'nombre servicio') {
       normalizado.planSuscripcion = valueStr;
       normalizado['PLAN SUSCRIPCION'] = valueStr;
-    } else if (cleanKey === 'telefono' || cleanKey === 'celular' || cleanKey === 'movil') {
+    } else if (cleanKey === 'telefono' || cleanKey === 'celular' || cleanKey === 'movil' || cleanKey === 'telefono movil' || cleanKey === 'teléfono') {
       normalizado.telefonoMovil = valueStr;
       normalizado.nroTelefonoMovil = valueStr;
       normalizado['TELEFONO'] = valueStr;
     } else if (cleanKey === 'correo' || cleanKey === 'email') {
       normalizado.correo = valueStr;
       normalizado['CORREO'] = valueStr;
-    } else if (cleanKey === 'grupo afinidad' || cleanKey === 'tipo') {
+    } else if (cleanKey === 'grupo afinidad' || cleanKey === 'tipo' || cleanKey === 'tipo servicio') {
       normalizado.tipoServicio = valueStr;
       normalizado['TIPO'] = valueStr;
     } else if (cleanKey === 'departamento' || cleanKey === 'estado') {
@@ -71,7 +73,7 @@ export function normalizarFilaExcel(row: Record<string, unknown>): TarjetaDatosV
     } else if (cleanKey === 'barrio' || cleanKey === 'sector') {
       normalizado.sector = valueStr;
       normalizado['BARRIO'] = valueStr;
-    } else if (cleanKey === 'direccion' || cleanKey === 'calle') {
+    } else if (cleanKey === 'direccion' || cleanKey === 'calle' || cleanKey === 'dirección') {
       normalizado.calle = valueStr;
       normalizado.puntoReferencia = valueStr;
       normalizado['DIRECCION'] = valueStr;
@@ -84,6 +86,7 @@ export function normalizarFilaExcel(row: Record<string, unknown>): TarjetaDatosV
   });
 
   normalizado.origen = 'COBRANZA-RECUPERO-CHURN';
+  normalizado.origenImportacion = 'COBRANZA-RECUPERO-CHURN';
   normalizado.fechaCenso = new Date().toISOString();
 
   return normalizado;

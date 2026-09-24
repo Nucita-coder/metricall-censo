@@ -136,7 +136,7 @@ export const useKanbanFiltros = ({ listas, userRol }: UseKanbanFiltrosParams) =>
           const matchTelefono = coincideTelefono(vals, q);
           const nombre = String(vals.nombreApellido || vals.nombre || vals.cliente || '').toLowerCase();
           const matchNombre = nombre.includes(q);
-          const cedula = String(vals.cedula || vals.documento || vals.rif || '').toLowerCase();
+          const cedula = String(vals.documentoIdentidad || vals.nroIdentidad || vals.cedula || vals.documento || vals.rif || '').toLowerCase();
           const matchCedula = cedula.includes(q);
           const abonado = String(vals.nroAbonado || vals['NRO SUSCRIPTOR'] || vals.abonado || '').toLowerCase();
           const matchAbonado = abonado.includes(q);

@@ -4,23 +4,15 @@ import { ChevronLeft, X } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Lista, TableroDisponible } from '../../../types/kanban';
 
-const TRANSLUCENT_COLORS = [
-  '#0052CC', '#172B4D', '#00875A', '#FF991F', '#DE350B',
-  '#5243AA', '#00A3BF', '#0098B7', '#42526E', '#253858',
-  '#0065FF', '#22272B'
-];
-
 interface ModalGestionListaProps {
   visible: boolean;
   onClose: () => void;
   gestionMenuPos: { x: number; y: number } | null;
-  gestionMenuAction: 'main' | 'rename' | 'color' | 'move';
-  setGestionMenuAction: (action: 'main' | 'rename' | 'color' | 'move') => void;
+  gestionMenuAction: 'main' | 'rename' | 'move';
+  setGestionMenuAction: (action: 'main' | 'rename' | 'move') => void;
   listaActiva: Lista | null;
   editListaNombre: string;
   setEditListaNombre: (val: string) => void;
-  editListaColor: string;
-  setEditListaColor: (val: string) => void;
   handleActualizarLista: () => void;
   handleArchivarLista: () => void;
   tablerosDisponibles: TableroDisponible[];
@@ -38,8 +30,6 @@ export const ModalGestionLista = ({
   listaActiva,
   editListaNombre,
   setEditListaNombre,
-  editListaColor,
-  setEditListaColor,
   handleActualizarLista,
   handleArchivarLista,
   tablerosDisponibles,
@@ -79,7 +69,6 @@ export const ModalGestionLista = ({
             <Text style={{ color: '#9FADBC', fontWeight: 'bold', fontSize: 14 }}>
               {gestionMenuAction === 'main' && 'Acciones de la lista'}
               {gestionMenuAction === 'rename' && 'Renombrar lista'}
-              {gestionMenuAction === 'color' && 'Cambiar color'}
               {gestionMenuAction === 'move' && 'Mover lista'}
             </Text>
             <TouchableOpacity style={{ position: 'absolute', right: 0, padding: 4 }} onPress={onClose}>
@@ -115,12 +104,6 @@ export const ModalGestionLista = ({
 
               <View style={{ height: 1, backgroundColor: '#A6B6C5', opacity: 0.2, marginVertical: 8 }} />
 
-              <TouchableOpacity style={{ paddingVertical: 10, paddingHorizontal: 12, borderRadius: 6, marginBottom: 4 }} onPress={() => setGestionMenuAction('color')}>
-                <Text style={{ color: '#B6C2CF', fontSize: 14 }}>Cambiar color de lista...</Text>
-              </TouchableOpacity>
-
-              <View style={{ height: 1, backgroundColor: '#A6B6C5', opacity: 0.2, marginVertical: 8 }} />
-
               <TouchableOpacity style={{ paddingVertical: 10, paddingHorizontal: 12, borderRadius: 6 }} onPress={handleArchivarLista}>
                 <Text style={{ color: '#B6C2CF', fontSize: 14 }}>Archivar esta lista</Text>
               </TouchableOpacity>
@@ -143,23 +126,7 @@ export const ModalGestionLista = ({
             </View>
           )}
 
-          {/* Vista Color */}
-          {gestionMenuAction === 'color' && (
-            <View>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16, gap: 10 }}>
-                {TRANSLUCENT_COLORS.map((color, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={{ width: 48, height: 32, borderRadius: 4, backgroundColor: color, borderWidth: editListaColor === color ? 2 : 0, borderColor: '#579DFF' }}
-                    onPress={() => setEditListaColor(color)}
-                  />
-                ))}
-              </View>
-              <TouchableOpacity style={{ backgroundColor: '#579DFF', paddingVertical: 8, borderRadius: 4, alignItems: 'center' }} onPress={handleActualizarLista}>
-                <Text style={{ color: '#1D2125', fontWeight: 'bold' }}>Guardar Color</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+
 
           {/* Vista Mover */}
           {gestionMenuAction === 'move' && (

@@ -26,6 +26,54 @@ export const styles = StyleSheet.create({
   formContainer: {
     gap: 4,
   },
+  whatsappCard: {
+    backgroundColor: '#22272B',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#384148',
+    marginBottom: 14,
+    gap: 10,
+  },
+  whatsappInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  whatsappLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#8C9BAB',
+    letterSpacing: 0.5,
+  },
+  whatsappNombre: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  whatsappMeta: {
+    fontSize: 12,
+    color: '#8C9BAB',
+    marginTop: 2,
+  },
+  btnWhatsApp: {
+    backgroundColor: '#1D2125',
+    borderWidth: 1,
+    borderColor: '#384148',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    gap: 8,
+  },
+  btnWhatsAppText: {
+    color: '#B6C2CF',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
   btnGuardar: {
     backgroundColor: '#A0B2C6',
     flexDirection: 'row',
@@ -71,5 +119,12 @@ export const styles = StyleSheet.create({
   historialTxt: {
     fontSize: 12,
     color: '#B6C2CF',
+  },
+  historialAccionBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#384148',
   },
 });

@@ -269,7 +269,6 @@ export default function KanbanTableroScreen() {
         gestionMenuAction={gestionLista.gestionMenuAction} setGestionMenuAction={gestionLista.setGestionMenuAction}
         listaActiva={gestionLista.listaActivaGestion}
         editListaNombre={gestionLista.editListaNombre} setEditListaNombre={gestionLista.setEditListaNombre}
-        editListaColor={gestionLista.editListaColor} setEditListaColor={gestionLista.setEditListaColor}
         handleActualizarLista={gestionLista.handleActualizarLista} handleArchivarLista={gestionLista.handleArchivarLista}
         tablerosDisponibles={tablerosDisponibles} selectedTableroId={gestionLista.selectedTableroId}
         setSelectedTableroId={gestionLista.setSelectedTableroId} handleMoverListaTablero={gestionLista.handleMoverListaTablero}

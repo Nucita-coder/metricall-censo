@@ -26,12 +26,13 @@ export interface FaseProps {
 
 export function findListaTarget(listas: Lista[] = [], target: string): Lista | undefined {
   if (!listas || listas.length === 0) return undefined;
-  const targetClean = target.toLowerCase().trim().replace(/_/g, ' ');
+  const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/_/g, ' ');
+  const targetClean = normalize(target);
 
   return listas.find(l => {
     if (!l) return false;
-    if (l.slug && l.slug.toLowerCase().trim().replace(/_/g, ' ') === targetClean) return true;
-    if (l.nombre && l.nombre.toLowerCase().trim().replace(/_/g, ' ') === targetClean) return true;
+    if (l.slug && normalize(l.slug) === targetClean) return true;
+    if (l.nombre && normalize(l.nombre) === targetClean) return true;
     return false;
   });
 }

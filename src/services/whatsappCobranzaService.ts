@@ -41,26 +41,24 @@ export function generarMensajeCobranza(datos: TarjetaDatosValores): string {
   const abonadoTxt = abonado ? (abonado.startsWith('#') ? abonado : `#${abonado}`) : '';
 
   const rawSaldo = datos.saldo ?? datos['SALDO'] ?? datos.monto ?? datos.Monto ?? datos['MONTO'] ?? datos.montoDeuda;
-  const saldoTxt = formatMonto(rawSaldo);
+  const saldoTxt = formatMonto(rawSaldo) || '$0.00';
 
   const cedula = String(datos.documentoIdentidad || datos.nroIdentidad || datos['DOC IDENTIDAD'] || '').trim();
   const cedulaTxt = cedula ? formatCedula(cedula) : '';
 
-  let mensaje = `Hola, estimado(a) *${nombre}*, le saludamos del Departamento de Cobranzas de *Metricall*.\n\n`;
-  mensaje += `Le contactamos para recordarle que su servicio de internet`;
-  if (abonadoTxt) {
-    mensaje += ` con número de abonado *${abonadoTxt}*`;
+  let identificacionServicio = '';
+  if (abonadoTxt && cedulaTxt) {
+    identificacionServicio = ` con número de abonado ${abonadoTxt} (C.I. ${cedulaTxt})`;
+  } else if (abonadoTxt) {
+    identificacionServicio = ` con número de abonado ${abonadoTxt}`;
+  } else if (cedulaTxt) {
+    identificacionServicio = ` (C.I. ${cedulaTxt})`;
   }
-  if (cedulaTxt) {
-    mensaje += ` (C.I. *${cedulaTxt}*)`;
-  }
-  if (saldoTxt) {
-    mensaje += ` presenta un saldo pendiente de *${saldoTxt}*.`;
-  } else {
-    mensaje += ` presenta una factura pendiente por saldar.`;
-  }
-  mensaje += `\n\nLe invitamos a realizar su pago para mantener su servicio activo y evitar suspensiones.\n\n`;
-  mensaje += `Si ya realizó el pago, por favor compártanos el comprobante por este medio para conciliarlo en nuestro sistema.\n\n`;
+
+  let mensaje = `Hola, estimado(a) ${nombre}, le saludamos del Departamento de Cobranzas de FIBEX TELECOM OFICINA ANACO.\n\n`;
+  mensaje += `Le contactamos para recordarle que su servicio de internet${identificacionServicio} presenta un saldo pendiente de ${saldoTxt}.\n\n`;
+  mensaje += `Le invitamos a realizar su pago para mantener su servicio activo y evitar suspensiones.\n\n`;
+  mensaje += `Para reportar pago correspondiente a la ciudad de Anaco puede hacerlo a nuestro chatbot local a través del número 04220084829.\n\n`;
   mensaje += `¡Muchas gracias por su atención y que tenga un feliz día!`;
 
   return mensaje;

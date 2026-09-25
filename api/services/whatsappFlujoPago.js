@@ -196,7 +196,7 @@ export async function procesarComprobantePago(fromPhone, message, sesion) {
 Tu pago está en proceso de aprobación y prontamente se te estará dando respuesta.
 
 ¡Muchas gracias por preferirnos!
-_Fibex Telecom Anaco_`;
+_Fibex Telecom, sede Anaco_`;
 
     await enviarMensajeTexto(fromPhone, msgConfirmacion);
     await insertarLog({
@@ -224,7 +224,7 @@ _Fibex Telecom Anaco_`;
 
     await enviarMensajeTexto(
       fromPhone,
-      '✅ Tu reporte ha sido recibido y está en proceso de aprobación. Prontamente se te estará dando respuesta.\n\n¡Muchas gracias por preferirnos!\n_Fibex Telecom Anaco_'
+      '✅ Tu reporte ha sido recibido y está en proceso de aprobación. Prontamente se te estará dando respuesta.\n\n¡Muchas gracias por preferirnos!\n_Fibex Telecom, sede Anaco_'
     );
     return true;
   }

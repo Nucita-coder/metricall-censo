@@ -289,7 +289,7 @@ export async function enviarConfirmacionPago(toPhone, datos) {
 Tu pago está en proceso de aprobación y prontamente se te estará dando respuesta.
 
 ¡Muchas gracias por preferirnos!
-_Fibex Telecom Anaco_`;
+_Fibex Telecom, sede Anaco_`;
 
   return await enviarTexto(toPhone, mensaje);
 }

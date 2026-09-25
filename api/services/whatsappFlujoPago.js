@@ -174,7 +174,10 @@ export async function procesarComprobantePago(fromPhone, message, sesion) {
 📄 *Contrato:* ${datosTemp.nroContrato || 'Registrado'}
 💵 *Monto reportado:* $${datosTemp.saldo || '0.00'} USD
 
-Tu pago ha sido registrado y está siendo verificado por nuestro equipo para la conciliación y reactivación del servicio. ¡Muchas gracias!`;
+Tu pago está en proceso de aprobación y prontamente se te estará dando respuesta.
+
+¡Muchas gracias por preferirnos!
+_Fibex Telecom Anaco_`;
 
     await enviarMensajeTexto(fromPhone, msgConfirmacion);
     await insertarLog({
@@ -202,7 +205,7 @@ Tu pago ha sido registrado y está siendo verificado por nuestro equipo para la 
 
     await enviarMensajeTexto(
       fromPhone,
-      '✅ Tu reporte sin comprobante ha sido registrado. Un asesor se comunicará contigo para confirmar el pago.'
+      '✅ Tu reporte ha sido recibido y está en proceso de aprobación. Prontamente se te estará dando respuesta.\n\n¡Muchas gracias por preferirnos!\n_Fibex Telecom Anaco_'
     );
     return true;
   }

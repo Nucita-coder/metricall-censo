@@ -280,14 +280,16 @@ _Presiona el ícono de adjunto 📎 y selecciona la imagen de tu pago._`;
 export async function enviarConfirmacionPago(toPhone, datos) {
   const fechaTexto = datos.fechaPago || datos.fecha || 'Hoy';
   const cedulaTexto = datos.cedula || 'No especificada';
+  const nombreTexto = datos.nombre ? `\n👤 *Abonado:* ${datos.nombre}` : '';
   const mensaje =
-`✅ *Reporte de pago recibido*
-
+`✅ *¡Comprobante de Pago Recibido!*${nombreTexto}
 🆔 *Cédula/Abonado:* ${cedulaTexto}
-📅 *Fecha de Pago:* ${fechaTexto}
-📎 *Comprobante:* Recibido ✅
+📅 *Fecha:* ${fechaTexto}
 
-Se le notificará cuando el pago haya sido procesado. ¡Gracias por su reporte!`;
+Tu pago está en proceso de aprobación y prontamente se te estará dando respuesta.
+
+¡Muchas gracias por preferirnos!
+_Fibex Telecom Anaco_`;
 
   return await enviarTexto(toPhone, mensaje);
 }

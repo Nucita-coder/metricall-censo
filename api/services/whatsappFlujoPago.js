@@ -8,6 +8,7 @@ import {
   crearTarjetaCobranzaRest,
   procesarImagenWhatsApp
 } from './whatsapp.js';
+import { DATOS_PAGO_MOVIL } from './whatsappMessages.js';
 import { insertarLog } from './logger.js';
 
 const getFechaHoy = () => {
@@ -80,6 +81,12 @@ export async function procesarCedulaReportePago(fromPhone, textBody, sesion) {
 📊 *Estatus:* ${c.estatus}
 💵 *Saldo Pendiente:* $${c.saldoPendienteUsd} USD
 
+📲 *Datos para Pago Móvil:*
+• Banco: ${DATOS_PAGO_MOVIL.banco}
+• Teléfono: ${DATOS_PAGO_MOVIL.telefono}
+• RIF: ${DATOS_PAGO_MOVIL.rif}
+• Titular: ${DATOS_PAGO_MOVIL.titular}
+
 📸 Por favor adjunta la *foto o captura del comprobante de pago* para ser procesado.`;
 
         await enviarMensajeTexto(fromPhone, respuesta);
@@ -114,6 +121,12 @@ Hemos encontrado *${contratos.length} contratos* asociados a tu cédula:
 ${detalleContratos}
 💵 *Total Saldo Adeudado:* $${sumaTotal.toFixed(2)} USD
 
+📲 *Datos para Pago Móvil:*
+• Banco: ${DATOS_PAGO_MOVIL.banco}
+• Teléfono: ${DATOS_PAGO_MOVIL.telefono}
+• RIF: ${DATOS_PAGO_MOVIL.rif}
+• Titular: ${DATOS_PAGO_MOVIL.titular}
+
 📸 Por favor adjunta la *foto o captura del comprobante de pago* para ser procesado.`;
 
         await enviarMensajeTexto(fromPhone, respuesta);
@@ -125,6 +138,12 @@ ${detalleContratos}
 
       const respuesta =
 `⚠️ No encontramos contratos activos con la cédula *${cedula}* en el sistema.
+
+📲 *Datos para Pago Móvil:*
+• Banco: ${DATOS_PAGO_MOVIL.banco}
+• Teléfono: ${DATOS_PAGO_MOVIL.telefono}
+• RIF: ${DATOS_PAGO_MOVIL.rif}
+• Titular: ${DATOS_PAGO_MOVIL.titular}
 
 Si estás seguro de tu número, por favor envía la *foto o captura de tu comprobante de pago* directamente para que un asesor valide tu cuenta:`;
 

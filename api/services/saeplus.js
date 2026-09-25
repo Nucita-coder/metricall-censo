@@ -4,6 +4,8 @@
 
 import crypto from 'crypto';
 
+const TIMEOUT_MS = 15000; // Timeout de 15 segundos solicitado por el usuario
+
 class SaeplusService {
   constructor() {
     this.baseUrl = process.env.SAEPLUS_BASE_URL || 'https://fibextelecom.saeplus.com';
@@ -40,7 +42,8 @@ class SaeplusService {
         'X-Requested-With': 'XMLHttpRequest',
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)'
       },
-      body: 'data[id]=&data[accion]=cargar_formulario&data[form]=login'
+      body: 'data[id]=&data[accion]=cargar_formulario&data[form]=login',
+      signal: AbortSignal.timeout(TIMEOUT_MS)
     });
 
     this.cookies = this._extractCookies(resCargador);
@@ -78,7 +81,8 @@ class SaeplusService {
         'Cookie': this.cookies,
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)'
       },
-      body: 'parametros=' + encodeURIComponent(JSON.stringify(payloadLogin))
+      body: 'parametros=' + encodeURIComponent(JSON.stringify(payloadLogin)),
+      signal: AbortSignal.timeout(TIMEOUT_MS)
     });
 
     const newCookies = this._extractCookies(resLogin);
@@ -133,7 +137,8 @@ class SaeplusService {
         'Cookie': this.cookies,
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)'
       },
-      body: 'parametros=' + encodeURIComponent(JSON.stringify(payloadSearch))
+      body: 'parametros=' + encodeURIComponent(JSON.stringify(payloadSearch)),
+      signal: AbortSignal.timeout(TIMEOUT_MS)
     });
 
     // Si la sesión expiró remotamente, reautenticar y reintentar 1 vez
@@ -150,7 +155,8 @@ class SaeplusService {
           'Cookie': this.cookies,
           'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)'
         },
-        body: 'parametros=' + encodeURIComponent(JSON.stringify(payloadSearch))
+        body: 'parametros=' + encodeURIComponent(JSON.stringify(payloadSearch)),
+        signal: AbortSignal.timeout(TIMEOUT_MS)
       });
     }
 

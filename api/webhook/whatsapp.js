@@ -22,6 +22,11 @@ import {
 } from '../services/whatsapp.js';
 import { extraerDatosSuscripcion, extraerDatosFalla } from '../services/gemini.js';
 import { insertarLog } from '../services/logger.js';
+import {
+  iniciarFlujoReportePago,
+  procesarCedulaReportePago,
+  procesarComprobantePago
+} from '../services/whatsappFlujoPago.js';
 
 const getFechaHoy = () => {
   const d = new Date();
@@ -103,11 +108,8 @@ export default async function handler(req, res) {
 
         // ── Botones del menú principal ────────────────────────────────────────
         if (buttonId === 'btn_reporte_pago') {
-          if (enFlujoActivo) {
-            await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un nuevo Reporte de Pago.');
-          }
-          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_PAGO_DIRECTO');
-          await enviarFormularioPago(fromPhone);
+          await iniciarFlujoReportePago(fromPhone, enFlujoActivo);
+          return res.status(200).json({ status: 'solicitud_cedula_enviada' });
 
         } else if (buttonId === 'btn_cambiar_fecha_pago') {
           const cedula = sesion.datos_temporales?.cedula || '';
@@ -232,65 +234,21 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: 'fecha_manual_guardada' });
       }
 
-      // ── ESTADO: FLUJO DE PAGO DIRECTO ───────────────────────────────────────
-      const estadosPago = ['ESPERANDO_PAGO_DIRECTO', 'ESPERANDO_CEDULA_PAGO', 'ESPERANDO_COMPROBANTE', 'ESPERANDO_DATOS_PAGO', 'ESPERANDO_FECHA_PAGO'];
-      if (estadosPago.includes(estadoActual)) {
-        const datosTemp = sesion.datos_temporales || {};
-        const fechaPago = datosTemp.fechaPago || getFechaHoy();
-
-        // 1. Imagen recibida
-        if (messageType === 'image' && message.image?.id) {
-          const comprobanteUrl = await procesarImagenWhatsApp(message.image.id, fromPhone);
-          const caption = (message.image.caption || '').trim();
-          const matchCedula = caption.match(/(?:[VvEeJjPp]-?)?(\d{5,9})/);
-          const cedula = matchCedula ? matchCedula[1] : (datosTemp.cedula || '');
-
-          if (cedula) {
-            const datosPago = { cedula, comprobante_url: comprobanteUrl || '', fechaPago, telefono: fromPhone };
-            const tid = await crearTarjetaCobranzaRest(datosPago);
-            await actualizarEstadoSesionRest(fromPhone, 'INICIO', { ...datosPago, tarjeta_id: tid });
-            await enviarConfirmacionPago(fromPhone, datosPago);
-            await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Pago registrado para CI: ${cedula}` });
-            return res.status(200).json({ status: 'pago_registrado_directo' });
-          }
-
-          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_PAGO_DIRECTO', { ...datosTemp, comprobante_url: comprobanteUrl || '', fechaPago });
-          await enviarMensajeTexto(fromPhone, '📸 ¡Captura recibida!\n\nPor favor indícanos tu número de *Cédula de Identidad* o *Abonado*:');
-          return res.status(200).json({ status: 'comprobante_recibido_esperando_cedula' });
-        }
-
-        // 2. Texto recibido
+      // ── ESTADO: ESPERANDO_CEDULA_PAGO ─ Consulta de abonado y deuda en SAEPLUS ──
+      if (estadoActual === 'ESPERANDO_CEDULA_PAGO') {
         if (textBody) {
-          const matchCedula = textBody.match(/(?:[VvEeJjPp]-?)?(\d{5,9})/);
-          const esSinFoto = textBody.toLowerCase().includes('sin foto') || textBody.toLowerCase().includes('no tengo');
-
-          if (matchCedula) {
-            const cedula = matchCedula[1];
-            if (datosTemp.comprobante_url || esSinFoto) {
-              const datosPago = { cedula, comprobante_url: datosTemp.comprobante_url || '', fechaPago, telefono: fromPhone };
-              const tid = await crearTarjetaCobranzaRest(datosPago);
-              await actualizarEstadoSesionRest(fromPhone, 'INICIO', { ...datosPago, tarjeta_id: tid });
-              await enviarConfirmacionPago(fromPhone, datosPago);
-              await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: `Pago registrado para CI: ${cedula}` });
-              return res.status(200).json({ status: 'pago_registrado_con_cedula' });
-            }
-
-            await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_PAGO_DIRECTO', { ...datosTemp, cedula, fechaPago });
-            await enviarMensajeTexto(fromPhone, `📸 Cédula *${cedula}* registrada.\n\nPor favor envía la *foto o captura* del comprobante de pago:`);
-            return res.status(200).json({ status: 'cedula_recibida_esperando_comprobante' });
-          }
-
-          if (esSinFoto && datosTemp.cedula) {
-            const datosPago = { cedula: datosTemp.cedula, comprobante_url: '', fechaPago, telefono: fromPhone };
-            const tid = await crearTarjetaCobranzaRest(datosPago);
-            await actualizarEstadoSesionRest(fromPhone, 'INICIO', { ...datosPago, tarjeta_id: tid });
-            await enviarConfirmacionPago(fromPhone, datosPago);
-            return res.status(200).json({ status: 'pago_registrado_sin_foto' });
-          }
-
-          await enviarMensajeTexto(fromPhone, '⚠️ Por favor envía la *foto o captura* de tu comprobante con tu número de *Cédula* (ejemplo: *24555666*). Escribe *cancelar* para salir.');
-          return res.status(200).json({ status: 'esperando_datos_validos' });
+          await procesarCedulaReportePago(fromPhone, textBody, sesion);
+          return res.status(200).json({ status: 'cedula_pago_procesada' });
         }
+        await enviarMensajeTexto(fromPhone, '✏️ Por favor escribe tu número de *Cédula de Identidad* (ejemplo: *8693154*):');
+        return res.status(200).json({ status: 'esperando_cedula' });
+      }
+
+      // ── ESTADO: ESPERANDO_COMPROBANTE_PAGO / FLUJO DE PAGO DIRECTO ───────────
+      const estadosPago = ['ESPERANDO_COMPROBANTE_PAGO', 'ESPERANDO_PAGO_DIRECTO', 'ESPERANDO_COMPROBANTE', 'ESPERANDO_DATOS_PAGO'];
+      if (estadosPago.includes(estadoActual)) {
+        await procesarComprobantePago(fromPhone, message, sesion);
+        return res.status(200).json({ status: 'comprobante_procesado' });
       }
 
       // ── ESTADO: ESPERANDO_DATOS_SUSCRIPCION ──────────────────────────────────
@@ -315,11 +273,9 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: 'instrucciones_enviadas' });
       }
 
-      if (textLower.includes('pago') || textLower.includes('pagar') || textLower === '2') {
-        if (enFlujoActivo) await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un nuevo Reporte de Pago.');
-        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_PAGO_DIRECTO');
-        await enviarFormularioPago(fromPhone);
-        return res.status(200).json({ status: 'formulario_pago_enviado' });
+      if (textLower.includes('pago') || textLower.includes('pagar') || textLower === '2' || textLower.includes('saldo') || textLower.includes('deuda')) {
+        await iniciarFlujoReportePago(fromPhone, enFlujoActivo);
+        return res.status(200).json({ status: 'solicitud_cedula_enviada' });
       }
 
       if (textLower.includes('falla') || textLower.includes('averia') || textLower.includes('avería') || textLower.includes('soporte') || textLower === '3') {

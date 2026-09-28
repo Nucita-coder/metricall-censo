@@ -14,6 +14,8 @@ export interface ResultadoNotificacion {
   noPhone?: boolean;
   error?: string;
   phoneUsed?: string;
+  facturaEnviada?: boolean;
+  nroFactura?: string | null;
 }
 
 /**
@@ -92,6 +94,7 @@ async function enviarMensajeWhatsAppAPI(toPhone: string, mensajeTexto: string): 
 
 /**
  * Notifica al cliente por WhatsApp cuando su pago fue procesado exitosamente
+ * Envía la confirmación y automáticamente genera y adjunta la factura en PDF de SAEplus
  */
 export async function notificarPagoProcesado(tarjeta: DatosTarjetaPago): Promise<ResultadoNotificacion> {
   const datos = tarjeta.datos_valores || {};
@@ -102,6 +105,34 @@ export async function notificarPagoProcesado(tarjeta: DatosTarjetaPago): Promise
     return { success: false, noPhone: true };
   }
 
+  // 1. Intentar despacho integral mediante endpoint serverless (Mensaje de confirmación + Factura oficial en PDF)
+  try {
+    const resServer = await fetch('/api/notificar_pago', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: cleanPhone, tarjeta }),
+    });
+
+    if (resServer.ok) {
+      const data = (await resServer.json()) as {
+        success?: boolean;
+        facturaEnviada?: boolean;
+        nroFactura?: string;
+      };
+      if (data?.success) {
+        return {
+          success: true,
+          phoneUsed: cleanPhone,
+          facturaEnviada: !!data.facturaEnviada,
+          nroFactura: data.nroFactura || null,
+        };
+      }
+    }
+  } catch (e: unknown) {
+    console.warn('[NOTIFICAR PAGO] Fallback a llamada directa de cliente:', e);
+  }
+
+  // 2. Fallback: Envío directo del mensaje de texto si el endpoint local/serverless no responde
   const nombre = String(datos.nombreApellido || datos.nombre || 'Cliente').trim();
   const referencia = String(datos.referencia || datos.nroReferencia || 'S/N').trim();
   const monto = String(datos.montoPago || datos.monto || '').trim();
@@ -115,8 +146,8 @@ export async function notificarPagoProcesado(tarjeta: DatosTarjetaPago): Promise
     `✅ *PAGO PROCESADO CON ÉXITO*\n\n` +
     `Estimado(a) *${nombre}*, le confirmamos que su reporte de pago ha sido verificado y procesado satisfactoriamente en nuestro sistema.\n\n` +
     detalles + '\n' +
-    `¡Gracias por preferirnos! 🚀\n` +
-    `*Fibex Telecom Anaco*`;
+    `¡Gracias por preferirnos!\n` +
+    `_Fibex Telecom Anaco_`;
 
   const sent = await enviarMensajeWhatsAppAPI(cleanPhone, mensaje);
   return {

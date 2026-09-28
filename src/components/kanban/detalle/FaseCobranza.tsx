@@ -165,7 +165,11 @@ export function FaseCobranza({
       if (nuevoEstado === 'Pago Procesado') {
         const notif = await notificarPagoProcesado(tarjeta);
         if (notif.success) {
-          mensajeResultado += '\n\n📲 Se envió la notificación de confirmación al cliente por WhatsApp.';
+          if (notif.facturaEnviada) {
+            mensajeResultado += `\n\n📲 Se envió la confirmación y la Factura oficial en PDF (Nro. ${notif.nroFactura || 'emitida'}) al cliente por WhatsApp.`;
+          } else {
+            mensajeResultado += '\n\n📲 Se envió la notificación de confirmación al cliente por WhatsApp.';
+          }
         } else if (notif.noPhone) {
           mensajeResultado += '\n\nℹ️ (La tarjeta no tiene número telefónico registrado para enviar WhatsApp).';
         } else {

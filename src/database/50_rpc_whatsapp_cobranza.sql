@@ -78,10 +78,7 @@ BEGIN
     LIMIT 1;
   END IF;
 
-  v_nombre_final := COALESCE(NULLIF(p_nombre, ''), 'Pago');
-  IF p_cedula IS NOT NULL AND p_cedula <> '' THEN
-    v_nombre_final := 'Pago (' || p_cedula || ')';
-  END IF;
+  v_nombre_final := COALESCE(NULLIF(p_nombre, ''), CASE WHEN p_cedula IS NOT NULL AND p_cedula <> '' THEN 'Pago (' || p_cedula || ')' ELSE 'Pago' END);
 
   -- 3. Crear tarjeta de Cobranza con adjuntos
   INSERT INTO public.tarjetas (lista_id, empresa_id, creador_id, datos_valores)
@@ -91,8 +88,11 @@ BEGIN
     v_creador_id,
     jsonb_build_object(
       'nombreApellido',      v_nombre_final,
+      'nombreCliente',       COALESCE(p_nombre, ''),
+      'cedula',              COALESCE(p_cedula, ''),
       'documentoIdentidad',  COALESCE(p_cedula, ''),
       'nroAbonado',          COALESCE(p_cedula, ''),
+      'nroContrato',         COALESCE(p_referencia, ''),
       'referencia',          COALESCE(p_referencia, ''),
       'montoPago',           COALESCE(p_monto, ''),
       'bancoOrigen',         COALESCE(p_banco, ''),

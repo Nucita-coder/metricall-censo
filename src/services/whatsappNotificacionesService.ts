@@ -133,13 +133,17 @@ export async function notificarPagoProcesado(tarjeta: DatosTarjetaPago): Promise
   }
 
   // 2. Fallback: Envío directo del mensaje de texto si el endpoint local/serverless no responde
-  const nombre = String(datos.nombreApellido || datos.nombre || 'Cliente').trim();
+  let nombre = String(datos.nombreCliente || datos.nombreApellido || datos.nombre || 'Cliente').trim();
+  if (/^pago(\s*\([^)]*\))?$/i.test(nombre) || /^\d+$/.test(nombre)) {
+    nombre = 'Cliente';
+  }
   const referencia = String(datos.referencia || datos.nroReferencia || 'S/N').trim();
-  const monto = String(datos.montoPago || datos.monto || '').trim();
+  let monto = String(datos.montoPago || datos.monto || '').trim();
+  if (monto.startsWith('-')) monto = monto.replace(/^-/, '').trim();
   const banco = String(datos.bancoOrigen || datos.banco || '').trim();
 
   let detalles = `📋 *Referencia:* ${referencia}\n`;
-  if (monto) detalles += `💵 *Monto:* ${monto}\n`;
+  if (monto) detalles += `💵 *Monto:* $${monto} USD\n`;
   if (banco) detalles += `🏦 *Banco:* ${banco}\n`;
 
   const mensaje =

@@ -239,10 +239,7 @@ class SaeplusService {
     const estatusRaw = String(abonado.nombrestatus || abonado.status_contrato || 'ACTIVO').toUpperCase();
     const esSuspendido = estatusRaw.includes('SUSP') || estatusRaw.includes('CORT') || (parseFloat(saldoPendiente) > 0 && estatusRaw !== 'ACTIVO');
 
-    let equipoOnt = null;
-    if (abonado.equipos && Array.isArray(abonado.equipos.datos) && abonado.equipos.datos.length > 0) {
-      equipoOnt = abonado.equipos.datos[0];
-    }
+    const equipoOnt = abonado.equipos?.datos?.[0] || null;
 
     const resultado = {
       encontrado: true,
@@ -277,25 +274,28 @@ class SaeplusService {
     if (resultado.equipo && !esSuspendido) {
       resultado.diagnostico = await this.consultarSmartOlt(resultado.equipo.id_es);
     }
-
     return resultado;
   }
 
-  // Consulta la última factura o aviso de cobro emitido para un abonado por su Cédula
-  async consultarUltimaFactura(cedulaRaw) {
-    const cedulaLimpia = String(cedulaRaw || '').replace(/\D/g, '').trim();
-    if (!cedulaLimpia) return null;
+  // Consulta la última factura o aviso de cobro emitido por Cédula o Contrato
+  async consultarUltimaFactura(criterio, contratoParam = '') {
+    let cedula = typeof criterio === 'object' ? String(criterio?.cedula || '') : String(criterio || '');
+    let contrato = typeof criterio === 'object' ? String(criterio?.nroContrato || '') : String(contratoParam || '');
+    cedula = cedula.replace(/\D/g, '').trim();
+    contrato = contrato.trim();
+    if (!cedula && !contrato) return null;
 
-    const payload = [{
-      clase: 'tabs',
-      accion: 'consultar_documento',
-      datos: { nro_factura: '', nro_control: '', nro_contrato: '', cedulacli: cedulaLimpia }
-    }];
+    const buscarDocs = async (c, n) => {
+      const payload = [{ clase: 'tabs', accion: 'consultar_documento', datos: { nro_factura: '', nro_control: '', nro_contrato: n || '', cedulacli: c || '' } }];
+      const res = await this._postControlador(payload);
+      return (res.success && Array.isArray(res.retorno)) ? res.retorno : [];
+    };
 
-    const data = await this._postControlador(payload);
-    if (!data.success || !Array.isArray(data.retorno) || data.retorno.length === 0) return null;
+    let docs = cedula ? await buscarDocs(cedula, '') : [];
+    if (docs.length === 0 && contrato) docs = await buscarDocs('', contrato);
+    if (docs.length === 0) return null;
 
-    for (const doc of data.retorno) {
+    for (const doc of docs) {
       const match = (doc.verdatos || '').match(/imprimir_factura_cargar_deuda\('([^']+)',\s*'([^']+)'\)/);
       if (match) {
         return {
@@ -312,7 +312,6 @@ class SaeplusService {
         };
       }
     }
-
     return null;
   }
 

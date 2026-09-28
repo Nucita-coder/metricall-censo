@@ -34,6 +34,11 @@ import {
   abrirSelectorTiposFalla,
   completarReporteFallaConDiagnostico
 } from '../services/whatsappFlujoFalla.js';
+import {
+  iniciarFlujoFactura,
+  procesarCedulaFactura,
+  enviarFacturaDirectaPorCedula
+} from '../services/whatsappFlujoFactura.js';
 
 const getFechaHoy = () => {
   const d = new Date();
@@ -53,7 +58,6 @@ const FALLA_LABELS = {
 const PALABRAS_CANCELAR = ['cancelar', 'salir', 'menu', 'menú', 'inicio', '0'];
 
 export default async function handler(req, res) {
-
   // ── GET: Verificación del Webhook por Meta ──────────────────────────────────
   if (req.method === 'GET') {
     const { 'hub.mode': mode, 'hub.verify_token': token, 'hub.challenge': challenge } = req.query;
@@ -140,6 +144,15 @@ export default async function handler(req, res) {
           await actualizarEstadoSesionRest(fromPhone, 'INICIO');
           await enviarMenuPrincipal(fromPhone);
           return res.status(200).json({ status: 'menu_principal_enviado' });
+
+        } else if (buttonId === 'btn_descargar_factura') {
+          const cedula = sesion.datos_temporales?.cedula;
+          if (cedula) {
+            await enviarFacturaDirectaPorCedula(fromPhone, cedula);
+            return res.status(200).json({ status: 'factura_enviada_directa' });
+          }
+          await iniciarFlujoFactura(fromPhone, enFlujoActivo);
+          return res.status(200).json({ status: 'solicitud_cedula_factura_enviada' });
 
         } else if (buttonId === 'btn_suscribirse') {
           if (enFlujoActivo) {
@@ -260,6 +273,16 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: 'esperando_cedula' });
       }
 
+      // ── ESTADO: ESPERANDO_CEDULA_FACTURA ─ Consulta de última factura emitida ──
+      if (estadoActual === 'ESPERANDO_CEDULA_FACTURA') {
+        if (textBody) {
+          await procesarCedulaFactura(fromPhone, textBody, sesion);
+          return res.status(200).json({ status: 'cedula_factura_procesada' });
+        }
+        await enviarMensajeTexto(fromPhone, '✏️ Por favor escribe tu número de *Cédula de Identidad* (ejemplo: *8693154*):');
+        return res.status(200).json({ status: 'esperando_cedula_factura' });
+      }
+
       // ── ESTADO: ESPERANDO_COMPROBANTE_PAGO / FLUJO DE PAGO DIRECTO ───────────
       const estadosPago = ['ESPERANDO_COMPROBANTE_PAGO', 'ESPERANDO_PAGO_DIRECTO', 'ESPERANDO_COMPROBANTE', 'ESPERANDO_DATOS_PAGO'];
       if (estadosPago.includes(estadoActual)) {
@@ -297,6 +320,16 @@ export default async function handler(req, res) {
       if (textLower.includes('falla') || textLower.includes('averia') || textLower.includes('avería') || textLower.includes('soporte') || textLower === '3') {
         await iniciarFlujoReporteFalla(fromPhone, enFlujoActivo);
         return res.status(200).json({ status: 'solicitud_cedula_falla_enviada' });
+      }
+
+      if (textLower.includes('factura') || textLower.includes('recibo') || textLower.includes('aviso de cobro') || textLower === '4') {
+        const cedula = sesion.datos_temporales?.cedula;
+        if (cedula) {
+          await enviarFacturaDirectaPorCedula(fromPhone, cedula);
+          return res.status(200).json({ status: 'factura_enviada_directa' });
+        }
+        await iniciarFlujoFactura(fromPhone, enFlujoActivo);
+        return res.status(200).json({ status: 'solicitud_cedula_factura_enviada' });
       }
 
       // ── Menú principal (estado INICIO o comando no reconocido) ────────────────

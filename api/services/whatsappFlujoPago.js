@@ -87,6 +87,8 @@ export async function procesarCedulaReportePago(fromPhone, textBody, sesion) {
 • RIF: ${DATOS_PAGO_MOVIL.rif}
 • Titular: ${DATOS_PAGO_MOVIL.titular}
 
+📄 _Si deseas descargar tu última factura o aviso en PDF, escribe *FACTURA*._
+
 📸 Por favor adjunta la *foto o captura del comprobante de pago* para ser procesado.`;
 
         await enviarMensajeTexto(fromPhone, respuesta);

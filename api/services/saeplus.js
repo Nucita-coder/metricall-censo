@@ -280,6 +280,65 @@ class SaeplusService {
 
     return resultado;
   }
+
+  // Consulta la última factura o aviso de cobro emitido para un abonado por su Cédula
+  async consultarUltimaFactura(cedulaRaw) {
+    const cedulaLimpia = String(cedulaRaw || '').replace(/\D/g, '').trim();
+    if (!cedulaLimpia) return null;
+
+    const payload = [{
+      clase: 'tabs',
+      accion: 'consultar_documento',
+      datos: { nro_factura: '', nro_control: '', nro_contrato: '', cedulacli: cedulaLimpia }
+    }];
+
+    const data = await this._postControlador(payload);
+    if (!data.success || !Array.isArray(data.retorno) || data.retorno.length === 0) return null;
+
+    for (const doc of data.retorno) {
+      const match = (doc.verdatos || '').match(/imprimir_factura_cargar_deuda\('([^']+)',\s*'([^']+)'\)/);
+      if (match) {
+        return {
+          nroFactura: doc.nro_factura || 'S/N',
+          fechaEmision: doc.fecha || doc.fecha_pago || '',
+          tipo: doc.tipo || 'FACTURA',
+          concepto: doc.obser_pago || 'SERVICIO DE INTERNET',
+          monto: doc.monto_pago || '0.00',
+          cliente: doc.cliente || '',
+          nroContrato: doc.nro_contrato || '',
+          franquicia: doc.nombre_franq || '',
+          idPago: match[1],
+          archivoFormatoFactura: match[2]
+        };
+      }
+    }
+
+    return null;
+  }
+
+  // Descarga el archivo binario PDF oficial de la factura desde SAEPLUS
+  async descargarFacturaPdf(idPago, archivoFormatoFactura) {
+    await this.asegurarSesion();
+    const datos = JSON.stringify({
+      facturacion: { id_pago: idPago },
+      archivo_formato_factura: archivoFormatoFactura
+    });
+    const url = `${this.baseUrl}/modules/cobranza/report/lotes_filtro_${archivoFormatoFactura}?datos=${encodeURIComponent(datos)}&`;
+    const res = await fetch(url, {
+      headers: {
+        'Cookie': this.cookies,
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)'
+      },
+      signal: AbortSignal.timeout(TIMEOUT_MS)
+    });
+
+    if (!res.ok) {
+      throw new Error(`Error descargando factura PDF de SAEplus: Status ${res.status}`);
+    }
+
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
 }
 
 export const saeplusService = new SaeplusService();

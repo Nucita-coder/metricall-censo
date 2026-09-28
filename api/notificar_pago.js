@@ -1,10 +1,10 @@
 // api/notificar_pago.js
 // Endpoint Serverless en Vercel para despacho automático de confirmación de pago y envío de factura en PDF vía WhatsApp
 
-import { saeplusService } from './services/saeplus.js';
-import { enviarDocumentoWhatsApp } from './services/whatsappMedia.js';
-import { getCredentials, apiPost } from './services/whatsappMessages.js';
-import { insertarLog } from './services/logger.js';
+import { saeplusService } from './_services/saeplus.js';
+import { enviarDocumentoWhatsApp } from './_services/whatsappMedia.js';
+import { getCredentials, apiPost } from './_services/whatsappMessages.js';
+import { insertarLog } from './_services/logger.js';
 
 export default async function handler(req, res) {
   // CORS para permitir peticiones desde la app web

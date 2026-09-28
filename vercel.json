@@ -11,6 +11,10 @@
       "destination": "/api/soporte.js"
     },
     {
+      "source": "/api/notificar_pago",
+      "destination": "/api/notificar_pago.js"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

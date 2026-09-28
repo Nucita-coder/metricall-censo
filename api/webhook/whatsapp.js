@@ -19,26 +19,26 @@ import {
   procesarImagenWhatsApp,
   verificarContactoBloqueado,
   registrarContactoWhatsApp
-} from '../services/whatsapp.js';
-import { extraerDatosSuscripcion, extraerDatosFalla } from '../services/gemini.js';
-import { insertarLog } from '../services/logger.js';
+} from '../_services/whatsapp.js';
+import { extraerDatosSuscripcion, extraerDatosFalla } from '../_services/gemini.js';
+import { insertarLog } from '../_services/logger.js';
 import {
   iniciarFlujoReportePago,
   procesarCedulaReportePago,
   procesarComprobantePago
-} from '../services/whatsappFlujoPago.js';
+} from '../_services/whatsappFlujoPago.js';
 import {
   iniciarFlujoReporteFalla,
   procesarCedulaReporteFalla,
   procesarRefrescoEquipo,
   abrirSelectorTiposFalla,
   completarReporteFallaConDiagnostico
-} from '../services/whatsappFlujoFalla.js';
+} from '../_services/whatsappFlujoFalla.js';
 import {
   iniciarFlujoFactura,
   procesarCedulaFactura,
   enviarFacturaDirectaPorCedula
-} from '../services/whatsappFlujoFactura.js';
+} from '../_services/whatsappFlujoFactura.js';
 
 const getFechaHoy = () => {
   const d = new Date();

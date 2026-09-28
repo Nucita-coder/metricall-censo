@@ -96,7 +96,7 @@ export async function generarReciboPagoPdf(datos = {}) {
   };
 
   // 1. Encabezado Oficial Corporativo Fibex
-  drawCenter('CORPORACION FIBEXTELECOM C.A.', 10, true);
+  drawCenter('CORPORACION FIBEXTELECOM C.A.', 9.5, false);
   drawCenter('(FIBEXTELECOM)', 9, false);
   drawCenter('RIF J-30818251-6', 8.5, false);
 
@@ -104,46 +104,54 @@ export async function generarReciboPagoPdf(datos = {}) {
   const dirEmp2 = 'NRO 8';
   drawCenter(dirEmp1, 7.8, false);
   drawCenter(dirEmp2, 7.8, false);
+  drawCenter('SOMOS PROVEEDORES DE SERVICIOS DE TELECOMUNICACIONES', 7.8, false);
 
-  y -= 2;
-  drawCenter('COPIA DE RECIBO', 10, true);
-  y -= 5;
+  y -= 3;
+  drawCenter('COPIA DE RECIBO', 9.5, true);
+  y -= 4;
 
   // 2. Metadatos del Pago y Abonado
-  drawLeft(`Fecha: ${datos.fecha || new Date().toLocaleDateString('es-VE')}`, 8.5);
-  drawLeft(`Recibo de Pago: ${datos.nroRecibo || 'S/N'}`, 8.5, true);
-  drawLeft(`Nro Abonado: ${datos.nroAbonado || 'S/N'}`, 8.5);
-  drawLeft(`Cliente: ${String(datos.cliente || 'CLIENTE').toUpperCase()}`, 8.5);
-  drawLeft(`${datos.cedula || ''}`, 8.5);
+  drawLeft(`Fecha: ${datos.fecha || new Date().toLocaleDateString('es-VE')}`, 8.5, false);
+  drawLeft(`Recibo de Pago: ${datos.nroRecibo || 'S/N'}`, 8.5, false);
+  drawLeft(`Nro Abonado: ${datos.nroAbonado || 'S/N'}`, 8.5, false);
+  drawLeft(`Cliente: ${String(datos.cliente || 'CLIENTE').toUpperCase()}`, 8.5, false);
+  drawLeft(`${datos.cedula || ''}`, 8.5, false);
 
   const direccion = datos.direccionCliente || 'PUEBLO NUEVO, ANACO';
-  if (direccion.length > 55) {
-    drawLeft(`Dirección: ${direccion.slice(0, 52)}...`, 7.8);
+  if (direccion.length > 58) {
+    drawLeft(`Dirección: ${direccion.slice(0, 55)}...`, 7.8, false);
   } else {
-    drawLeft(`Dirección: ${direccion}`, 7.8);
+    drawLeft(`Dirección: ${direccion}`, 7.8, false);
   }
 
-  const cajero = datos.cajero || 'ANDRIANNY MALPICA AGENTE TECHNOLOGICAL PROJECT';
-  drawLeft(`Cajero(a): ${cajero}`, 7.8);
-  drawLeft(`Caja: ${datos.caja || 'CAJA ANDRIANNY MALPICA'}`, 8.5);
+  const cajero = datos.cajero || 'FRANCISBEL ARELIANNYS SALAZAR';
+  drawLeft(`Cajero(a): ${cajero}`, 7.8, false);
+  drawLeft(`Caja: ${datos.caja || 'CAJA VIRTUAL'}`, 8.5, false);
   y -= 4;
 
   // 3. Tabla de Cargos / Mensualidades
-  drawRow('Descripción', 'Monto', 9, true);
+  drawRow('Descripción', 'Monto', 8.5, true);
   y -= 1;
 
   for (const cargo of cargos) {
     drawRow(cargo.descripcion, cargo.montoBs, 8.5, false);
   }
 
-  drawDashedLine();
+  // Línea divisoria sólida idéntica a <hr> de SAEplus
+  page.drawLine({
+    start: { x: margin, y: y + 2 },
+    end: { x: width - margin, y: y + 2 },
+    thickness: 0.6,
+    color: rgb(0.2, 0.2, 0.2)
+  });
+  y -= 8;
 
   // 4. Total Recibo
-  drawRow('Total recibo :', datos.totalReciboBs || datos.totalPagoBs || '0,00 BS', 9, true);
+  drawRow('Total recibo :', datos.totalReciboBs || datos.totalPagoBs || '0,00 BS', 8.5, true);
   y -= 6;
 
   // 5. Forma de Pago
-  page.drawText('Forma de Pago', { x: margin, y, size: 9, font: fontBold, color: rgb(0, 0, 0) });
+  page.drawText('Forma de Pago', { x: margin, y, size: 8.5, font: fontBold, color: rgb(0, 0, 0) });
   y -= 13;
 
   for (const fp of formasPago) {
@@ -152,14 +160,14 @@ export async function generarReciboPagoPdf(datos = {}) {
 
   const igtf = datos.igtfBs || '0,00 BS';
   drawRow('IGTF 3%', igtf, 8.5, false);
-  y -= 7;
+  y -= 6;
 
   // 6. Pie de Página y Totales
-  drawCenter(`Total pago: ${datos.totalPagoBs || '0,00 BS'}`, 9, true);
+  drawCenter(`Total pago: ${datos.totalPagoBs || '0,00 BS'}`, 8.5, true);
   if (datos.saldoActualBs) {
-    drawCenter(`Saldo Actual: ${datos.saldoActualBs}`, 9, true);
+    drawCenter(`Saldo Actual: ${datos.saldoActualBs}`, 8.5, true);
   }
-  drawCenter('*Gracias por su Pago*', 9, true);
+  drawCenter('*Gracias por su Pago*', 8.5, true);
   drawCenter('.', 8, false);
 
   const pdfBytes = await pdfDoc.save();

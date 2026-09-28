@@ -27,19 +27,26 @@ import {
   procesarCedulaReportePago,
   procesarComprobantePago
 } from '../services/whatsappFlujoPago.js';
+import {
+  iniciarFlujoReporteFalla,
+  procesarCedulaReporteFalla,
+  procesarRefrescoEquipo,
+  abrirSelectorTiposFalla,
+  completarReporteFallaConDiagnostico
+} from '../services/whatsappFlujoFalla.js';
 
 const getFechaHoy = () => {
   const d = new Date();
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 };
 
-// Etiquetas legibles para tipos de falla
+// Etiquetas legibles para tipos de falla (estilo corporativo sobrio sin emojis)
 const FALLA_LABELS = {
-  falla_luz_roja:      '🔴 Luz roja en equipo',
-  falla_intermitencia: '📶 Intermitencia de servicio',
-  falla_lento:         '🐌 Internet lento',
-  falla_paginas:       '🚫 No abren algunas páginas',
-  falla_sin_datos:     '📵 No recibe datos'
+  falla_luz_roja:      'Luz roja en equipo',
+  falla_intermitencia: 'Intermitencia de servicio',
+  falla_lento:         'Internet lento',
+  falla_paginas:       'No abren algunas páginas',
+  falla_sin_datos:     'Sin navegación de datos'
 };
 
 // Palabras clave para salir o cancelar cualquier flujo activo
@@ -118,12 +125,21 @@ export default async function handler(req, res) {
           return res.status(200).json({ status: 'selector_fecha_enviado' });
 
         } else if (buttonId === 'btn_reporte_falla') {
-          if (enFlujoActivo) {
-            await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un Reporte de Falla.');
-          }
-          // Paso 1 de Falla: solicitar datos de cliente (Nombre, Cédula, Teléfono)
-          await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_FALLA');
-          await enviarFormularioFalla(fromPhone);
+          await iniciarFlujoReporteFalla(fromPhone, enFlujoActivo);
+          return res.status(200).json({ status: 'solicitud_cedula_falla_enviada' });
+
+        } else if (buttonId === 'btn_falla_refrescar') {
+          await procesarRefrescoEquipo(fromPhone, sesion);
+          return res.status(200).json({ status: 'refresco_falla_procesado' });
+
+        } else if (buttonId === 'btn_falla_abrir_ticket') {
+          await abrirSelectorTiposFalla(fromPhone, sesion);
+          return res.status(200).json({ status: 'selector_tipos_falla_abierto' });
+
+        } else if (buttonId === 'btn_menu_principal') {
+          await actualizarEstadoSesionRest(fromPhone, 'INICIO');
+          await enviarMenuPrincipal(fromPhone);
+          return res.status(200).json({ status: 'menu_principal_enviado' });
 
         } else if (buttonId === 'btn_suscribirse') {
           if (enFlujoActivo) {
@@ -177,10 +193,7 @@ export default async function handler(req, res) {
 
         // Selección de tipo de falla técnica
         const label = FALLA_LABELS[itemId] || itemTitle;
-        const datosCompletosFalla = { ...(sesion.datos_temporales || {}), tipoFalla: label };
-        await crearTarjetaFallaRest(datosCompletosFalla);
-        await actualizarEstadoSesionRest(fromPhone, 'INICIO');
-        await enviarConfirmacionFalla(fromPhone, label, datosCompletosFalla);
+        await completarReporteFallaConDiagnostico(fromPhone, label, sesion);
         return res.status(200).json({ status: 'falla_registrada' });
       }
 
@@ -192,21 +205,24 @@ export default async function handler(req, res) {
         contenido: { messageType, textBody, profileName, pushName: profileName }
       });
 
-      // ── ESTADO: ESPERANDO_DATOS_FALLA ─ Paso 1 de Falla: recibe texto con datos ──
-      if (estadoActual === 'ESPERANDO_DATOS_FALLA') {
-        if (!textBody) {
-          await enviarMensajeTexto(fromPhone, '✏️ Por favor envía tus datos en texto (Nombre, Cédula y Teléfono de contacto).');
-          return res.status(200).json({ status: 'sin_texto_falla' });
+      // ── ESTADO: ESPERANDO_CEDULA_FALLA ─ Autodiagnóstico técnico en SAEplus/SmartOLT ──
+      if (estadoActual === 'ESPERANDO_CEDULA_FALLA') {
+        if (textBody) {
+          await procesarCedulaReporteFalla(fromPhone, textBody, sesion);
+          return res.status(200).json({ status: 'cedula_falla_procesada' });
         }
+        await enviarMensajeTexto(fromPhone, '✏️ Por favor escribe tu número de *Cédula de Identidad* (ejemplo: *8693154*):');
+        return res.status(200).json({ status: 'esperando_cedula_falla' });
+      }
 
-        const datosFalla = await extraerDatosFalla(textBody, fromPhone);
-        console.log('[WEBHOOK FALLA PASO1] datosFalla extraídos:', JSON.stringify(datosFalla));
-
-        // Guardar datos del cliente y desplegar la lista de fallas (Paso 2)
-        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_TIPO_FALLA', datosFalla);
-        await enviarMenuFallas(fromPhone);
-        await insertarLog({ tipo: 'outgoing', numero_telefono: fromPhone, mensaje_texto: 'Datos de cliente para falla recibidos, desplegando lista de fallas' });
-        return res.status(200).json({ status: 'datos_falla_recibidos_esperando_tipo' });
+      // ── ESTADO: ESPERANDO_ACCION_FALLA ─ Refrescar equipo o abrir reporte técnico ──
+      if (estadoActual === 'ESPERANDO_ACCION_FALLA') {
+        if (textBody && (textBody.toLowerCase().includes('refresc') || textBody.toLowerCase().includes('reinici'))) {
+          await procesarRefrescoEquipo(fromPhone, sesion);
+          return res.status(200).json({ status: 'refresco_solicitado_por_texto' });
+        }
+        await abrirSelectorTiposFalla(fromPhone, sesion);
+        return res.status(200).json({ status: 'selector_falla_desplegado' });
       }
 
       // ── ESTADO: ESPERANDO_FECHA_MANUAL ──────────────────────────────────────
@@ -279,10 +295,8 @@ export default async function handler(req, res) {
       }
 
       if (textLower.includes('falla') || textLower.includes('averia') || textLower.includes('avería') || textLower.includes('soporte') || textLower === '3') {
-        if (enFlujoActivo) await enviarMensajeTexto(fromPhone, 'ℹ️ *Se canceló la gestión anterior* para iniciar un Reporte de Falla.');
-        await actualizarEstadoSesionRest(fromPhone, 'ESPERANDO_DATOS_FALLA');
-        await enviarFormularioFalla(fromPhone);
-        return res.status(200).json({ status: 'formulario_falla_enviado' });
+        await iniciarFlujoReporteFalla(fromPhone, enFlujoActivo);
+        return res.status(200).json({ status: 'solicitud_cedula_falla_enviada' });
       }
 
       // ── Menú principal (estado INICIO o comando no reconocido) ────────────────

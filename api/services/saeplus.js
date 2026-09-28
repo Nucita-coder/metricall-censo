@@ -111,68 +111,63 @@ class SaeplusService {
     }
   }
 
+  // Helper para llamadas al backend con reintento automático si expira la sesión
+  async _postControlador(payload) {
+    await this.asegurarSesion();
+    if (payload[0]?.datos) {
+      payload[0].datos.csrf_token = this.csrfToken;
+    }
+
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRF-Token': this.csrfToken,
+      'Cookie': this.cookies,
+      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)'
+    };
+
+    let res = await fetch(`${this.baseUrl}/controlador.php`, {
+      method: 'POST',
+      headers,
+      body: 'parametros=' + encodeURIComponent(JSON.stringify(payload)),
+      signal: AbortSignal.timeout(TIMEOUT_MS)
+    });
+
+    if (res.status === 403 || res.status === 401) {
+      this.sessionExpires = 0;
+      await this.login();
+      if (payload[0]?.datos) payload[0].datos.csrf_token = this.csrfToken;
+      headers['X-CSRF-Token'] = this.csrfToken;
+      headers['Cookie'] = this.cookies;
+      res = await fetch(`${this.baseUrl}/controlador.php`, {
+        method: 'POST',
+        headers,
+        body: 'parametros=' + encodeURIComponent(JSON.stringify(payload)),
+        signal: AbortSignal.timeout(TIMEOUT_MS)
+      });
+    }
+
+    return await res.json();
+  }
+
   // Consulta los contratos de un cliente por su número de cédula
   async consultarAbonadoPorCedula(cedulaRaw) {
     const cedulaLimpia = String(cedulaRaw || '').replace(/\D/g, '').trim();
     if (!cedulaLimpia) return null;
 
-    await this.asegurarSesion();
-
-    const payloadSearch = [{
+    const payload = [{
       clase: 'busqueda_avanzada',
       accion: 'buscar_data_cedula',
-      datos: {
-        cedula_b: cedulaLimpia,
-        claseGlobal: 'act_contrato',
-        csrf_token: this.csrfToken
-      }
+      datos: { cedula_b: cedulaLimpia, claseGlobal: 'act_contrato' }
     }];
 
-    let res = await fetch(`${this.baseUrl}/controlador.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRF-Token': this.csrfToken,
-        'Cookie': this.cookies,
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)'
-      },
-      body: 'parametros=' + encodeURIComponent(JSON.stringify(payloadSearch)),
-      signal: AbortSignal.timeout(TIMEOUT_MS)
-    });
+    const data = await this._postControlador(payload);
+    if (!data.success || !Array.isArray(data.retorno)) return null;
 
-    // Si la sesión expiró remotamente, reautenticar y reintentar 1 vez
-    if (res.status === 403 || res.status === 401) {
-      this.sessionExpires = 0;
-      await this.login();
-      payloadSearch[0].datos.csrf_token = this.csrfToken;
-      res = await fetch(`${this.baseUrl}/controlador.php`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRF-Token': this.csrfToken,
-          'Cookie': this.cookies,
-          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)'
-        },
-        body: 'parametros=' + encodeURIComponent(JSON.stringify(payloadSearch)),
-        signal: AbortSignal.timeout(TIMEOUT_MS)
-      });
-    }
-
-    const data = await res.json();
-    if (!data.success || !Array.isArray(data.retorno)) {
-      return null;
-    }
-
-    // Filtrar coincidencias exactas por número de cédula
     const coincidencias = data.retorno.filter(
       item => String(item.cedula || '').trim() === cedulaLimpia
     );
-
-    if (coincidencias.length === 0) {
-      return null;
-    }
+    if (coincidencias.length === 0) return null;
 
     return coincidencias.map(c => ({
       nombreCompleto: `${c.nombre || ''} ${c.apellido || ''}`.trim(),
@@ -190,6 +185,102 @@ class SaeplusService {
       direccionFiscal: c.direccion_fiscal || ''
     }));
   }
+
+  // Consulta en tiempo real de potencia y estado a SmartOLT
+  async consultarSmartOlt(idEs) {
+    try {
+      const payload = [{
+        clase: 'integracion_olt',
+        accion: 'graphics_smartolt',
+        datos: { id_es: idEs }
+      }];
+
+      const dataOlt = await this._postControlador(payload);
+      if (dataOlt.success && dataOlt.retorno) {
+        const ret = dataOlt.retorno;
+        const status = ret.onu_signal_status || 'Desconocido';
+        const nivel = ret.onu_signal || 'Normal';
+        return {
+          status: status,
+          potencia: ret.onu_signal_value || 'N/D',
+          nivel: nivel,
+          esOnline: status === 'Online',
+          esDegradada: nivel === 'Warning' || nivel === 'Critical'
+        };
+      }
+      return null;
+    } catch (err) {
+      console.error('[SAEPLUS SMARTOLT ERROR]:', err);
+      return null;
+    }
+  }
+
+  // Consulta de diagnóstico integral del abonado y estado de la ONT por Cédula
+  async consultarDiagnosticoEquipo(cedulaRaw) {
+    const cedulaLimpia = String(cedulaRaw || '').replace(/\D/g, '').trim();
+    if (!cedulaLimpia) return { encontrado: false, error: 'Cédula inválida' };
+
+    const payload = [{
+      clase: 'contrato',
+      accion: 'buscar_abonado',
+      datos: { cedula: cedulaLimpia }
+    }];
+
+    const data = await this._postControlador(payload);
+    if (!data.success || !data.retorno || !Array.isArray(data.retorno.datos) || data.retorno.datos.length === 0) {
+      return { encontrado: false };
+    }
+
+    const abonado = data.retorno.datos.find(
+      d => String(d.cedula || '').trim() === cedulaLimpia
+    ) || data.retorno.datos[0];
+
+    const saldoPendiente = parseFloat(abonado.saldo || '0').toFixed(2);
+    const estatusRaw = String(abonado.nombrestatus || abonado.status_contrato || 'ACTIVO').toUpperCase();
+    const esSuspendido = estatusRaw.includes('SUSP') || estatusRaw.includes('CORT') || (parseFloat(saldoPendiente) > 0 && estatusRaw !== 'ACTIVO');
+
+    let equipoOnt = null;
+    if (abonado.equipos && Array.isArray(abonado.equipos.datos) && abonado.equipos.datos.length > 0) {
+      equipoOnt = abonado.equipos.datos[0];
+    }
+
+    const resultado = {
+      encontrado: true,
+      cliente: {
+        nombreCompleto: `${abonado.nombre || ''} ${abonado.apellido || ''}`.trim(),
+        nombre: abonado.nombre || '',
+        apellido: abonado.apellido || '',
+        cedula: abonado.cedula,
+        telefono: abonado.telefono || ''
+      },
+      contrato: {
+        idContrato: abonado.id_contrato,
+        nroContrato: abonado.nro_contrato,
+        estatus: estatusRaw,
+        esSuspendido,
+        saldoPendiente,
+        plan: abonado.nombre_g_a || 'HOGAR',
+        sector: abonado.nombre_sector || '',
+        ciudad: abonado.nombre_ciudad || ''
+      },
+      equipo: equipoOnt ? {
+        id_es: equipoOnt.id_es,
+        codigo_es: equipoOnt.codigo_es,
+        modelo: equipoOnt.nombre_modelo || 'ONT GPON',
+        marca: equipoOnt.nombre_marca || 'SMARTOLT',
+        id_tse: equipoOnt.id_tse || '',
+        sistema: equipoOnt.sistema || ''
+      } : null,
+      diagnostico: null
+    };
+
+    if (resultado.equipo && !esSuspendido) {
+      resultado.diagnostico = await this.consultarSmartOlt(resultado.equipo.id_es);
+    }
+
+    return resultado;
+  }
 }
 
 export const saeplusService = new SaeplusService();
+

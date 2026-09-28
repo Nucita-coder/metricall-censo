@@ -142,8 +142,20 @@ export async function notificarPagoProcesado(tarjeta: DatosTarjetaPago): Promise
   if (monto.startsWith('-')) monto = monto.replace(/^-/, '').trim();
   const banco = String(datos.bancoOrigen || datos.banco || '').trim();
 
+  let montoFormateado = '';
+  if (monto) {
+    if (/bs|ves/i.test(monto)) {
+      montoFormateado = `Bs. ${monto.replace(/bs|ves/gi, '').trim()}`;
+    } else if (/\$|usd/i.test(monto)) {
+      montoFormateado = `$${monto.replace(/\$|usd/gi, '').trim()} USD`;
+    } else {
+      const num = parseFloat(monto.replace(',', '.'));
+      montoFormateado = (!isNaN(num) && num > 150) ? `Bs. ${monto}` : `$${monto} USD`;
+    }
+  }
+
   let detalles = `📋 *Referencia:* ${referencia}\n`;
-  if (monto) detalles += `💵 *Monto:* $${monto} USD\n`;
+  if (montoFormateado) detalles += `💵 *Monto:* ${montoFormateado}\n`;
   if (banco) detalles += `🏦 *Banco:* ${banco}\n`;
 
   const mensaje =

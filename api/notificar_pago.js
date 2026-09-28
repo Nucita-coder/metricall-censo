@@ -122,12 +122,25 @@ export default async function handler(req, res) {
     }
 
     const referencia = String(datos.referencia || datos.nroReferencia || 'S/N').trim();
-    let monto = String(datos.montoPago || datos.monto || factura?.monto || '').trim();
-    if (monto.startsWith('-')) monto = monto.replace(/^-/, '').trim();
+    let rawMonto = String(datos.montoPago || datos.monto || factura?.monto || '').trim();
+    if (rawMonto.startsWith('-')) rawMonto = rawMonto.replace(/^-/, '').trim();
     const banco = String(datos.bancoOrigen || datos.banco || '').trim();
 
+    let montoFormateado = '';
+    if (rawMonto) {
+      if (/bs|ves/i.test(rawMonto)) {
+        const numPart = rawMonto.replace(/bs|ves|\./gi, '').trim();
+        montoFormateado = `Bs. ${rawMonto.replace(/bs|ves/gi, '').trim()}`;
+      } else if (/\$|usd/i.test(rawMonto)) {
+        montoFormateado = `$${rawMonto.replace(/\$|usd/gi, '').trim()} USD`;
+      } else {
+        const num = parseFloat(rawMonto.replace(',', '.'));
+        montoFormateado = (!isNaN(num) && num > 150) ? `Bs. ${rawMonto}` : `$${rawMonto} USD`;
+      }
+    }
+
     let detalles = `📋 *Referencia:* ${referencia}\n`;
-    if (monto) detalles += `💵 *Monto:* $${monto} USD\n`;
+    if (montoFormateado) detalles += `💵 *Monto:* ${montoFormateado}\n`;
     if (banco) detalles += `🏦 *Banco:* ${banco}\n`;
     if (nroFactura && nroFactura !== 'S/N') detalles += `📄 *Nro. de Factura:* ${nroFactura}\n`;
 

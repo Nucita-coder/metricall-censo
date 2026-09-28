@@ -25,3 +25,25 @@ export interface WhatsAppMensaje {
 
 export type FiltroEstadoContacto = 'todos' | 'activos' | 'bloqueados';
 export type FiltroTemporalChat = 'todos' | 'semana' | 'mes' | 'dia';
+
+export interface FacturaSaeItem {
+  nroFactura: string;
+  tipo: string;
+  fechaEmision: string;
+  monto: string;
+  concepto: string;
+  idPago: string;
+  archivoFormatoFactura: string;
+  franquicia?: string;
+}
+
+export interface ConsultaFacturasSaeResponse {
+  success: boolean;
+  cedula?: string;
+  cliente?: string;
+  nroContrato?: string;
+  totalFacturas?: number;
+  facturas?: FacturaSaeItem[];
+  error?: string;
+}
+

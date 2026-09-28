@@ -9,13 +9,15 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MessageSquare, Terminal, Users } from 'lucide-react-native';
+import { MessageSquare, Terminal, Users, FileText } from 'lucide-react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { WhatsAppContacto, WhatsAppMensaje } from '../../../components/whatsapp/types';
 import { WhatsAppContactosList } from '../../../components/whatsapp/WhatsAppContactosList';
 import { WhatsAppConversacionViewer } from '../../../components/whatsapp/WhatsAppConversacionViewer';
 import { WhatsAppLogsViewer } from '../../../components/whatsapp/WhatsAppLogsViewer';
+import { WhatsAppFacturasSae } from '../../../components/whatsapp/WhatsAppFacturasSae';
 import {
   fetchContactosConFallback,
   fetchMensajesContacto,
@@ -30,7 +32,16 @@ export default function WhatsAppAdminPanel() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
-  const [activeTab, setActiveTab] = useState<'contactos' | 'logs'>('contactos');
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [activeTab, setActiveTab] = useState<'contactos' | 'facturas' | 'logs'>(
+    params.tab === 'facturas' ? 'facturas' : params.tab === 'logs' ? 'logs' : 'contactos'
+  );
+
+  useEffect(() => {
+    if (params.tab === 'facturas' || params.tab === 'logs' || params.tab === 'contactos') {
+      setActiveTab(params.tab);
+    }
+  }, [params.tab]);
   const [contactos, setContactos] = useState<WhatsAppContacto[]>([]);
   const [cargandoContactos, setCargandoContactos] = useState(true);
   const [contactoSeleccionado, setContactoSeleccionado] = useState<WhatsAppContacto | null>(null);
@@ -149,6 +160,16 @@ export default function WhatsAppAdminPanel() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.topTab, activeTab === 'facturas' && styles.topTabActive]}
+          onPress={() => setActiveTab('facturas')}
+        >
+          <FileText size={16} color={activeTab === 'facturas' ? '#FFF' : '#8C9BAB'} />
+          <Text style={[styles.topTabText, activeTab === 'facturas' && styles.topTabTextActive]}>
+            Facturas Oficiales SAE
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.topTab, activeTab === 'logs' && styles.topTabActive]}
           onPress={() => setActiveTab('logs')}
         >
@@ -160,7 +181,9 @@ export default function WhatsAppAdminPanel() {
       </View>
 
       {/* Contenido según pestaña */}
-      {activeTab === 'logs' ? (
+      {activeTab === 'facturas' ? (
+        <WhatsAppFacturasSae />
+      ) : activeTab === 'logs' ? (
         <WhatsAppLogsViewer logs={logs} cargando={cargandoLogs} />
       ) : isDesktop ? (
         <View style={styles.desktopContainer}>

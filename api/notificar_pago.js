@@ -1,7 +1,8 @@
 // api/notificar_pago.js
-// Endpoint Serverless en Vercel para despacho automático de confirmación de pago y envío de factura en PDF vía WhatsApp
+// Endpoint Serverless en Vercel para despacho automático de confirmación de pago y envío de comprobante oficial (Copia de Recibo) en PDF vía WhatsApp
 
-import { saeplusService } from './_services/saeplus.js';
+import { obtenerDatosReciboFiscal } from './_services/reciboFiscalService.js';
+import { generarReciboPagoPdf } from './_services/reciboPdfService.js';
 import { enviarDocumentoWhatsApp } from './_services/whatsappMedia.js';
 import { getCredentials, apiPost } from './_services/whatsappMessages.js';
 import { insertarLog } from './_services/logger.js';
@@ -67,8 +68,6 @@ export default async function handler(req, res) {
       datos.numero_contrato ||
       datos.nro_contrato ||
       datos['CONTRATO'] ||
-      datos.referencia ||
-      datos.nroReferencia ||
       ''
     ).trim();
 
@@ -76,41 +75,37 @@ export default async function handler(req, res) {
       rawContrato = '';
     }
 
-    // 3. Consultar SAEplus para obtener la última factura emitida oficial
-    let factura = null;
+    // 3. Obtener los datos del comprobante fiscal oficial en Bolívares (desde SAEplus o tarjeta)
+    let datosRecibo = null;
     let pdfBuffer = null;
     let facturaEnviada = false;
-    let nroFactura = null;
+    let nroRecibo = null;
 
-    if (rawCedula || rawContrato) {
-      try {
-        factura = await saeplusService.consultarUltimaFactura({
-          cedula: rawCedula,
-          nroContrato: rawContrato
-        });
+    try {
+      datosRecibo = await obtenerDatosReciboFiscal({
+        cedula: rawCedula,
+        nroContrato: rawContrato,
+        tarjeta
+      });
 
-        if (factura && factura.idPago && factura.archivoFormatoFactura) {
-          pdfBuffer = await saeplusService.descargarFacturaPdf(
-            factura.idPago,
-            factura.archivoFormatoFactura
-          );
-          nroFactura = factura.nroFactura;
-        }
-      } catch (errFactura) {
-        console.error('[NOTIFICAR PAGO] Error consultando o descargando factura:', errFactura);
-        await insertarLog({
-          tipo: 'error',
-          numero_telefono: phone,
-          mensaje_texto: `Fallo al obtener factura PDF (cédula: ${rawCedula || 'N/A'}, contrato: ${rawContrato || 'N/A'}): ${errFactura.message}`
-        });
+      if (datosRecibo) {
+        nroRecibo = datosRecibo.nroRecibo;
+        pdfBuffer = await generarReciboPagoPdf(datosRecibo);
       }
+    } catch (errRecibo) {
+      console.error('[NOTIFICAR PAGO] Error estructurando o generando recibo PDF:', errRecibo);
+      await insertarLog({
+        tipo: 'error',
+        numero_telefono: phone,
+        mensaje_texto: `Fallo al generar comprobante de pago PDF (cédula: ${rawCedula || 'N/A'}): ${errRecibo.message}`
+      });
     }
 
     // 4. Formatear nombre del cliente con cortesía profesional
     let nombre = String(datos.nombreCliente || datos.nombreApellido || datos.nombre || '').trim();
     if (!nombre || /^pago(\s*\([^)]*\))?$/i.test(nombre) || /^\d+$/.test(nombre)) {
-      if (factura?.cliente) {
-        nombre = factura.cliente
+      if (datosRecibo?.cliente) {
+        nombre = datosRecibo.cliente
           .toLowerCase()
           .split(' ')
           .filter(Boolean)
@@ -121,40 +116,26 @@ export default async function handler(req, res) {
       }
     }
 
-    const referencia = String(datos.referencia || datos.nroReferencia || 'S/N').trim();
-    let rawMonto = String(datos.montoPago || datos.monto || factura?.monto || '').trim();
-    if (rawMonto.startsWith('-')) rawMonto = rawMonto.replace(/^-/, '').trim();
-    const banco = String(datos.bancoOrigen || datos.banco || '').trim();
+    const referencia = String(datos.referencia || datos.nroReferencia || nroRecibo || 'S/N').trim();
+    const montoBsTexto = datosRecibo?.totalPagoBs || (datos.montoPago ? `Bs. ${datos.montoPago}` : '');
+    const formaPagoTexto = datosRecibo?.formasPago?.[0]?.tipo || datos.bancoOrigen || datos.banco || 'Pago Móvil / Transferencia';
 
-    let montoFormateado = '';
-    if (rawMonto) {
-      if (/bs|ves/i.test(rawMonto)) {
-        const numPart = rawMonto.replace(/bs|ves|\./gi, '').trim();
-        montoFormateado = `Bs. ${rawMonto.replace(/bs|ves/gi, '').trim()}`;
-      } else if (/\$|usd/i.test(rawMonto)) {
-        montoFormateado = `$${rawMonto.replace(/\$|usd/gi, '').trim()} USD`;
-      } else {
-        const num = parseFloat(rawMonto.replace(',', '.'));
-        montoFormateado = (!isNaN(num) && num > 150) ? `Bs. ${rawMonto}` : `$${rawMonto} USD`;
-      }
-    }
-
-    let detalles = `📋 *Referencia:* ${referencia}\n`;
-    if (montoFormateado) detalles += `💵 *Monto:* ${montoFormateado}\n`;
-    if (banco) detalles += `🏦 *Banco:* ${banco}\n`;
-    if (nroFactura && nroFactura !== 'S/N') detalles += `📄 *Nro. de Factura:* ${nroFactura}\n`;
+    let detalles = `📋 *Nro. de Recibo:* ${nroRecibo || 'S/N'}\n`;
+    if (referencia && referencia !== nroRecibo) detalles += `🔢 *Referencia:* ${referencia}\n`;
+    if (montoBsTexto) detalles += `💵 *Monto:* ${montoBsTexto}\n`;
+    if (formaPagoTexto) detalles += `💳 *Forma de Pago:* ${formaPagoTexto}\n`;
 
     const mensajeTexto =
       `✅ *PAGO PROCESADO CON ÉXITO*\n\n` +
       `Estimado(a) *${nombre}*, le confirmamos que su reporte de pago ha sido verificado y procesado satisfactoriamente en nuestro sistema.\n\n` +
       detalles + '\n' +
       (pdfBuffer
-        ? `Adjunto a este mensaje encontrará su factura / aviso de cobro oficial en formato PDF.\n\n`
+        ? `Adjunto a este mensaje encontrará su comprobante oficial de pago (Copia de Recibo) en formato PDF.\n\n`
         : `Su pago ha sido registrado y acreditado satisfactoriamente en su estado de cuenta.\n\n`) +
       `¡Gracias por preferirnos!\n` +
       `_Fibex Telecom Anaco_`;
 
-    // 5. Enviar mensaje de texto de confirmación
+    // 5. Enviar mensaje de texto de confirmación vía WhatsApp
     const resTexto = await apiPost(phoneNumberId, accessToken, {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
@@ -166,18 +147,18 @@ export default async function handler(req, res) {
     await insertarLog({
       tipo: 'outgoing',
       numero_telefono: phone,
-      mensaje_texto: `Confirmación de pago procesado enviada a ${nombre} (ref: ${referencia})`,
-      contenido: { resTexto, nroFactura }
+      mensaje_texto: `Confirmación de pago procesado enviada a ${nombre} (recibo: ${nroRecibo})`,
+      contenido: { resTexto, nroRecibo }
     });
 
     // 6. Enviar documento PDF oficial vía WhatsApp
-    if (pdfBuffer && factura) {
+    if (pdfBuffer && nroRecibo) {
       try {
-        const filename = `Factura_Fibex_${nroFactura || 'Oficial'}.pdf`;
-        const caption = `Factura Oficial Fibex Telecom - Nro. ${nroFactura || ''}`;
+        const filename = `Recibo_Fibex_${nroRecibo}.pdf`;
+        const caption = `Comprobante Oficial Fibex Telecom - Recibo Nro. ${nroRecibo}`;
         facturaEnviada = await enviarDocumentoWhatsApp(phone, pdfBuffer, filename, caption);
       } catch (errSendPdf) {
-        console.error('[NOTIFICAR PAGO] Error enviando factura PDF por WhatsApp:', errSendPdf);
+        console.error('[NOTIFICAR PAGO] Error enviando recibo PDF por WhatsApp:', errSendPdf);
       }
     }
 
@@ -185,7 +166,8 @@ export default async function handler(req, res) {
       success: true,
       mensajeEnviado: !!(resTexto && !resTexto.error),
       facturaEnviada,
-      nroFactura
+      nroRecibo,
+      nroFactura: nroRecibo
     });
 
   } catch (err) {

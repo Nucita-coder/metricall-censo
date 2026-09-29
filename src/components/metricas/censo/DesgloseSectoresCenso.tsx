@@ -93,11 +93,8 @@ export function DesgloseSectoresCenso({ porSector }: DesgloseSectoresCensoProps)
 const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: '#2C333A',
-    borderRadius: 12,
+    borderRadius: 0,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#384148',
-    marginBottom: 20,
     flex: 1,
   },
   headerRow: {
@@ -120,7 +117,7 @@ const styles = StyleSheet.create({
   totalBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 0,
     backgroundColor: '#1D2125',
     borderWidth: 1,
     borderColor: '#384148',
@@ -136,7 +133,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1D2125',
     borderWidth: 1,
     borderColor: '#384148',
-    borderRadius: 6,
+    borderRadius: 0,
     paddingHorizontal: 10,
     height: 34,
     marginBottom: 12,
@@ -195,11 +192,11 @@ const styles = StyleSheet.create({
   progressBarTrack: {
     height: 6,
     backgroundColor: '#1D2125',
-    borderRadius: 3,
+    borderRadius: 0,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 0,
   },
 });

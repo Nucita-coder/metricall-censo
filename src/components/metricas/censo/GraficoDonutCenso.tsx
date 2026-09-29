@@ -9,6 +9,7 @@ interface GraficoDonutCensoProps {
   totalIndecisos: number;
   totalNoInteresados: number;
   tamano?: number;
+  isDesktop?: boolean;
 }
 
 export function GraficoDonutCenso({
@@ -16,6 +17,7 @@ export function GraficoDonutCenso({
   totalIndecisos,
   totalNoInteresados,
   tamano = 170,
+  isDesktop = false,
 }: GraficoDonutCensoProps) {
   const data: SliceDataItem[] = [
     {
@@ -75,7 +77,7 @@ export function GraficoDonutCenso({
   });
 
   return (
-    <View style={styles.cardContainer}>
+    <View style={[styles.cardContainer, isDesktop ? styles.borderRight : styles.borderBottom]}>
       <Text style={styles.cardTitle}>Distribución de Interés en el Censo</Text>
       <Text style={styles.cardSubtitle}>Disposición de los prospectos a contratar el servicio</Text>
 
@@ -138,12 +140,17 @@ export function GraficoDonutCenso({
 const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: '#2C333A',
-    borderRadius: 12,
+    borderRadius: 0,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#384148',
-    marginBottom: 20,
     flex: 1,
+  },
+  borderRight: {
+    borderRightWidth: 1,
+    borderRightColor: '#384148',
+  },
+  borderBottom: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#384148',
   },
   cardTitle: {
     fontSize: 14,
@@ -204,7 +211,7 @@ const styles = StyleSheet.create({
   colorBox: {
     width: 10,
     height: 10,
-    borderRadius: 3,
+    borderRadius: 0,
     marginRight: 8,
   },
   legendLabel: {

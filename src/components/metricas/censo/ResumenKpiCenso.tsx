@@ -74,10 +74,10 @@ export function ResumenKpiCenso({
         )}
       </View>
 
-      {/* FILA DE TARJETAS KPI */}
+      {/* FILA DE TARJETAS KPI (TOTALMENTE CUADRADAS Y PEGADAS) */}
       <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
         {/* KPI 1: TOTAL CENSADOS */}
-        <View style={styles.kpiCard}>
+        <View style={[styles.kpiCard, isDesktop ? styles.borderRight : styles.borderBottom]}>
           <View style={styles.kpiHeaderRow}>
             <Text style={styles.kpiLabel}>Personas Censadas</Text>
             <View style={[styles.iconBox, { backgroundColor: '#1D2125' }]}>
@@ -89,7 +89,7 @@ export function ResumenKpiCenso({
         </View>
 
         {/* KPI 2: INTERESADAS */}
-        <View style={styles.kpiCard}>
+        <View style={[styles.kpiCard, isDesktop ? styles.borderRight : styles.borderBottom]}>
           <View style={styles.kpiHeaderRow}>
             <Text style={styles.kpiLabel}>Interesadas en Servicio</Text>
             <View style={[styles.iconBox, { backgroundColor: '#1D2125' }]}>
@@ -108,7 +108,7 @@ export function ResumenKpiCenso({
         </View>
 
         {/* KPI 3: INDECISOS */}
-        <View style={styles.kpiCard}>
+        <View style={[styles.kpiCard, isDesktop ? styles.borderRight : styles.borderBottom]}>
           <View style={styles.kpiHeaderRow}>
             <Text style={styles.kpiLabel}>Indecisos en Contratar</Text>
             <View style={[styles.iconBox, { backgroundColor: '#1D2125' }]}>
@@ -127,7 +127,7 @@ export function ResumenKpiCenso({
         </View>
 
         {/* KPI 4: NO INTERESADOS */}
-        <View style={styles.kpiCard}>
+        <View style={[styles.kpiCard, isDesktop ? styles.borderRight : styles.borderBottom]}>
           <View style={styles.kpiHeaderRow}>
             <Text style={styles.kpiLabel}>No Interesados</Text>
             <View style={[styles.iconBox, { backgroundColor: '#1D2125' }]}>
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   filterBar: {
     backgroundColor: '#22272B',
-    borderRadius: 12,
+    borderRadius: 0,
     padding: 16,
     borderWidth: 1,
     borderColor: '#384148',
@@ -182,21 +182,30 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    flexDirection: 'column',
+    backgroundColor: '#2C333A',
+    borderWidth: 1,
+    borderColor: '#384148',
+    borderRadius: 0,
+    overflow: 'hidden',
   },
   kpiGridDesktop: {
+    flexDirection: 'row',
     flexWrap: 'nowrap',
   },
   kpiCard: {
     flex: 1,
-    minWidth: 160,
     backgroundColor: '#2C333A',
-    borderRadius: 12,
+    borderRadius: 0,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#384148',
+  },
+  borderRight: {
+    borderRightWidth: 1,
+    borderRightColor: '#384148',
+  },
+  borderBottom: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#384148',
   },
   kpiHeaderRow: {
     flexDirection: 'row',
@@ -214,7 +223,7 @@ const styles = StyleSheet.create({
   iconBox: {
     width: 28,
     height: 28,
-    borderRadius: 6,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -233,7 +242,7 @@ const styles = StyleSheet.create({
   pillBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 0,
     borderWidth: 1,
     backgroundColor: '#1D2125',
   },

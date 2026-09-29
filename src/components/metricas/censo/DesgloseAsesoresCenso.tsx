@@ -138,7 +138,7 @@ export function DesgloseAsesoresCenso({ porAsesor }: DesgloseAsesoresCensoProps)
 const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: '#2C333A',
-    borderRadius: 12,
+    borderRadius: 0,
     padding: 16,
     borderWidth: 1,
     borderColor: '#384148',
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   totalBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 0,
     backgroundColor: '#1D2125',
     borderWidth: 1,
     borderColor: '#384148',
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1D2125',
     borderWidth: 1,
     borderColor: '#384148',
-    borderRadius: 8,
+    borderRadius: 0,
     paddingHorizontal: 12,
     height: 40,
     marginBottom: 14,
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   },
   advisorCard: {
     backgroundColor: '#22272B',
-    borderRadius: 8,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: '#384148',
     overflow: 'hidden',
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   rankBadge: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: 0,
     backgroundColor: '#1D2125',
     alignItems: 'center',
     justifyContent: 'center',
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1D2125',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: '#384148',
   },
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     minWidth: 100,
     backgroundColor: '#22272B',
     padding: 8,
-    borderRadius: 6,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: '#384148',
     alignItems: 'center',

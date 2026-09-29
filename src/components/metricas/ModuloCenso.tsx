@@ -61,12 +61,13 @@ export function ModuloCenso({ empresaId, filtroPeriodo }: ModuloCensoProps) {
         isDesktop={isDesktop}
       />
 
-      {/* 2. GRÁFICA DONUT DE INTERÉS Y DESGLOSE POR SECTOR */}
+      {/* 2. GRÁFICA DONUT DE INTERÉS Y DESGLOSE POR SECTOR (PEGADAS Y CUADRADAS) */}
       <View style={[styles.middleGrid, isDesktop && styles.middleGridDesktop]}>
         <GraficoDonutCenso
           totalInteresados={stats.kpis.totalInteresados}
           totalIndecisos={stats.kpis.totalIndecisos}
           totalNoInteresados={stats.kpis.totalNoInteresados}
+          isDesktop={isDesktop}
         />
         <DesgloseSectoresCenso porSector={stats.porSector} />
       </View>
@@ -93,9 +94,14 @@ const styles = StyleSheet.create({
   },
   middleGrid: {
     flexDirection: 'column',
+    backgroundColor: '#2C333A',
+    borderWidth: 1,
+    borderColor: '#384148',
+    borderRadius: 0,
+    marginBottom: 20,
+    overflow: 'hidden',
   },
   middleGridDesktop: {
     flexDirection: 'row',
-    gap: 16,
   },
 });

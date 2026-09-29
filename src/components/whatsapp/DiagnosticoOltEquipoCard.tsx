@@ -50,6 +50,19 @@ export function DiagnosticoOltEquipoCard({
   const isOnline = diag?.esOnline ?? false;
   const isDegradada = diag?.esDegradada ?? false;
 
+  let potenciaGlobal = diag?.potencia || 'N/D';
+  let p1310 = diag?.potencia1310 || null;
+  let p1490 = diag?.potencia1490 || null;
+  if (potenciaGlobal && potenciaGlobal !== 'N/D' && (!p1310 || !p1490)) {
+    const partes = potenciaGlobal.split('/').map(s => s.trim());
+    if (partes.length === 2) {
+      if (!p1490) p1490 = partes[0];
+      if (!p1310) p1310 = partes[1];
+    }
+  } else if ((!potenciaGlobal || potenciaGlobal === 'N/D') && p1490 && p1310) {
+    potenciaGlobal = `${p1490} / ${p1310}`;
+  }
+
   const ejecutarAccionRemota = async (tipo: 'reboot' | 'wifi' | 'dispositivos') => {
     if (!eq?.id_tse || !eq?.codigo_es) {
       Alert.alert('Aviso', 'El equipo no cuenta con identificador de sistema para asistencia remota.');
@@ -137,9 +150,7 @@ export function DiagnosticoOltEquipoCard({
         </View>
         <View style={styles.detalleItem}>
           <Text style={styles.detalleLabel}>TARJETA / PUERTO</Text>
-          <Text style={styles.detalleValor}>
-            {rf?.board ? `Board ${rf.board} / Port ${rf.port}` : 'N/D'}
-          </Text>
+          <Text style={styles.detalleValor}>{rf?.board ? `Board ${rf.board} / Port ${rf.port}` : 'N/D'}</Text>
         </View>
         <View style={styles.detalleItem}>
           <Text style={styles.detalleLabel}>MODELO & MARCA</Text>
@@ -157,6 +168,14 @@ export function DiagnosticoOltEquipoCard({
           <Text style={styles.detalleLabel}>MODO ONT</Text>
           <Text style={styles.detalleValor}>{rf?.onuMode || 'Bridging'}</Text>
         </View>
+        <View style={styles.detalleItem}>
+          <Text style={styles.detalleLabel}>CAJA NAP / ODB</Text>
+          <Text style={styles.detalleValor}>{rf?.odb || 'SIN ASIGNAR'}</Text>
+        </View>
+        <View style={styles.detalleItem}>
+          <Text style={styles.detalleLabel}>PERFIL OLT</Text>
+          <Text style={styles.detalleValor}>{rf?.velocidadOlt || 'N/D'}</Text>
+        </View>
       </View>
 
       {/* Telemetría Óptica en Tiempo Real */}
@@ -167,18 +186,8 @@ export function DiagnosticoOltEquipoCard({
               <Radio size={14} color="#8C9BAB" />
               <Text style={styles.detalleLabel}>ESTADO ONT</Text>
             </View>
-            <View
-              style={[
-                styles.pillBadge,
-                isOnline ? styles.pillBadgeActivo : styles.pillBadgeAlerta,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.pillBadgeText,
-                  isOnline ? styles.pillBadgeTextActivo : styles.pillBadgeTextAlerta,
-                ]}
-              >
+            <View style={[styles.pillBadge, isOnline ? styles.pillBadgeActivo : styles.pillBadgeAlerta]}>
+              <Text style={[styles.pillBadgeText, isOnline ? styles.pillBadgeTextActivo : styles.pillBadgeTextAlerta]}>
                 {diag?.status ? diag.status.toUpperCase() : 'DESCONOCIDO'}
               </Text>
             </View>
@@ -189,7 +198,7 @@ export function DiagnosticoOltEquipoCard({
               <Activity size={14} color="#8C9BAB" />
               <Text style={styles.detalleLabel}>POTENCIA GLOBAL</Text>
             </View>
-            <Text style={styles.potenciaValor}>{diag?.potencia || 'N/D'}</Text>
+            <Text style={styles.potenciaValor}>{potenciaGlobal}</Text>
           </View>
 
           <View style={styles.telemetriaItem}>
@@ -197,7 +206,7 @@ export function DiagnosticoOltEquipoCard({
               <ArrowUpRight size={14} color="#8C9BAB" />
               <Text style={styles.detalleLabel}>SUBIDA (1310nm)</Text>
             </View>
-            <Text style={styles.potenciaValor}>{diag?.potencia1310 || 'N/D'}</Text>
+            <Text style={styles.potenciaValor}>{p1310 || 'N/D'}</Text>
           </View>
 
           <View style={styles.telemetriaItem}>
@@ -205,7 +214,7 @@ export function DiagnosticoOltEquipoCard({
               <ArrowDownLeft size={14} color="#8C9BAB" />
               <Text style={styles.detalleLabel}>BAJADA (1490nm)</Text>
             </View>
-            <Text style={styles.potenciaValor}>{diag?.potencia1490 || 'N/D'}</Text>
+            <Text style={styles.potenciaValor}>{p1490 || 'N/D'}</Text>
           </View>
         </View>
 

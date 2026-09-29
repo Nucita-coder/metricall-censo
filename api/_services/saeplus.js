@@ -48,24 +48,12 @@ class SaeplusService {
     this.csrfToken = jsonCargador.csrf_token || '';
 
     const { md5, sha1 } = this._getPassKey(this.password);
-
-    // 2. Iniciar sesión en controlador.php
     const payloadLogin = [{
-      clase: 'Seguridad',
-      accion: 'iniciar_sesion',
+      clase: 'Seguridad', accion: 'iniciar_sesion',
       datos: {
-        login: this.username,
-        cedula: '',
-        remember_usuario: 'NO',
-        remember_password: 'NO',
-        empresa: this.empresa,
-        pass_key: sha1,
-        v_key: '',
-        hab_dos_pasos: false,
-        code_pass: '',
-        key_to_sms: md5,
-        pass_key2: '',
-        csrf_token: this.csrfToken
+        login: this.username, cedula: '', remember_usuario: 'NO', remember_password: 'NO',
+        empresa: this.empresa, pass_key: sha1, v_key: '', hab_dos_pasos: false,
+        code_pass: '', key_to_sms: md5, pass_key2: '', csrf_token: this.csrfToken
       }
     }];
 
@@ -83,37 +71,24 @@ class SaeplusService {
     });
 
     const newCookies = this._extractCookies(resLogin);
-    if (newCookies) {
-      this.cookies = `${this.cookies}; ${newCookies}`;
-    }
-
+    if (newCookies) this.cookies = `${this.cookies}; ${newCookies}`;
     const matchXsrf = this.cookies.match(/XSRF-TOKEN=([^;]+)/);
-    if (matchXsrf) {
-      this.csrfToken = decodeURIComponent(matchXsrf[1]);
-    }
+    if (matchXsrf) this.csrfToken = decodeURIComponent(matchXsrf[1]);
 
     const jsonLogin = await resLogin.json();
-    if (!jsonLogin.success) {
-      throw new Error(`Error en login SAEPLUS: ${jsonLogin.error || 'Autenticación fallida'}`);
-    }
-
-    // Mantener sesión válida en memoria por 25 minutos
+    if (!jsonLogin.success) throw new Error(`Error en login SAEPLUS: ${jsonLogin.error || 'Autenticación fallida'}`);
     this.sessionExpires = Date.now() + 25 * 60 * 1000;
   }
 
   // Asegura que la sesión esté viva antes de cualquier consulta
   async asegurarSesion() {
-    if (!this.cookies || !this.csrfToken || Date.now() > this.sessionExpires) {
-      await this.login();
-    }
+    if (!this.cookies || !this.csrfToken || Date.now() > this.sessionExpires) await this.login();
   }
 
   // Helper para llamadas al backend con reintento automático si expira la sesión
   async _postControlador(payload) {
     await this.asegurarSesion();
-    if (payload[0]?.datos) {
-      payload[0].datos.csrf_token = this.csrfToken;
-    }
+    if (payload[0]?.datos) payload[0].datos.csrf_token = this.csrfToken;
 
     const headers = {
       'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -124,8 +99,7 @@ class SaeplusService {
     };
 
     let res = await fetch(`${this.baseUrl}/controlador.php`, {
-      method: 'POST',
-      headers,
+      method: 'POST', headers,
       body: 'parametros=' + encodeURIComponent(JSON.stringify(payload)),
       signal: AbortSignal.timeout(TIMEOUT_MS)
     });
@@ -137,13 +111,11 @@ class SaeplusService {
       headers['X-CSRF-Token'] = this.csrfToken;
       headers['Cookie'] = this.cookies;
       res = await fetch(`${this.baseUrl}/controlador.php`, {
-        method: 'POST',
-        headers,
+        method: 'POST', headers,
         body: 'parametros=' + encodeURIComponent(JSON.stringify(payload)),
         signal: AbortSignal.timeout(TIMEOUT_MS)
       });
     }
-
     return await res.json();
   }
 
@@ -187,21 +159,34 @@ class SaeplusService {
   async consultarSmartOlt(idEs) {
     try {
       const payload = [{ clase: 'integracion_olt', accion: 'graphics_smartolt', datos: { id_es: idEs } }];
-      const dataOlt = await this._postControlador(payload);
-      if (dataOlt.success && dataOlt.retorno) {
+      let dataOlt = await this._postControlador(payload);
+      if (dataOlt?.success && dataOlt?.retorno && (dataOlt.retorno.onu_signal_value === 'N/D' || !dataOlt.retorno.onu_signal_1310)) {
+        await new Promise(r => setTimeout(r, 1200));
+        const retry = await this._postControlador(payload);
+        if (retry?.success && retry?.retorno && retry.retorno.onu_signal_value !== 'N/D') dataOlt = retry;
+      }
+      if (dataOlt?.success && dataOlt?.retorno) {
         const ret = dataOlt.retorno;
-        const status = ret.onu_signal_status || 'Desconocido';
-        const nivel = ret.onu_signal || 'Normal';
+        let potencia = ret.onu_signal_value || 'N/D';
+        let p1310 = ret.onu_signal_1310 || null;
+        let p1490 = ret.onu_signal_1490 || null;
+        if (potencia && potencia !== 'N/D') {
+          const partes = potencia.split('/').map(s => s.trim());
+          if (partes.length === 2) {
+            if (!p1490) p1490 = partes[0];
+            if (!p1310) p1310 = partes[1];
+          }
+        }
         return {
-          status,
-          potencia: ret.onu_signal_value || 'N/D',
-          potencia1310: ret.onu_signal_1310 || null,
-          potencia1490: ret.onu_signal_1490 || null,
+          status: ret.onu_signal_status || 'Desconocido',
+          potencia,
+          potencia1310: p1310,
+          potencia1490: p1490,
           graficaBase64: ret.graph || null,
           catvStatus: ret.onu_catv_status || null,
-          nivel,
-          esOnline: status === 'Online',
-          esDegradada: nivel === 'Warning' || nivel === 'Critical'
+          nivel: ret.onu_signal || 'Normal',
+          esOnline: ret.onu_signal_status === 'Online',
+          esDegradada: ret.onu_signal === 'Warning' || ret.onu_signal === 'Critical'
         };
       }
       return null;
@@ -227,6 +212,15 @@ class SaeplusService {
     const estatusRaw = String(abonado.nombrestatus || abonado.status_contrato || 'ACTIVO').toUpperCase();
     const esSuspendido = estatusRaw.includes('SUSP') || estatusRaw.includes('CORT') || (parseFloat(saldoPendiente) > 0 && estatusRaw !== 'ACTIVO');
 
+    const suscripciones = Array.isArray(abonado.suscripcion) ? abonado.suscripcion : [];
+    const servInternet = suscripciones.find(s => 
+      (s.tipo_servicio || '').toUpperCase().includes('INTERNET') || 
+      (s.tipo_servicio || '').toUpperCase().includes('FTTH') || 
+      (s.nombre_servicio || '').toUpperCase().includes('PLAN')
+    ) || suscripciones.find(s => parseFloat(s.total || '0') > 0);
+    const planComercial = servInternet ? servInternet.nombre_servicio : (abonado.nombre_g_a || 'HOGAR');
+    const categoria = abonado.nombre_g_a || 'HOGAR';
+
     const equipoOnt = abonado.equipos?.datos?.[0] || null;
     let redFisica = null;
     if (equipoOnt) {
@@ -237,7 +231,7 @@ class SaeplusService {
         port: parsed.port || '',
         vlan: parsed.vlan || '',
         svlan: parsed.svlan || '',
-        odb: parsed.odb || '',
+        odb: parsed.odb || (abonado.poste && abonado.poste !== 'AGENDADA' ? abonado.poste : '') || '',
         onuMode: parsed.onu_mode || '',
         onuType: parsed.onu_type || '',
         velocidadOlt: (equipoOnt.paquetes || '').replace(/[;\s]+$/, '')
@@ -259,7 +253,8 @@ class SaeplusService {
         estatus: estatusRaw,
         esSuspendido,
         saldoPendiente,
-        plan: abonado.nombre_g_a || 'HOGAR',
+        plan: planComercial,
+        categoria,
         sector: abonado.nombre_sector || '',
         ciudad: abonado.nombre_ciudad || ''
       },
@@ -322,25 +317,14 @@ class SaeplusService {
   // Descarga el archivo binario PDF oficial de la factura desde SAEPLUS
   async descargarFacturaPdf(idPago, archivoFormatoFactura) {
     await this.asegurarSesion();
-    const datos = JSON.stringify({
-      facturacion: { id_pago: idPago },
-      archivo_formato_factura: archivoFormatoFactura
-    });
+    const datos = JSON.stringify({ facturacion: { id_pago: idPago }, archivo_formato_factura: archivoFormatoFactura });
     const url = `${this.baseUrl}/modules/cobranza/report/lotes_filtro_${archivoFormatoFactura}?datos=${encodeURIComponent(datos)}&`;
     const res = await fetch(url, {
-      headers: {
-        'Cookie': this.cookies,
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)'
-      },
+      headers: { 'Cookie': this.cookies, 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)' },
       signal: AbortSignal.timeout(TIMEOUT_MS)
     });
-
-    if (!res.ok) {
-      throw new Error(`Error descargando factura PDF de SAEplus: Status ${res.status}`);
-    }
-
-    const arrayBuffer = await res.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    if (!res.ok) throw new Error(`Error descargando factura PDF de SAEplus: Status ${res.status}`);
+    return Buffer.from(await res.arrayBuffer());
   }
 }
 

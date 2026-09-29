@@ -26,6 +26,7 @@ export function DiagnosticoOltCard({ resultado }: DiagnosticoOltCardProps) {
   const [ticketMensaje, setTicketMensaje] = useState<string | null>(null);
 
   const planComercial = resultado.contrato?.plan || 'HOGAR';
+  const categoria = resultado.contrato?.categoria || 'HOGAR';
   const velocidadOlt = resultado.equipo?.redFisica?.velocidadOlt || 'N/D';
   const board = resultado.equipo?.redFisica?.board || 'N/D';
   const port = resultado.equipo?.redFisica?.port || 'N/D';
@@ -33,10 +34,11 @@ export function DiagnosticoOltCard({ resultado }: DiagnosticoOltCardProps) {
   const statusOnt = resultado.diagnostico?.status || 'DESCONOCIDO';
   const potencia = resultado.diagnostico?.potencia || 'N/D';
 
-  const coincidenPlanes = velocidadOlt !== 'N/D' &&
-    (planComercial.toLowerCase().includes('250') && velocidadOlt.includes('250') ||
-     planComercial.toLowerCase().includes('500') && velocidadOlt.includes('500') ||
-     planComercial.toLowerCase().includes('100') && velocidadOlt.includes('100'));
+  const velocidadEnPlan = ['1000', '800', '600', '500', '400', '300', '250', '200', '150', '100', '50']
+    .find(v => planComercial.includes(v));
+  const coincidenPlanes = Boolean(
+    velocidadEnPlan && velocidadOlt !== 'N/D' && velocidadOlt.includes(velocidadEnPlan)
+  );
 
   const crearTicketTecnico = async () => {
     setGenerandoTicket(true);
@@ -83,7 +85,7 @@ export function DiagnosticoOltCard({ resultado }: DiagnosticoOltCardProps) {
           </Text>
         </View>
         <View style={styles.pillBadge}>
-          <Text style={styles.pillBadgeText}>{planComercial}</Text>
+          <Text style={styles.pillBadgeText}>{categoria}</Text>
         </View>
       </View>
 
@@ -158,7 +160,7 @@ export function DiagnosticoOltCard({ resultado }: DiagnosticoOltCardProps) {
             ]}
           >
             <Text style={[styles.pillBadgeText, coincidenPlanes && styles.pillBadgeTextActivo]}>
-              {coincidenPlanes ? 'CORRECTO' : 'AUDITAR EN CENTRAL'}
+              {coincidenPlanes ? `CONFORME (${velocidadEnPlan} MB)` : 'AUDITAR EN CENTRAL'}
             </Text>
           </View>
         </View>

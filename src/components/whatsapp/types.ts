@@ -62,6 +62,7 @@ export interface DiagnosticoOltContrato {
   esSuspendido: boolean;
   saldoPendiente: string;
   plan: string;
+  categoria?: string;
   sector: string;
   ciudad?: string;
 }

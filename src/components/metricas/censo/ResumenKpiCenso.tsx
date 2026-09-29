@@ -19,6 +19,9 @@ interface ResumenKpiCensoProps {
   setMesEspecificoNum: (m: number) => void;
   anioEspecificoStr: string;
   setAnioEspecificoStr: (a: string) => void;
+  asesorFiltro: string;
+  setAsesorFiltro: (a: string) => void;
+  listaAsesores: string[];
   kpis: CensoKpis;
   isDesktop: boolean;
 }
@@ -30,6 +33,9 @@ export function ResumenKpiCenso({
   setMesEspecificoNum,
   anioEspecificoStr,
   setAnioEspecificoStr,
+  asesorFiltro,
+  setAsesorFiltro,
+  listaAsesores,
   kpis,
   isDesktop,
 }: ResumenKpiCensoProps) {
@@ -37,41 +43,52 @@ export function ResumenKpiCenso({
     <View style={styles.container}>
       {/* BARRA DE FILTROS SUPERIOR */}
       <View style={styles.filterBar}>
-        <View style={styles.filterDropdownCol}>
-          <SelectDropdown
-            label="Período de Análisis (Censo)"
-            value={PERIODO_CENSO_MAP_TO_LABEL[periodoLocal] || 'Este Mes'}
-            options={OPCIONES_PERIODO_CENSO}
-            onSelect={(selected: string) => {
-              const key = PERIODO_CENSO_MAP_TO_KEY[selected];
-              if (key) setPeriodoLocal(key);
-            }}
-          />
-        </View>
-
-        {periodoLocal === 'mes_especifico' && (
-          <View style={styles.specificMonthRow}>
-            <View style={{ flex: 1 }}>
-              <SelectDropdown
-                label="Mes"
-                value={NOMBRES_MESES_CENSO[mesEspecificoNum] || 'Enero'}
-                options={NOMBRES_MESES_CENSO}
-                onSelect={(selected: string) => {
-                  const idx = NOMBRES_MESES_CENSO.indexOf(selected);
-                  if (idx >= 0) setMesEspecificoNum(idx);
-                }}
-              />
-            </View>
-            <View style={{ width: 110 }}>
-              <SelectDropdown
-                label="Año"
-                value={anioEspecificoStr}
-                options={OPCIONES_ANIO_CENSO}
-                onSelect={(selected: string) => setAnioEspecificoStr(selected)}
-              />
-            </View>
+        <View style={styles.filterBarRow}>
+          <View style={{ flex: 1, minWidth: 180 }}>
+            <SelectDropdown
+              label="Período de Análisis (Censo)"
+              value={PERIODO_CENSO_MAP_TO_LABEL[periodoLocal] || 'Este Mes'}
+              options={OPCIONES_PERIODO_CENSO}
+              onSelect={(selected: string) => {
+                const key = PERIODO_CENSO_MAP_TO_KEY[selected];
+                if (key) setPeriodoLocal(key);
+              }}
+            />
           </View>
-        )}
+
+          {periodoLocal === 'mes_especifico' && (
+            <>
+              <View style={{ flex: 1, minWidth: 140 }}>
+                <SelectDropdown
+                  label="Mes"
+                  value={NOMBRES_MESES_CENSO[mesEspecificoNum] || 'Enero'}
+                  options={NOMBRES_MESES_CENSO}
+                  onSelect={(selected: string) => {
+                    const idx = NOMBRES_MESES_CENSO.indexOf(selected);
+                    if (idx >= 0) setMesEspecificoNum(idx);
+                  }}
+                />
+              </View>
+              <View style={{ width: 100 }}>
+                <SelectDropdown
+                  label="Año"
+                  value={anioEspecificoStr}
+                  options={OPCIONES_ANIO_CENSO}
+                  onSelect={(selected: string) => setAnioEspecificoStr(selected)}
+                />
+              </View>
+            </>
+          )}
+
+          <View style={{ flex: 1, minWidth: 200 }}>
+            <SelectDropdown
+              label="Filtrar por Asesor"
+              value={asesorFiltro}
+              options={listaAsesores}
+              onSelect={(selected: string) => setAsesorFiltro(selected)}
+            />
+          </View>
+        </View>
       </View>
 
       {/* FILA DE TARJETAS KPI (TOTALMENTE CUADRADAS Y PEGADAS) */}
@@ -173,13 +190,11 @@ const styles = StyleSheet.create({
     borderColor: '#384148',
     marginBottom: 16,
   },
-  filterDropdownCol: {
-    width: '100%',
-  },
-  specificMonthRow: {
+  filterBarRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
-    marginTop: 12,
+    alignItems: 'center',
   },
   kpiGrid: {
     flexDirection: 'column',

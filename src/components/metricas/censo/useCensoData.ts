@@ -8,9 +8,11 @@ export function useCensoData(
   empresaId: string | null | undefined,
   periodoLocal: PeriodoCensoTipo,
   mesEspecificoNum: number,
-  anioEspecificoStr: string
+  anioEspecificoStr: string,
+  asesorFiltro: string = 'Todos los Asesores'
 ) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [listaAsesores, setListaAsesores] = useState<string[]>(['Todos los Asesores']);
   const [stats, setStats] = useState<CensoStats>({
     kpis: {
       totalCensados: 0,
@@ -128,6 +130,24 @@ export function useCensoData(
         return isFechaEnPeriodo(fecha, periodoLocal, mesEspecificoNum, anioNum);
       });
 
+      // Extraer lista de asesores activos en el período
+      const nombresAsesores = new Set<string>();
+      tarjetasFiltradas.forEach((t) => {
+        const d = (t.datos_valores || {}) as TarjetaDatosValores;
+        const asesor = String(d.asesorComercial || d.vendedor || d.censador || '').trim();
+        if (asesor) nombresAsesores.add(asesor);
+      });
+      setListaAsesores(['Todos los Asesores', ...Array.from(nombresAsesores).sort()]);
+
+      // Filtrar por asesor seleccionado si no es 'Todos los Asesores'
+      const tarjetasParaCalculo = (asesorFiltro && asesorFiltro !== 'Todos los Asesores')
+        ? tarjetasFiltradas.filter((t) => {
+            const d = (t.datos_valores || {}) as TarjetaDatosValores;
+            const asesor = String(d.asesorComercial || d.vendedor || d.censador || 'Sin Asesor Asignado').trim();
+            return asesor === asesorFiltro;
+          })
+        : tarjetasFiltradas;
+
       // Calcular Indicadores
       let totalCensados = 0;
       let totalInteresados = 0;
@@ -138,7 +158,7 @@ export function useCensoData(
       const mapaAsesores = new Map<string, AsesorCensoStat>();
       const mapaSectores = new Map<string, number>();
 
-      tarjetasFiltradas.forEach((t) => {
+      tarjetasParaCalculo.forEach((t) => {
         const d = (t.datos_valores || {}) as TarjetaDatosValores;
         const listaNombre = (listaMap.get(t.lista_id) || '').toLowerCase().trim();
         const dispuesto = String(d.dispuestoCambiar || '').toLowerCase().trim();
@@ -223,14 +243,14 @@ export function useCensoData(
         },
         porAsesor,
         porSector,
-        rawTarjetas: tarjetasFiltradas,
+        rawTarjetas: tarjetasParaCalculo,
       });
     } catch (err) {
       console.error('Error al cargar métricas de censo:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [empresaId, periodoLocal, mesEspecificoNum, anioEspecificoStr]);
+  }, [empresaId, periodoLocal, mesEspecificoNum, anioEspecificoStr, asesorFiltro]);
 
   useEffect(() => {
     cargarDatosCenso();
@@ -239,6 +259,7 @@ export function useCensoData(
   return {
     isLoading,
     stats,
+    listaAsesores,
     recargar: cargarDatosCenso,
   };
 }

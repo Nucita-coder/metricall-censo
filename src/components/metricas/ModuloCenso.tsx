@@ -30,12 +30,14 @@ export function ModuloCenso({ empresaId, filtroPeriodo }: ModuloCensoProps) {
   const [anioEspecificoStr, setAnioEspecificoStr] = useState<string>(
     String(new Date().getFullYear())
   );
+  const [asesorFiltro, setAsesorFiltro] = useState<string>('Todos los Asesores');
 
-  const { isLoading, stats } = useCensoData(
+  const { isLoading, stats, listaAsesores } = useCensoData(
     empresaId,
     periodoLocal,
     mesEspecificoNum,
-    anioEspecificoStr
+    anioEspecificoStr,
+    asesorFiltro
   );
 
   if (isLoading) {
@@ -57,6 +59,9 @@ export function ModuloCenso({ empresaId, filtroPeriodo }: ModuloCensoProps) {
         setMesEspecificoNum={setMesEspecificoNum}
         anioEspecificoStr={anioEspecificoStr}
         setAnioEspecificoStr={setAnioEspecificoStr}
+        asesorFiltro={asesorFiltro}
+        setAsesorFiltro={setAsesorFiltro}
+        listaAsesores={listaAsesores}
         kpis={stats.kpis}
         isDesktop={isDesktop}
       />

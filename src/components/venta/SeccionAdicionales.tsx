@@ -11,6 +11,11 @@ interface Props {
 }
 
 export const SeccionAdicionales = ({ formData, update, readOnly = false }: Props) => {
+  const lchVal = formData.lch_numero || formData.lchNumero || formData.nro_lch || formData.lch;
+  const valorAbonado = formData.nroAbonado !== undefined && formData.nroAbonado !== null && String(formData.nroAbonado).trim() !== ''
+    ? String(formData.nroAbonado)
+    : (lchVal ? String(lchVal) : '');
+
   return (
     <View style={styles.sectionCard}>
       <Text style={styles.sectionTitle}>ADICIONALES</Text>
@@ -25,7 +30,7 @@ export const SeccionAdicionales = ({ formData, update, readOnly = false }: Props
 
       <InputTexto
         label="Nro. de Abonado"
-        value={formData.nroAbonado}
+        value={valorAbonado}
         onChangeText={(v: string) => update('nroAbonado', v)}
         placeholder="Si aplica"
         keyboardType="numeric"

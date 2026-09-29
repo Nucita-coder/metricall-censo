@@ -104,15 +104,9 @@ const KanbanCardComponent = ({
   const formattedTel = telVal ? formatTelefono(String(telVal)) : '';
   const middleRowText = [formattedDoc, formattedTel].filter(Boolean).join(' • ');
 
-  const abonadoVal =
-    data.nroAbonado ||
-    data['NRO SUSCRIPTOR'] ||
-    data.abonado ||
-    data.lch_numero ||
-    data.lchNumero ||
-    data.nro_lch ||
-    data.lch;
-  const formattedAbonado = abonadoVal ? (String(abonadoVal).startsWith('#') ? String(abonadoVal) : `#${abonadoVal}`) : '';
+  const abonadoVal = data.nroAbonado || data['NRO SUSCRIPTOR'] || data.abonado || data.lch_numero || data.lchNumero || data.nro_lch || data.lch;
+  const rawAbonado = abonadoVal ? String(abonadoVal).replace(/^[#\s]+/, '').replace(/^LCH[:\s-]*/i, '').trim() : '';
+  const formattedAbonado = rawAbonado ? `LCH: ${rawAbonado}` : '';
 
   const isCensoFormat = ['Censo', 'si desea', 'no desea', 'es posible'].includes(listaNombre || '');
   const isMaterialesFormat = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Recuperados'].includes(listaNombre || '') || data.codigoMaterial !== undefined || data.nroOrdenEntrega !== undefined;

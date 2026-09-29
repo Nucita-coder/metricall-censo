@@ -85,7 +85,12 @@ export const ModalDetalleTarjeta = ({
   React.useEffect(() => {
     setIsEditing(startInEditMode);
     if (tarjetaSeleccionada?.datos_valores) {
-      setEditFormData(tarjetaSeleccionada.datos_valores);
+      const vals = tarjetaSeleccionada.datos_valores;
+      const lch = String(vals.lch_numero || vals.lchNumero || vals.nro_lch || vals.lch || '').trim();
+      const tieneAbonado = vals.nroAbonado && String(vals.nroAbonado).trim() !== '';
+      const abonadoSincronizado = tieneAbonado ? String(vals.nroAbonado) : lch;
+      setEditFormData({ ...vals, ...(abonadoSincronizado ? { nroAbonado: abonadoSincronizado } : {}) });
+      if (lch && !tieneAbonado) onUpdateTarjeta({ nroAbonado: lch }).catch(() => {});
     }
   }, [startInEditMode, tarjetaSeleccionada]);
 
@@ -94,25 +99,14 @@ export const ModalDetalleTarjeta = ({
       setNombreListaRemota(null);
       return;
     }
-
     const encontradaLocal = listas.find(l => l.id === tarjetaSeleccionada.lista_id);
     if (encontradaLocal?.nombre) {
       setNombreListaRemota(encontradaLocal.nombre);
       return;
     }
-
     let isMounted = true;
-    supabase
-      .from('listas')
-      .select('nombre')
-      .eq('id', tarjetaSeleccionada.lista_id)
-      .single()
-      .then(({ data }) => {
-        if (isMounted && data?.nombre) {
-          setNombreListaRemota(data.nombre);
-        }
-      });
-
+    supabase.from('listas').select('nombre').eq('id', tarjetaSeleccionada.lista_id).single()
+      .then(({ data }) => { if (isMounted && data?.nombre) setNombreListaRemota(data.nombre); });
     return () => { isMounted = false; };
   }, [tarjetaSeleccionada, listas]);
 

@@ -81,7 +81,10 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
     const isAbonadoRedundante = isReportePago || isReporteFalla || (abonadoVal !== '' && (abonadoVal === docId || nombreAp.includes(abonadoVal)));
 
     const getValue = (k: string) => {
-      const v = data[k];
+      let v = data[k];
+      if (k === 'nroAbonado' && (v === null || v === undefined || v === '')) {
+        v = data.lch_numero || data.lchNumero || data.nro_lch || data.lch;
+      }
       if (v === null || v === undefined || v === '') return 'Sin registrar';
       if ((k === 'montoPago' || k === 'monto') && !isNaN(Number(v))) {
         return `$ ${Number(v).toFixed(2)}`;
@@ -98,6 +101,7 @@ export const SeccionRegistro = ({ tarjeta, setImagenExpandida }: FaseProps) => {
       if (k === 'tipoFalla') return 'TIPO DE FALLA';
       if (k === 'nroOrden') return 'NÚMERO DE ORDEN';
       if (k === 'fechaOrdenGenerada') return 'FECHA ORDEN GENERADA';
+      if (k === 'nroAbonado') return 'NRO. DE ABONADO (LCH)';
       if (isReportePago) {
         if (k === 'nombreApellido') return 'NRO DE ABONADO';
         if (k === 'fechaPago') return 'FECHA DE PAGO';

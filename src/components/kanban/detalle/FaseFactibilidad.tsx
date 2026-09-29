@@ -79,11 +79,12 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
             value={lchNumero}
             onChangeText={(val) => { setLchNumero(val); setErrorFactibilidad(null); }}
             onBlur={async () => {
-              if (lchNumero !== (data.lch_numero || '')) {
+              const currentLch = lchNumero.trim();
+              if (currentLch !== (data.lch_numero || '') || (!data.nroAbonado && currentLch !== '')) {
                 await onUpdateTarjeta({
-                  lch_numero: lchNumero,
+                  lch_numero: currentLch,
                   lch_imagen: lchImagen,
-                  nroAbonado: lchNumero || data.nroAbonado,
+                  nroAbonado: currentLch || data.nroAbonado,
                 });
               }
             }}

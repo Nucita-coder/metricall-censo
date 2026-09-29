@@ -22,6 +22,7 @@ import { ModuloCobranza } from '../../../components/metricas/ModuloCobranza';
 import { ModuloAlmacen } from '../../../components/metricas/ModuloAlmacen';
 import { ModuloGestionOnline } from '../../../components/metricas/ModuloGestionOnline';
 import { ModuloMetricasOperaciones } from '../../../components/metricas/ModuloMetricasOperaciones';
+import { ModuloCenso } from '../../../components/metricas/ModuloCenso';
 import { styles } from '../../../components/metricas/metricas.styles';
 
 export type SubTabMetricas =
@@ -196,8 +197,16 @@ export default function MetricasScreen() {
           <ModuloAlmacen empresaId={empresaId} />
         )}
 
-        {/* MODULOS ACTIVOS DE OPERACIONES (Ventas, Censos, Técnicos) */}
-        {(subTab === 'vendedores' || subTab === 'censos' || subTab === 'tecnicos') && empresaId && (
+        {/* MODULO ACTIVO: CENSOS */}
+        {subTab === 'censos' && empresaId && (
+          <ModuloCenso
+            empresaId={empresaId}
+            filtroPeriodo={filtroPeriodo}
+          />
+        )}
+
+        {/* MODULOS ACTIVOS DE OPERACIONES (Ventas, Técnicos) */}
+        {(subTab === 'vendedores' || subTab === 'tecnicos') && empresaId && (
           <ModuloMetricasOperaciones
             empresaId={empresaId}
             subTab={subTab}

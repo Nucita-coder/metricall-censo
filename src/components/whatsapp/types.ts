@@ -47,3 +47,50 @@ export interface ConsultaFacturasSaeResponse {
   error?: string;
 }
 
+export interface DiagnosticoOltCliente {
+  nombreCompleto: string;
+  nombre?: string;
+  apellido?: string;
+  cedula: string;
+  telefono?: string;
+}
+
+export interface DiagnosticoOltContrato {
+  idContrato?: string;
+  nroContrato: string;
+  estatus: string;
+  esSuspendido: boolean;
+  saldoPendiente: string;
+  plan: string;
+  sector: string;
+  ciudad?: string;
+}
+
+export interface DiagnosticoOltEquipo {
+  id_es: string;
+  codigo_es: string;
+  modelo: string;
+  marca: string;
+  id_tse?: string;
+  sistema: string;
+}
+
+export interface DiagnosticoOltSmartOlt {
+  status: string;
+  potencia: string;
+  nivel: string;
+  esOnline: boolean;
+  esDegradada: boolean;
+  catv?: string;
+}
+
+export interface DiagnosticoOltResponse {
+  success: boolean;
+  encontrado: boolean;
+  cliente?: DiagnosticoOltCliente;
+  contrato?: DiagnosticoOltContrato;
+  equipo?: DiagnosticoOltEquipo | null;
+  diagnostico?: DiagnosticoOltSmartOlt | null;
+  error?: string;
+}
+

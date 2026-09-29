@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePathname, useRouter, Href } from 'expo-router';
-import { Archive, BarChart3, Bot, FolderKanban, LifeBuoy, MessageSquare, Package, Settings, Users, Code2, LucideIcon, FileText, Activity } from 'lucide-react-native';
+import { Archive, BarChart3, Bot, FolderKanban, LifeBuoy, MessageSquare, Package, Settings, Users, Code2, LucideIcon, FileText } from 'lucide-react-native';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGlobalUi } from '../../context/GlobalUiContext';
@@ -83,7 +83,6 @@ export function CustomDrawerContent(props: CustomDrawerContentProps) {
           <MenuItem label="Messenger" icon={MessageSquare} route="/(drawer)/(tabs)/mensajes" />
           {isDevUser && <MenuItem label="WhatsApp Bot" icon={Bot} route="/(drawer)/(tabs)/whatsapp" />}
           {isDevUser && <MenuItem label="Facturas SAE" icon={FileText} route="/(drawer)/(tabs)/whatsapp?tab=facturas" />}
-          {isDevUser && <MenuItem label="Diagnóstico OLT" icon={Activity} route="/(drawer)/(tabs)/whatsapp?tab=diagnostico" />}
           {canSeeTeam && <MenuItem label="Equipo" icon={Users} route="/(drawer)/(tabs)/equipo" />}
           <MenuItem label="Ajustes" icon={Settings} route="/(drawer)/(tabs)/ajustes" />
           <MenuItem label="Soporte Técnico" icon={LifeBuoy} onPress={() => triggerSoporteModal()} />

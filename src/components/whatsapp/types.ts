@@ -66,6 +66,17 @@ export interface DiagnosticoOltContrato {
   ciudad?: string;
 }
 
+export interface DiagnosticoOltRedFisica {
+  board?: string;
+  port?: string;
+  vlan?: string;
+  svlan?: string;
+  odb?: string;
+  onuMode?: string;
+  onuType?: string;
+  velocidadOlt?: string;
+}
+
 export interface DiagnosticoOltEquipo {
   id_es: string;
   codigo_es: string;
@@ -73,15 +84,34 @@ export interface DiagnosticoOltEquipo {
   marca: string;
   id_tse?: string;
   sistema: string;
+  redFisica?: DiagnosticoOltRedFisica | null;
 }
 
 export interface DiagnosticoOltSmartOlt {
   status: string;
   potencia: string;
+  potencia1310?: string | null;
+  potencia1490?: string | null;
+  graficaBase64?: string | null;
+  catvStatus?: string | null;
   nivel: string;
   esOnline: boolean;
   esDegradada: boolean;
   catv?: string;
+}
+
+export interface DiagnosticoOltHost {
+  active?: string | boolean;
+  hostname?: string;
+  ip?: string;
+  mac?: string;
+}
+
+export interface DiagnosticoOltWifi {
+  wifi_ssid_24?: string;
+  wifi_password_24?: string;
+  wifi_ssid_58?: string;
+  wifi_password_58?: string;
 }
 
 export interface DiagnosticoOltResponse {

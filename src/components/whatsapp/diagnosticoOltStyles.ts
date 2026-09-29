@@ -1,14 +1,8 @@
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1D2125',
-  },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 32,
-  },
+  container: { flex: 1, backgroundColor: '#1D2125' },
+  contentContainer: { padding: 16, paddingBottom: 32 },
   tarjetaBusqueda: {
     backgroundColor: '#2C333A',
     borderRadius: 8,
@@ -30,11 +24,7 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
     lineHeight: 18,
   },
-  filaFormulario: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 12,
-  },
+  filaFormulario: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
   botonBuscar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -46,11 +36,7 @@ export const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 12,
   },
-  botonBuscarText: {
-    color: '#1D2125',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
+  botonBuscarText: { color: '#1D2125', fontWeight: 'bold', fontSize: 12 },
   contenedorError: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -62,14 +48,8 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#384148',
   },
-  textoError: {
-    color: '#B6C2CF',
-    fontSize: 12,
-    flex: 1,
-  },
-  panelResultados: {
-    gap: 16,
-  },
+  textoError: { color: '#B6C2CF', fontSize: 12, flex: 1 },
+  panelResultados: { gap: 16 },
   tarjetaInfo: {
     backgroundColor: '#22272B',
     borderRadius: 8,
@@ -92,33 +72,11 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
-  rowAlign: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  detallesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 14,
-    marginBottom: 12,
-  },
-  detalleItem: {
-    minWidth: '45%',
-    flex: 1,
-  },
-  detalleLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#8C9BAB',
-    marginBottom: 2,
-    letterSpacing: 0.5,
-  },
-  detalleValor: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#B6C2CF',
-  },
+  rowAlign: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  detallesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 12 },
+  detalleItem: { minWidth: '45%', flex: 1 },
+  detalleLabel: { fontSize: 10, fontWeight: '600', color: '#8C9BAB', marginBottom: 2, letterSpacing: 0.5 },
+  detalleValor: { fontSize: 12, fontWeight: '600', color: '#B6C2CF' },
   seccionAdmin: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -131,16 +89,8 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     marginTop: 4,
   },
-  adminLabel: {
-    fontSize: 11,
-    color: '#8C9BAB',
-    fontWeight: '600',
-  },
-  saldoValor: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
+  adminLabel: { fontSize: 11, color: '#8C9BAB', fontWeight: '600' },
+  saldoValor: { fontSize: 12, fontWeight: 'bold', color: '#FFFFFF' },
   botonRefrescar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -152,11 +102,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 4,
   },
-  botonRefrescarText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#B6C2CF',
-  },
+  botonRefrescarText: { fontSize: 11, fontWeight: 'bold', color: '#B6C2CF' },
   telemetriaContainer: {
     backgroundColor: '#1D2125',
     borderRadius: 6,
@@ -172,31 +118,11 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  telemetriaItem: {
-    flex: 1,
-    minWidth: 120,
-    gap: 4,
-  },
-  potenciaValor: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  actualizacionTexto: {
-    fontSize: 10,
-    color: '#8C9BAB',
-    marginTop: 8,
-    textAlign: 'right',
-  },
-  sinEquipoContainer: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  sinEquipoTexto: {
-    fontSize: 12,
-    color: '#8C9BAB',
-    textAlign: 'center',
-  },
+  telemetriaItem: { flex: 1, minWidth: 110, gap: 4 },
+  potenciaValor: { fontSize: 12, fontWeight: 'bold', color: '#FFFFFF' },
+  actualizacionTexto: { fontSize: 10, color: '#8C9BAB', marginTop: 8, textAlign: 'right' },
+  sinEquipoContainer: { padding: 16, alignItems: 'center' },
+  sinEquipoTexto: { fontSize: 12, color: '#8C9BAB', textAlign: 'center' },
   pillBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -206,27 +132,102 @@ export const styles = StyleSheet.create({
     borderColor: '#384148',
     alignSelf: 'flex-start',
   },
-  pillBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#B6C2CF',
-  },
-  pillBadgeActivo: {
-    backgroundColor: 'rgba(160, 178, 198, 0.15)',
+  pillBadgeText: { fontSize: 10, fontWeight: 'bold', color: '#B6C2CF' },
+  pillBadgeActivo: { backgroundColor: 'rgba(160, 178, 198, 0.15)', borderColor: '#384148' },
+  pillBadgeTextActivo: { color: '#FFFFFF' },
+  pillBadgeAlerta: { backgroundColor: 'rgba(140, 155, 171, 0.15)', borderColor: '#4A5560' },
+  pillBadgeTextAlerta: { color: '#E2E8F0' },
+  pillBadgeNeutral: { backgroundColor: '#2C333A', borderColor: '#384148' },
+  // Auditoría Plan vs OLT
+  auditoriaContainer: {
+    backgroundColor: '#1D2125',
+    borderRadius: 6,
+    borderWidth: 1,
     borderColor: '#384148',
+    padding: 12,
+    marginTop: 10,
   },
-  pillBadgeTextActivo: {
-    color: '#FFFFFF',
-  },
-  pillBadgeAlerta: {
-    backgroundColor: 'rgba(140, 155, 171, 0.15)',
-    borderColor: '#4A5560',
-  },
-  pillBadgeTextAlerta: {
-    color: '#E2E8F0',
-  },
-  pillBadgeNeutral: {
+  auditoriaHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  auditoriaTitulo: { fontSize: 11, fontWeight: 'bold', color: '#B6C2CF', letterSpacing: 0.4 },
+  auditoriaFila: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  auditoriaLabel: { fontSize: 11, color: '#8C9BAB' },
+  auditoriaValor: { fontSize: 11, fontWeight: 'bold', color: '#FFFFFF' },
+  // Botón Generar Ticket
+  botonTicket: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: '#2C333A',
+    borderWidth: 1,
     borderColor: '#384148',
+    paddingVertical: 10,
+    borderRadius: 6,
+    marginTop: 12,
   },
+  botonTicketText: { fontSize: 12, fontWeight: 'bold', color: '#B6C2CF' },
+  // Gráfica de señal óptica
+  graficaContainer: {
+    backgroundColor: '#1D2125',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#384148',
+    padding: 10,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  graficaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 8,
+  },
+  graficaTitulo: { fontSize: 11, fontWeight: 'bold', color: '#B6C2CF' },
+  graficaImagen: { width: '100%', height: 180, borderRadius: 4 },
+  // Barra de herramientas de control remoto
+  barraAcciones: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  botonAccion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1D2125',
+    borderWidth: 1,
+    borderColor: '#384148',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+    minWidth: 130,
+    justifyContent: 'center',
+  },
+  botonAccionText: { fontSize: 11, fontWeight: 'bold', color: '#B6C2CF' },
+  // Modal de Asistencia Remota
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    backgroundColor: '#2C333A',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#384148',
+    width: '100%',
+    maxWidth: 480,
+    padding: 16,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#384148',
+    paddingBottom: 10,
+    marginBottom: 12,
+  },
+  modalTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' },
 });

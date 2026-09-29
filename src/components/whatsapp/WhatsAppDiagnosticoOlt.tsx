@@ -10,6 +10,7 @@ import { AlertTriangle, Search } from 'lucide-react-native';
 import { InputTexto } from '../venta/CamposVenta';
 import { DiagnosticoOltResponse, DiagnosticoOltSmartOlt } from './types';
 import { DiagnosticoOltCard } from './DiagnosticoOltCard';
+import { DiagnosticoOltEquipoCard } from './DiagnosticoOltEquipoCard';
 import { styles } from './diagnosticoOltStyles';
 
 export function WhatsAppDiagnosticoOlt() {
@@ -123,12 +124,15 @@ export function WhatsAppDiagnosticoOlt() {
 
       {/* Resultados de Diagnóstico */}
       {resultado && resultado.encontrado && (
-        <DiagnosticoOltCard
-          resultado={resultado}
-          refrescando={refrescando}
-          ultimaActualizacion={ultimaActualizacion}
-          onRefrescar={refrescarSenal}
-        />
+        <View style={styles.panelResultados}>
+          <DiagnosticoOltCard resultado={resultado} />
+          <DiagnosticoOltEquipoCard
+            resultado={resultado}
+            refrescando={refrescando}
+            ultimaActualizacion={ultimaActualizacion}
+            onRefrescar={refrescarSenal}
+          />
+        </View>
       )}
     </ScrollView>
   );

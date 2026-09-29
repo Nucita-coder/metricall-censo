@@ -1,6 +1,4 @@
-// api/services/saeplus.js
-// Cliente de integración directa con SAEPLUS (Fibex Telecom)
-// Consulta de abonados, contratos, estatus y saldo adeudado por documento de identidad.
+// api/services/saeplus.js - Cliente de integración directa con SAEPLUS (Fibex Telecom)
 
 import crypto from 'crypto';
 
@@ -19,17 +17,16 @@ class SaeplusService {
 
   // Doble hashing requerido por el frontend de SAEPLUS: sha1(md5(password))
   _getPassKey(pass) {
-    const md5 = crypto.createHash('md5').update(pass).digest('hex');
-    const sha1 = crypto.createHash('sha1').update(md5).digest('hex');
-    return { md5, sha1 };
+    return {
+      md5: crypto.createHash('md5').update(pass).digest('hex'),
+      sha1: crypto.createHash('sha1').update(crypto.createHash('md5').update(pass).digest('hex')).digest('hex')
+    };
   }
 
   // Extrae y concatena cookies de una respuesta HTTP nativa
   _extractCookies(res) {
-    const rawCookies = typeof res.headers.getSetCookie === 'function'
-      ? res.headers.getSetCookie()
-      : (res.headers.get('set-cookie') ? [res.headers.get('set-cookie')] : []);
-    return rawCookies.map(c => c.split(';')[0]).join('; ');
+    const raw = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : (res.headers.get('set-cookie') ? [res.headers.get('set-cookie')] : []);
+    return raw.map(c => c.split(';')[0]).join('; ');
   }
 
   // Autenticación completa contra el sistema
@@ -186,24 +183,23 @@ class SaeplusService {
     }));
   }
 
-  // Consulta en tiempo real de potencia y estado a SmartOLT
+  // Consulta en tiempo real de potencia, telemetría y gráfica a SmartOLT
   async consultarSmartOlt(idEs) {
     try {
-      const payload = [{
-        clase: 'integracion_olt',
-        accion: 'graphics_smartolt',
-        datos: { id_es: idEs }
-      }];
-
+      const payload = [{ clase: 'integracion_olt', accion: 'graphics_smartolt', datos: { id_es: idEs } }];
       const dataOlt = await this._postControlador(payload);
       if (dataOlt.success && dataOlt.retorno) {
         const ret = dataOlt.retorno;
         const status = ret.onu_signal_status || 'Desconocido';
         const nivel = ret.onu_signal || 'Normal';
         return {
-          status: status,
+          status,
           potencia: ret.onu_signal_value || 'N/D',
-          nivel: nivel,
+          potencia1310: ret.onu_signal_1310 || null,
+          potencia1490: ret.onu_signal_1490 || null,
+          graficaBase64: ret.graph || null,
+          catvStatus: ret.onu_catv_status || null,
+          nivel,
           esOnline: status === 'Online',
           esDegradada: nivel === 'Warning' || nivel === 'Critical'
         };
@@ -215,31 +211,38 @@ class SaeplusService {
     }
   }
 
-  // Consulta de diagnóstico integral del abonado y estado de la ONT por Cédula
+  // Consulta de diagnóstico integral del abonado, red física y estado de la ONT por Cédula
   async consultarDiagnosticoEquipo(cedulaRaw) {
     const cedulaLimpia = String(cedulaRaw || '').replace(/\D/g, '').trim();
     if (!cedulaLimpia) return { encontrado: false, error: 'Cédula inválida' };
 
-    const payload = [{
-      clase: 'contrato',
-      accion: 'buscar_abonado',
-      datos: { cedula: cedulaLimpia }
-    }];
-
+    const payload = [{ clase: 'contrato', accion: 'buscar_abonado', datos: { cedula: cedulaLimpia } }];
     const data = await this._postControlador(payload);
     if (!data.success || !data.retorno || !Array.isArray(data.retorno.datos) || data.retorno.datos.length === 0) {
       return { encontrado: false };
     }
 
-    const abonado = data.retorno.datos.find(
-      d => String(d.cedula || '').trim() === cedulaLimpia
-    ) || data.retorno.datos[0];
-
+    const abonado = data.retorno.datos.find(d => String(d.cedula || '').trim() === cedulaLimpia) || data.retorno.datos[0];
     const saldoPendiente = parseFloat(abonado.saldo || '0').toFixed(2);
     const estatusRaw = String(abonado.nombrestatus || abonado.status_contrato || 'ACTIVO').toUpperCase();
     const esSuspendido = estatusRaw.includes('SUSP') || estatusRaw.includes('CORT') || (parseFloat(saldoPendiente) > 0 && estatusRaw !== 'ACTIVO');
 
     const equipoOnt = abonado.equipos?.datos?.[0] || null;
+    let redFisica = null;
+    if (equipoOnt) {
+      let parsed = {};
+      try { parsed = JSON.parse(equipoOnt.campo || '{}'); } catch (_) {}
+      redFisica = {
+        board: parsed.board || '',
+        port: parsed.port || '',
+        vlan: parsed.vlan || '',
+        svlan: parsed.svlan || '',
+        odb: parsed.odb || '',
+        onuMode: parsed.onu_mode || '',
+        onuType: parsed.onu_type || '',
+        velocidadOlt: (equipoOnt.paquetes || '').replace(/[;\s]+$/, '')
+      };
+    }
 
     const resultado = {
       encontrado: true,
@@ -266,7 +269,8 @@ class SaeplusService {
         modelo: equipoOnt.nombre_modelo || 'ONT GPON',
         marca: equipoOnt.nombre_marca || 'SMARTOLT',
         id_tse: equipoOnt.id_tse || '',
-        sistema: equipoOnt.sistema || ''
+        sistema: equipoOnt.sistema || '',
+        redFisica
       } : null,
       diagnostico: null
     };

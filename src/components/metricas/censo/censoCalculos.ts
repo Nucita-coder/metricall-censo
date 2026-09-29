@@ -125,7 +125,7 @@ export function procesarMetricasCenso(
     const cantGestionesTarjeta = gestiones.length;
     totalGestiones += cantGestionesTarjeta;
 
-    const asesorRaw = String(d.asesorComercial || d.vendedor || d.censador || 'Sin Asesor Asignado').trim();
+    const asesorRaw = String(d.asesorComercial || d.asignadoA || d.vendedor || d.censador || 'Sin Asesor Asignado').trim();
     const asesorNombre = asesorRaw || 'Sin Asesor Asignado';
 
     let matchingKey = asesorNombre;

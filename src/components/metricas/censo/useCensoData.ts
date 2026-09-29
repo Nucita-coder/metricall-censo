@@ -69,6 +69,12 @@ export function useCensoData(
         console.warn('Error al consultar perfiles en censo:', errPerfiles);
       }
 
+      const idToNombreMap = new Map<string, string>();
+      ((perfilesData || []) as PerfilRow[]).forEach((p) => {
+        const n = (p.nombre_completo || '').trim();
+        if (p.id && n) idToNombreMap.set(p.id, n);
+      });
+
       const asesoresPerfiles = ((perfilesData || []) as PerfilRow[]).filter(esAsesorPerfil);
       const nombresAsesoresSet = new Set<string>();
       asesoresPerfiles.forEach((p) => {
@@ -158,7 +164,10 @@ export function useCensoData(
       // Agregar cualquier asesor que aparezca en tarjetas existentes a la lista
       tarjetasFiltradas.forEach((t) => {
         const d = (t.datos_valores || {}) as TarjetaDatosValores;
-        const asesor = String(d.asesorComercial || d.vendedor || d.censador || '').trim();
+        if (!d.asesorComercial && !d.asignadoA && !d.vendedor && t.creador_id && idToNombreMap.has(t.creador_id)) {
+          d.asesorComercial = idToNombreMap.get(t.creador_id);
+        }
+        const asesor = String(d.asesorComercial || d.asignadoA || d.vendedor || d.censador || '').trim();
         if (asesor) nombresAsesoresSet.add(asesor);
       });
 
@@ -173,7 +182,7 @@ export function useCensoData(
         ? tarjetasFiltradas
         : tarjetasFiltradas.filter((t) => {
             const d = (t.datos_valores || {}) as TarjetaDatosValores;
-            const asesor = String(d.asesorComercial || d.vendedor || d.censador || 'Sin Asesor Asignado').trim();
+            const asesor = String(d.asesorComercial || d.asignadoA || d.vendedor || d.censador || 'Sin Asesor Asignado').trim();
             return asesor.toLowerCase() === asesorFiltro.toLowerCase();
           });
 

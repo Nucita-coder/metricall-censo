@@ -92,7 +92,7 @@ export function procesarMetricasVentas(
     mapaZonas.set(zonaNombre, (mapaZonas.get(zonaNombre) || 0) + 1);
 
     // Asignación a Asesor
-    const asesorRaw = String(d.vendedor || d.asesorComercial || d.supervisor || 'Sin Asesor Asignado').trim();
+    const asesorRaw = String(d.vendedor || d.asesorComercial || d.asignadoA || d.supervisor || 'Sin Asesor Asignado').trim();
     const asesorNombre = asesorRaw || 'Sin Asesor Asignado';
 
     let matchingKey = asesorNombre;

@@ -70,6 +70,12 @@ export function useVentasData(
         console.warn('Error al consultar perfiles en ventas:', errPerfiles);
       }
 
+      const idToNombreMap = new Map<string, string>();
+      ((perfilesData || []) as PerfilRowVentas[]).forEach((p) => {
+        const n = (p.nombre_completo || '').trim();
+        if (p.id && n) idToNombreMap.set(p.id, n);
+      });
+
       const asesoresPerfiles = ((perfilesData || []) as PerfilRowVentas[]).filter(esAsesorPerfilVentas);
       const nombresAsesoresSet = new Set<string>();
       asesoresPerfiles.forEach((p) => {
@@ -170,7 +176,10 @@ export function useVentasData(
       // Añadir asesores que aparezcan en las tarjetas a la lista
       tarjetasFiltradas.forEach((t) => {
         const d = (t.datos_valores || {}) as TarjetaDatosValores;
-        const asesor = String(d.vendedor || d.asesorComercial || d.supervisor || '').trim();
+        if (!d.vendedor && !d.asesorComercial && !d.asignadoA && t.creador_id && idToNombreMap.has(t.creador_id)) {
+          d.vendedor = idToNombreMap.get(t.creador_id);
+        }
+        const asesor = String(d.vendedor || d.asesorComercial || d.asignadoA || d.supervisor || '').trim();
         if (asesor) nombresAsesoresSet.add(asesor);
       });
 
@@ -185,7 +194,7 @@ export function useVentasData(
         ? tarjetasFiltradas
         : tarjetasFiltradas.filter((t) => {
             const d = (t.datos_valores || {}) as TarjetaDatosValores;
-            const asesor = String(d.vendedor || d.asesorComercial || d.supervisor || 'Sin Asesor Asignado').trim();
+            const asesor = String(d.vendedor || d.asesorComercial || d.asignadoA || d.supervisor || 'Sin Asesor Asignado').trim();
             return asesor.toLowerCase() === asesorFiltro.toLowerCase();
           });
 

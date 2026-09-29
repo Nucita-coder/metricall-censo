@@ -53,7 +53,7 @@ export default function NuevaTarjetaScreen() {
     serialMaterial?: string;
     cantidad?: string;
   }>();
-  const { session, empresaId } = useAuth();
+  const { session, empresaId, nombreCompleto } = useAuth();
 
   const [isLocating, setIsLocating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -213,19 +213,25 @@ export default function NuevaTarjetaScreen() {
       const { data: currentLista } = await supabase.from('listas').select('id, tablero_id, nombre').eq('id', lista_id).single();
 
       const lch = String(formData.lch_numero || formData.lchNumero || '').trim();
-      const datosFinales: TarjetaDatosValores = { ...formData, ...(lch && !formData.nroAbonado ? { nroAbonado: lch } : {}) };
+      const creadorNombre = (nombreCompleto || session?.user?.email || '').trim();
+      const sinAsesor = !formData.asesorComercial && !formData.vendedor;
+      const datosFinales: TarjetaDatosValores = {
+        ...formData,
+        ...(lch && !formData.nroAbonado ? { nroAbonado: lch } : {}),
+        ...(sinAsesor ? {
+          asesorComercial: creadorNombre,
+          vendedor: formData.vendedor || creadorNombre,
+          asignadoA: formData.asignadoA || creadorNombre,
+          asignado_a: formData.asignado_a || session?.user?.id || null,
+        } : {})
+      };
       const payload = { lista_id, creador_id: session?.user?.id, empresa_id: empresaId, datos_valores: datosFinales };
       const { data: nuevaTarjeta, error } = await supabase.from('tarjetas').insert(payload).select('id').single();
       if (error) throw error;
 
       await ejecutarPostCreacionTarjeta({
-        currentLista,
-        nuevaTarjetaId: nuevaTarjeta.id,
-        formData: datosFinales,
-        empresaId,
-        listaNombre,
-        isMaterialesMode,
-        payload,
+        currentLista, nuevaTarjetaId: nuevaTarjeta.id, formData: datosFinales,
+        empresaId, listaNombre, isMaterialesMode, payload,
       });
 
       const navigateBack = () => {

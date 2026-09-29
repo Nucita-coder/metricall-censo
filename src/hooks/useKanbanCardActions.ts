@@ -164,12 +164,24 @@ export const useKanbanCardActions = ({ state, setters, auth, tableroId }: UseKan
     if (!cardToUpdate) return;
     try {
       const oldValues: TarjetaDatosValores = cardToUpdate.datos_valores || {};
+      const datosAActualizar: TarjetaDatosValores = { ...nuevosDatos };
+
+      const lchVal = String(
+        datosAActualizar.lch_numero ||
+        datosAActualizar.lchNumero ||
+        (datosAActualizar.nroAbonado ? '' : oldValues.lch_numero || oldValues.lchNumero || '')
+      ).trim();
+
+      if (lchVal && (!datosAActualizar.nroAbonado || String(datosAActualizar.nroAbonado).trim() === '')) {
+        datosAActualizar.nroAbonado = lchVal;
+      }
+
       const modificaciones: AuditoriaModificacion[] = [];
 
-      (Object.keys(nuevosDatos) as Array<keyof TarjetaDatosValores>).forEach(key => {
+      (Object.keys(datosAActualizar) as Array<keyof TarjetaDatosValores>).forEach(key => {
         if (key === 'historial_auditoria') return;
         const valAnterior = oldValues[key];
-        const valNuevo = nuevosDatos[key];
+        const valNuevo = datosAActualizar[key];
         if (JSON.stringify(valAnterior) !== JSON.stringify(valNuevo)) {
           modificaciones.push({
             campo: key as string,
@@ -192,7 +204,7 @@ export const useKanbanCardActions = ({ state, setters, auth, tableroId }: UseKan
 
       const updatedDatosValores: TarjetaDatosValores = {
         ...oldValues,
-        ...nuevosDatos,
+        ...datosAActualizar,
         historial_auditoria: historialAnterior,
       };
 

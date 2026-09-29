@@ -41,7 +41,7 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, i
     phInstalacion: '', phConectados: '', phGamer: '', phCinefilos: '', phFamiliar: '',
     ppInstalacion: '', ppEmprendedores: '', ppComercios: '', ppOficinas: '', ppNegocios: '',
     equipoAdicional: '',
-    nroAbonado: initialData?.nroAbonado || initialData?.cedula || '',
+    nroAbonado: String(initialData?.nroAbonado || initialData?.lch_numero || initialData?.lchNumero || ''),
   });
 
   const [listaVendedores, setListaVendedores] = useState<string[]>([]);

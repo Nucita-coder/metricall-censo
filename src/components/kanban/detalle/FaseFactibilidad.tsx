@@ -12,7 +12,7 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
   const data = tarjeta.datos_valores || {};
   const { showDiagnosticError } = useErrorDiagnostics();
 
-  const [lchNumero, setLchNumero] = useState(data.lch_numero || '');
+  const [lchNumero, setLchNumero] = useState(data.lch_numero || data.nroAbonado || '');
   const [lchImagen, setLchImagen] = useState<string | null>(data.lch_imagen || null);
   const [subiendoLch, setSubiendoLch] = useState(false);
   const [errorFactibilidad, setErrorFactibilidad] = useState<string | null>(null);
@@ -42,7 +42,11 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
         if (url) {
           setLchImagen(url);
           setErrorFactibilidad(null);
-          await onUpdateTarjeta({ lch_numero: lchNumero, lch_imagen: url });
+          await onUpdateTarjeta({
+            lch_numero: lchNumero,
+            lch_imagen: url,
+            nroAbonado: lchNumero || data.nroAbonado,
+          });
           soundService.playNotification('action_success');
           if (Platform.OS === 'web') window.alert("LCH cargado y guardado correctamente.");
           else Alert.alert("Éxito", "LCH cargado y guardado correctamente.");
@@ -76,7 +80,11 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
             onChangeText={(val) => { setLchNumero(val); setErrorFactibilidad(null); }}
             onBlur={async () => {
               if (lchNumero !== (data.lch_numero || '')) {
-                await onUpdateTarjeta({ lch_numero: lchNumero, lch_imagen: lchImagen });
+                await onUpdateTarjeta({
+                  lch_numero: lchNumero,
+                  lch_imagen: lchImagen,
+                  nroAbonado: lchNumero || data.nroAbonado,
+                });
               }
             }}
             editable={!isSaving && !subiendoLch}
@@ -155,7 +163,12 @@ export const FaseFactibilidad = ({ tarjeta, onUpdateTarjeta, autoMoverTarjeta, i
                 }
                 setIsSaving(true);
                 try {
-                  await onUpdateTarjeta({ controlCalidad: 'Aprobado', lch_numero: lchNumero, lch_imagen: lchImagen });
+                  await onUpdateTarjeta({
+                    controlCalidad: 'Aprobado',
+                    lch_numero: lchNumero,
+                    lch_imagen: lchImagen,
+                    nroAbonado: lchNumero || data.nroAbonado,
+                  });
                   const destId = findListaTarget(listasGlobales, 'por_instalar')?.id;
                   if (!destId) throw new Error("Lista destino 'Por Instalar' no encontrada");
                   await autoMoverTarjeta(tarjeta, destId);

@@ -104,7 +104,14 @@ const KanbanCardComponent = ({
   const formattedTel = telVal ? formatTelefono(String(telVal)) : '';
   const middleRowText = [formattedDoc, formattedTel].filter(Boolean).join(' • ');
 
-  const abonadoVal = data.nroAbonado || data['NRO SUSCRIPTOR'] || data.abonado;
+  const abonadoVal =
+    data.nroAbonado ||
+    data['NRO SUSCRIPTOR'] ||
+    data.abonado ||
+    data.lch_numero ||
+    data.lchNumero ||
+    data.nro_lch ||
+    data.lch;
   const formattedAbonado = abonadoVal ? (String(abonadoVal).startsWith('#') ? String(abonadoVal) : `#${abonadoVal}`) : '';
 
   const isCensoFormat = ['Censo', 'si desea', 'no desea', 'es posible'].includes(listaNombre || '');

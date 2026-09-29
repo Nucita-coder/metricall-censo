@@ -212,23 +212,16 @@ export default function NuevaTarjetaScreen() {
     try {
       const { data: currentLista } = await supabase.from('listas').select('id, tablero_id, nombre').eq('id', lista_id).single();
 
-      const payload = {
-        lista_id: lista_id,
-        creador_id: session?.user?.id,
-        empresa_id: empresaId,
-        datos_valores: formData
-      };
-
-      const { data: nuevaTarjeta, error } = await supabase.from('tarjetas')
-        .insert(payload)
-        .select('id').single();
-
+      const lch = String(formData.lch_numero || formData.lchNumero || '').trim();
+      const datosFinales: TarjetaDatosValores = { ...formData, ...(lch && !formData.nroAbonado ? { nroAbonado: lch } : {}) };
+      const payload = { lista_id, creador_id: session?.user?.id, empresa_id: empresaId, datos_valores: datosFinales };
+      const { data: nuevaTarjeta, error } = await supabase.from('tarjetas').insert(payload).select('id').single();
       if (error) throw error;
 
       await ejecutarPostCreacionTarjeta({
         currentLista,
         nuevaTarjetaId: nuevaTarjeta.id,
-        formData,
+        formData: datosFinales,
         empresaId,
         listaNombre,
         isMaterialesMode,

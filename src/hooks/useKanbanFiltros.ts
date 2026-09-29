@@ -138,7 +138,7 @@ export const useKanbanFiltros = ({ listas, userRol }: UseKanbanFiltrosParams) =>
           const matchNombre = nombre.includes(q);
           const cedula = String(vals.documentoIdentidad || vals.nroIdentidad || vals.cedula || vals.documento || vals.rif || '').toLowerCase();
           const matchCedula = cedula.includes(q);
-          const abonado = String(vals.nroAbonado || vals['NRO SUSCRIPTOR'] || vals.abonado || '').toLowerCase();
+          const abonado = String(vals.nroAbonado || vals['NRO SUSCRIPTOR'] || vals.abonado || vals.lch_numero || vals.lchNumero || vals.nro_lch || vals.lch || '').toLowerCase();
           const matchAbonado = abonado.includes(q);
           const idStr = String(t.id).toLowerCase();
           const matchId = idStr.includes(q);

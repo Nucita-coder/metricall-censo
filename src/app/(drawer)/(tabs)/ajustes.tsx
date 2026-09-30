@@ -127,6 +127,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
+    paddingBottom: 100,
   },
   contentWrapper: {
     flex: 1,

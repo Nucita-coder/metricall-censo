@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { MoreHorizontal, Plus } from 'lucide-react-native';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, Text, TouchableOpacity, View } from 'react-native';
 import Reanimated, { LinearTransition } from 'react-native-reanimated';
 
@@ -8,6 +8,8 @@ import { useAuth } from '../../context/AuthContext';
 import { Lista, Tarjeta } from '../../types/kanban';
 import { BotonImportarExcel, esListaCargaExcel } from './BotonImportarExcel';
 import { KanbanCard } from './KanbanCard';
+import { ModalNuevoCenso } from './modals/ModalNuevoCenso';
+import { areEqualColumn } from './kanbanColumnHelpers';
 import { styles, COLUMN_WIDTH, GAP, SNAP_INTERVAL } from './KanbanColumn.styles';
 
 export { COLUMN_WIDTH, GAP, SNAP_INTERVAL, styles };
@@ -55,6 +57,19 @@ const KanbanColumnComponent = ({
 
   const isMoveListMode = listaEnMovimiento !== null;
   const isMovingThisList = isMoveListMode && listaEnMovimiento.id === item.id;
+
+  const [modalCensoVisible, setModalCensoVisible] = useState(false);
+  const nombreLower = item.nombre ? item.nombre.toLowerCase().trim() : '';
+  const esListaCenso = nombreLower === 'censo';
+  const esListaClasificacionCenso =
+    nombreLower === 'si desea' ||
+    nombreLower === 'sí desea' ||
+    nombreLower === 'no desea' ||
+    nombreLower === 'es posible' ||
+    nombreLower.includes('si desea') ||
+    nombreLower.includes('sí desea') ||
+    nombreLower.includes('no desea') ||
+    nombreLower.includes('es posible');
 
   const { userRol } = useAuth();
   const puedeCrear = userRol !== 'empleado' || item.permisos_relacionales?.puede_crear === true;
@@ -201,6 +216,32 @@ const KanbanColumnComponent = ({
             </View>
           )}
 
+          {/* Botón estático permanente para Censo (siempre visible arriba, nunca se baja con el scroll) */}
+          {puedeCrear && esListaCenso && (
+            <View style={{ marginBottom: 12 }}>
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: 11,
+                  paddingHorizontal: 12,
+                  backgroundColor: '#2C333A',
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: '#384148',
+                }}
+                onPress={() => setModalCensoVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Plus size={16} color="#B6C2CF" strokeWidth={2} />
+                <Text style={{ marginLeft: 8, fontWeight: 'bold', color: '#B6C2CF', fontSize: 13 }}>
+                  Añadir Tarjeta Censo
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <Reanimated.FlatList
             itemLayoutAnimation={LinearTransition.duration(200)}
             style={{ flex: 1 }}
@@ -228,8 +269,7 @@ const KanbanColumnComponent = ({
             directionalLockEnabled={true}
             contentContainerStyle={{ paddingBottom: 60, flexGrow: 1 }}
             ListFooterComponent={() => {
-              if (!puedeCrear || isCobranzaBoard) return null;
-              const nombreLower = item.nombre ? item.nombre.toLowerCase().trim() : '';
+              if (!puedeCrear || isCobranzaBoard || esListaCenso || esListaClasificacionCenso) return null;
 
               if (
                 nombreLower.includes('ventas online') ||
@@ -273,41 +313,18 @@ const KanbanColumnComponent = ({
           />
         </Animated.View>
       </Pressable>
+
+      {esListaCenso && (
+        <ModalNuevoCenso
+          visible={modalCensoVisible}
+          onClose={() => setModalCensoVisible(false)}
+          listaId={item.id}
+          tableroId={item.tablero_id}
+          onSuccess={onRefreshKanbanData}
+        />
+      )}
     </View>
   );
-};
-
-const areEqualColumn = (prevProps: KanbanColumnProps, nextProps: KanbanColumnProps) => {
-  if (prevProps.isCobranzaBoard !== nextProps.isCobranzaBoard) return false;
-  if (prevProps.item.id !== nextProps.item.id) return false;
-  if (prevProps.item.nombre !== nextProps.item.nombre) return false;
-  if (prevProps.item.color_fondo !== nextProps.item.color_fondo) return false;
-  if (prevProps.baseOpacity !== nextProps.baseOpacity) return false;
-  if (prevProps.item.tarjetas.length !== nextProps.item.tarjetas.length) return false;
-
-  const prevIsMovingThisList = prevProps.listaEnMovimiento?.id === prevProps.item.id;
-  const nextIsMovingThisList = nextProps.listaEnMovimiento?.id === nextProps.item.id;
-  if (prevIsMovingThisList !== nextIsMovingThisList) return false;
-
-  const prevIsListMoveMode = prevProps.listaEnMovimiento !== null;
-  const nextIsListMoveMode = nextProps.listaEnMovimiento !== null;
-  if (prevIsListMoveMode !== nextIsListMoveMode) return false;
-
-  const prevIsSourceColumn = prevProps.tarjetaEnMovimiento?.lista_id === prevProps.item.id;
-  const nextIsSourceColumn = nextProps.tarjetaEnMovimiento?.lista_id === nextProps.item.id;
-  if (prevIsSourceColumn !== nextIsSourceColumn) return false;
-
-  // We are relying on the parent to pass new `tarjetas` object when a card is updated so the length or references change.
-  // We can do a quick shallow comparison of card IDs and their updated_at or datos_valores.
-  for (let i = 0; i < prevProps.item.tarjetas.length; i++) {
-    const pt = prevProps.item.tarjetas[i];
-    const nt = nextProps.item.tarjetas[i];
-    if (pt.id !== nt.id) return false;
-    if (pt.updated_at !== nt.updated_at) return false;
-    if (JSON.stringify(pt.datos_valores) !== JSON.stringify(nt.datos_valores)) return false;
-  }
-
-  return true;
 };
 
 export const KanbanColumn = React.memo(KanbanColumnComponent, areEqualColumn);

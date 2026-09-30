@@ -15,6 +15,7 @@ export interface FiltrosTableroEstado {
   listaId: string;
   etiqueta: string;
   rangoFecha: 'todos' | 'hoy' | '7dias' | 'este_mes';
+  asesor: string;
 }
 
 export const FILTROS_DEFAULT: FiltrosTableroEstado = {
@@ -26,6 +27,7 @@ export const FILTROS_DEFAULT: FiltrosTableroEstado = {
   listaId: 'todas',
   etiqueta: 'todas',
   rangoFecha: 'todos',
+  asesor: 'todos',
 };
 
 interface ModalFiltrosTableroProps {
@@ -36,6 +38,7 @@ interface ModalFiltrosTableroProps {
   onLimpiar: () => void;
   isCobranzaBoard?: boolean;
   listas?: { id: string; nombre: string }[];
+  asesoresDisponibles?: string[];
 }
 
 const OPCIONES_ORDEN = ['Más recientes primero', 'Más antiguas primero'];
@@ -102,6 +105,7 @@ export function ModalFiltrosTablero({
   onLimpiar,
   isCobranzaBoard = false,
   listas = [],
+  asesoresDisponibles = [],
 }: ModalFiltrosTableroProps) {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width > 768;
@@ -118,7 +122,8 @@ export function ModalFiltrosTablero({
     (filtros.orden && filtros.orden !== 'recientes') ||
     (filtros.listaId && filtros.listaId !== 'todas') ||
     (filtros.etiqueta && filtros.etiqueta !== 'todas') ||
-    (filtros.rangoFecha && filtros.rangoFecha !== 'todos');
+    (filtros.rangoFecha && filtros.rangoFecha !== 'todos') ||
+    (filtros.asesor && filtros.asesor !== 'todos');
 
   const opcionesListas = ['Todas las listas', ...listas.map((l) => l.nombre)];
   const listaSeleccionadaNombre =
@@ -194,6 +199,17 @@ export function ModalFiltrosTablero({
               onSelect={(val) => update('rangoFecha', FECHA_MAP_KEY[val] || 'todos')}
               compact
             />
+
+            {/* 5. FILTRAR POR ASESOR / CENSADOR */}
+            {asesoresDisponibles && asesoresDisponibles.length > 0 && (
+              <SelectDropdown
+                label="Filtrar por Asesor / Censador"
+                options={['Todos los asesores', ...asesoresDisponibles]}
+                value={filtros.asesor === 'todos' ? 'Todos los asesores' : filtros.asesor}
+                onSelect={(val) => update('asesor', val === 'Todos los asesores' ? 'todos' : val)}
+                compact
+              />
+            )}
 
             {/* SECCIONES ESPECÍFICAS DE COBRANZA */}
             {isCobranzaBoard && (

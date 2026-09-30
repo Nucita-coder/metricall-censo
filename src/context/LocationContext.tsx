@@ -44,7 +44,6 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
       // Timeout de 15s para evitar cuelgue si el GPS no tiene señal (ej. interiores)
       const freshLoc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
-        maximumAge: 10000,
         timeInterval: 15000,
       }).catch(() => null);
       if (freshLoc) {

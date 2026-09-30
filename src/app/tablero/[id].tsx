@@ -299,6 +299,7 @@ export default function KanbanTableroScreen() {
         filtros={filtros.filtrosTablero} setFiltros={filtros.setFiltrosTablero}
         onLimpiar={() => filtros.setFiltrosTablero(FILTROS_DEFAULT)}
         isCobranzaBoard={isCobranzaBoard} listas={listas}
+        asesoresDisponibles={filtros.asesoresDisponibles}
       />
       <ModalCambiarTablero
         visible={showBoardMenu} onClose={() => setShowBoardMenu(false)}

@@ -64,7 +64,7 @@ export const useKanbanFiltros = ({ listas, userRol }: UseKanbanFiltrosParams) =>
   ], []);
 
   /** Indica si hay al menos un filtro activo distinto del estado por defecto */
-  const isFiltroActivo = useMemo(() => (
+  const isFiltroActivo = useMemo(() => Boolean(
     filtrosTablero.estadoCobro !== 'todos' ||
     filtrosTablero.flujo !== 'todos' ||
     filtrosTablero.resultadoEspecifico !== 'todos' ||
@@ -72,7 +72,8 @@ export const useKanbanFiltros = ({ listas, userRol }: UseKanbanFiltrosParams) =>
     (filtrosTablero.orden && filtrosTablero.orden !== 'recientes') ||
     (filtrosTablero.listaId && filtrosTablero.listaId !== 'todas') ||
     (filtrosTablero.etiqueta && filtrosTablero.etiqueta !== 'todas') ||
-    (filtrosTablero.rangoFecha && filtrosTablero.rangoFecha !== 'todos')
+    (filtrosTablero.rangoFecha && filtrosTablero.rangoFecha !== 'todos') ||
+    (filtrosTablero.asesor && filtrosTablero.asesor !== 'todos')
   ), [filtrosTablero]);
 
   /** Texto resumen del filtro activo para mostrar en el header */
@@ -81,6 +82,7 @@ export const useKanbanFiltros = ({ listas, userRol }: UseKanbanFiltrosParams) =>
       const l = listas.find(item => item.id === filtrosTablero.listaId);
       if (l) return l.nombre;
     }
+    if (filtrosTablero.asesor && filtrosTablero.asesor !== 'todos') return `Asesor: ${filtrosTablero.asesor}`;
     if (filtrosTablero.etiqueta && filtrosTablero.etiqueta !== 'todas') return filtrosTablero.etiqueta;
     if (filtrosTablero.rangoFecha && filtrosTablero.rangoFecha !== 'todos') return filtrosTablero.rangoFecha.toUpperCase();
     if (filtrosTablero.orden === 'antiguas') return 'Más Antiguas';
@@ -91,6 +93,27 @@ export const useKanbanFiltros = ({ listas, userRol }: UseKanbanFiltrosParams) =>
     if (filtrosTablero.tipoContacto !== 'todos') return filtrosTablero.tipoContacto;
     return 'Activos';
   }, [filtrosTablero, listas]);
+
+  /** Lista de nombres únicos de asesores / censadores presentes en las tarjetas */
+  const asesoresDisponibles = useMemo(() => {
+    const nombres = new Set<string>();
+    listas.forEach(lista => {
+      (lista.tarjetas || []).forEach(t => {
+        const v = (t.datos_valores || {}) as Record<string, unknown>;
+        const raw = String(
+          v.asesorComercial ||
+          v.vendedor ||
+          v.censador ||
+          t.perfiles?.nombre_completo ||
+          ''
+        ).trim();
+        if (raw && raw !== 'undefined' && raw !== 'null') {
+          nombres.add(raw);
+        }
+      });
+    });
+    return Array.from(nombres).sort((a, b) => a.localeCompare(b));
+  }, [listas]);
 
   /**
    * Listas filtradas y ordenadas según búsqueda de texto y filtros activos.
@@ -225,6 +248,19 @@ export const useKanbanFiltros = ({ listas, userRol }: UseKanbanFiltrosParams) =>
           }
         }
 
+        // G. Filtro por Asesor / Censador
+        if (filtrosTablero.asesor && filtrosTablero.asesor !== 'todos') {
+          const target = filtrosTablero.asesor.trim().toLowerCase();
+          const cardAsesor = String(
+            vals.asesorComercial ||
+            vals.vendedor ||
+            vals.censador ||
+            t.perfiles?.nombre_completo ||
+            ''
+          ).trim().toLowerCase();
+          if (cardAsesor !== target) return false;
+        }
+
         return true;
       });
 
@@ -263,5 +299,6 @@ export const useKanbanFiltros = ({ listas, userRol }: UseKanbanFiltrosParams) =>
     isFiltroActivo,
     resumenFiltro,
     filteredListas,
+    asesoresDisponibles,
   };
 };

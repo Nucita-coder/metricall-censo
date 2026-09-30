@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { DatePickerInput, SelectDropdown } from './CamposVenta';
+import { DatePickerInput, InputTexto, SelectDropdown } from './CamposVenta';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import {
@@ -29,11 +29,22 @@ interface PerfilVendedor {
 }
 
 export const SeccionDatosComerciales = ({ formData, update, readOnly = false }: Props) => {
-  const { empresaId } = useAuth();
+  const { empresaId, nombreCompleto, userRol, isDeveloper } = useAuth();
+  const esGerencial = userRol === 'admin' || userRol === 'lider' || userRol === 'supervisor' || isDeveloper;
   const [listaVendedores, setListaVendedores] = useState<string[]>([]);
   const [cargandoVendedores, setCargandoVendedores] = useState(false);
 
   useEffect(() => {
+    if (!readOnly && !formData.vendedor && nombreCompleto) {
+      update('vendedor', nombreCompleto);
+      if (!formData.asesorComercial) {
+        update('asesorComercial', nombreCompleto);
+      }
+    }
+  }, [readOnly, nombreCompleto, formData.vendedor, formData.asesorComercial]);
+
+  useEffect(() => {
+    if (!esGerencial) return;
     let isMounted = true;
     const fetchVendedores = async () => {
       setCargandoVendedores(true);
@@ -94,7 +105,7 @@ export const SeccionDatosComerciales = ({ formData, update, readOnly = false }: 
     return () => {
       isMounted = false;
     };
-  }, [empresaId, formData.vendedor]);
+  }, [esGerencial, empresaId, formData.vendedor]);
 
   const hayPlanHogarSeleccionado = Boolean(
     formData.phConectados || formData.phGamer || formData.phCinefilos || formData.phFamiliar
@@ -113,15 +124,26 @@ export const SeccionDatosComerciales = ({ formData, update, readOnly = false }: 
         placeholder="DD/MM/YYYY"
         disabled={readOnly}
       />
-      <SelectDropdown
-        label="Vendedor"
-        value={String(formData.vendedor || '')}
-        onSelect={(v: string) => update('vendedor', v)}
-        options={listaVendedores}
-        placeholder={cargandoVendedores ? 'Cargando vendedores...' : 'Seleccione vendedor'}
-        disabled={readOnly || cargandoVendedores}
-        isRequired
-      />
+      {esGerencial && !readOnly ? (
+        <SelectDropdown
+          label="Vendedor"
+          value={String(formData.vendedor || nombreCompleto || '')}
+          onSelect={(v: string) => {
+            update('vendedor', v);
+            update('asesorComercial', v);
+          }}
+          options={listaVendedores}
+          placeholder={cargandoVendedores ? 'Cargando vendedores...' : 'Seleccione vendedor'}
+          disabled={cargandoVendedores}
+          isRequired
+        />
+      ) : (
+        <InputTexto
+          label="Vendedor"
+          value={String(formData.vendedor || nombreCompleto || '')}
+          readOnly
+        />
+      )}
       <SelectDropdown
         label="Tipo de Servicio"
         value={formData.tipoServicio}

@@ -127,7 +127,10 @@ export default function NuevaTarjetaScreen() {
       }
     };
     loadCachedCiudad();
-  }, []);
+    if (nombreCompleto) {
+      setFormData(prev => (!prev.vendedor ? { ...prev, vendedor: nombreCompleto, asesorComercial: prev.asesorComercial || nombreCompleto } : prev));
+    }
+  }, [nombreCompleto]);
 
   const [formData, setFormData] = useState<TarjetaDatosValores>({
     fechaVenta: '', vendedor: '', tipoServicio: '', nombreApellido: '', tipoDocumento: '', documentoIdentidad: '',
@@ -206,17 +209,16 @@ export default function NuevaTarjetaScreen() {
 
       const lch = String(formData.lch_numero || formData.lchNumero || '').trim();
       const creadorNombre = (nombreCompleto || session?.user?.email || '').trim();
-      const sinAsesor = !formData.asesorComercial && !formData.vendedor;
+      const vendedorFinal = (formData.vendedor || formData.asesorComercial || creadorNombre).trim();
+      const asesorFinal = (formData.asesorComercial || vendedorFinal).trim();
       const datosFinales: TarjetaDatosValores = {
         ...formData,
+        vendedor: vendedorFinal,
+        asesorComercial: asesorFinal,
+        asignadoA: formData.asignadoA || asesorFinal,
+        asignado_a: formData.asignado_a || session?.user?.id || null,
         ...(isCensoMode ? { origen: 'censo' } : {}),
         ...(lch && !formData.nroAbonado ? { nroAbonado: lch } : {}),
-        ...(sinAsesor ? {
-          asesorComercial: creadorNombre,
-          vendedor: formData.vendedor || creadorNombre,
-          asignadoA: formData.asignadoA || creadorNombre,
-          asignado_a: formData.asignado_a || session?.user?.id || null,
-        } : {})
       };
       const payload = { lista_id, creador_id: session?.user?.id, empresa_id: empresaId, datos_valores: datosFinales };
       const { data: nuevaTarjeta, error } = await supabase.from('tarjetas').insert(payload).select('id').single();

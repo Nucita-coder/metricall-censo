@@ -23,12 +23,16 @@ interface PerfilVendedor {
 }
 
 export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, initialData }: FormularioConversionVentaProps) => {
-  const { session, userRol, empresaId, nombreCompleto } = useAuth();
+  const { session, userRol, empresaId, nombreCompleto, isDeveloper } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = width > 768;
+  const esGerencial = userRol === 'admin' || userRol === 'lider' || userRol === 'supervisor' || isDeveloper;
 
-  const vendedorInicial =
-    String(initialData?.vendedor || initialData?.asesorComercial || nombreCompleto || session?.user?.email || userRol || '').trim();
+  const vendedorInicial = String(
+    !esGerencial
+      ? (nombreCompleto || session?.user?.email || '')
+      : (initialData?.vendedor || initialData?.asesorComercial || nombreCompleto || session?.user?.email || '')
+  ).trim();
 
   const [formData, setFormData] = useState({
     fechaVenta: new Date().toLocaleDateString('es-ES'),
@@ -48,6 +52,13 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, i
   const [cargandoVendedores, setCargandoVendedores] = useState(false);
 
   useEffect(() => {
+    if (nombreCompleto && !formData.vendedor) {
+      updateForm('vendedor', nombreCompleto);
+    }
+  }, [nombreCompleto]);
+
+  useEffect(() => {
+    if (!esGerencial) return;
     let isMounted = true;
     const fetchVendedores = async () => {
       setCargandoVendedores(true);
@@ -102,7 +113,7 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, i
     return () => {
       isMounted = false;
     };
-  }, [empresaId, vendedorInicial]);
+  }, [esGerencial, empresaId, vendedorInicial]);
 
   // Estado de ubicación
   const [ubicacion, setUbicacion] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -128,8 +139,13 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, i
       return;
     }
 
+    const vendedorVal = (formData.vendedor || nombreCompleto || session?.user?.email || '').trim();
     // Añadir ubicación al formData si existe
-    const datosFinales: Record<string, unknown> = { ...formData };
+    const datosFinales: Record<string, unknown> = {
+      ...formData,
+      vendedor: vendedorVal,
+      asesorComercial: vendedorVal,
+    };
     if (ubicacion) {
       datosFinales.latitud = ubicacion.latitude;
       datosFinales.longitud = ubicacion.longitude;
@@ -151,15 +167,23 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, i
       <ScrollView style={{ flex: 1, padding: 16 }}>
         <View style={[styles.sectionCard, isDesktop && { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }]}>
           <InputTexto label="Fecha de Venta" value={formData.fechaVenta} readOnly />
-          <SelectDropdown
-            label="Vendedor"
-            value={formData.vendedor}
-            onSelect={(v: string) => updateForm('vendedor', v)}
-            options={listaVendedores}
-            placeholder={cargandoVendedores ? 'Cargando vendedores...' : 'Seleccione vendedor'}
-            disabled={cargandoVendedores}
-            isRequired
-          />
+          {esGerencial ? (
+            <SelectDropdown
+              label="Vendedor"
+              value={formData.vendedor}
+              onSelect={(v: string) => updateForm('vendedor', v)}
+              options={listaVendedores}
+              placeholder={cargandoVendedores ? 'Cargando vendedores...' : 'Seleccione vendedor'}
+              disabled={cargandoVendedores}
+              isRequired
+            />
+          ) : (
+            <InputTexto
+              label="Vendedor"
+              value={formData.vendedor || nombreCompleto || ''}
+              readOnly
+            />
+          )}
 
           <InputDocumento
             label="Documento Identidad / Cédula"

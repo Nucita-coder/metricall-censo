@@ -16,7 +16,7 @@ function TabIcon({ icon: Icon, focused }: TabIconProps) {
       <Icon
         size={19}
         color={focused ? '#FFFFFF' : '#8C9BAB'}
-        strokeWidth={focused ? 2.3 : 2}
+        strokeWidth={focused ? 2.2 : 1.8}
       />
     </View>
   );
@@ -40,6 +40,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        tabBarLabelPosition: 'beside-icon',
         tabBarActiveTintColor: '#FFF',
         tabBarInactiveTintColor: '#8C9BAB',
         tabBarStyle: [
@@ -47,10 +48,10 @@ export default function TabLayout() {
             borderTopWidth: 1,
             borderTopColor: '#384148',
             backgroundColor: '#22272B',
-            paddingHorizontal: 8,
+            paddingHorizontal: 4,
             paddingBottom: Platform.OS === 'ios' ? 14 : 0,
             paddingTop: 0,
-            height: Platform.OS === 'ios' ? 68 : 58,
+            height: Platform.OS === 'ios' ? 68 : 56,
           },
           isDesktop && { display: 'none' }
         ],
@@ -60,7 +61,13 @@ export default function TabLayout() {
           height: '100%',
           padding: 0,
           margin: 0,
-        }
+        },
+        tabBarIconStyle: {
+          width: 36,
+          height: 30,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
       }}
     >
       <Tabs.Screen
@@ -122,8 +129,8 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   iconPill: {
     width: 36,
-    height: 32,
-    borderRadius: 10,
+    height: 30,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',

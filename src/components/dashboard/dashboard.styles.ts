@@ -29,7 +29,7 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 24,
-    paddingBottom: 110,
+    paddingBottom: 120,
   },
   sucursalSection: {
     marginBottom: 32,

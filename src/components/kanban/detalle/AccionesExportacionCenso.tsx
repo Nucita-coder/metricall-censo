@@ -8,6 +8,7 @@ import { printToFileAsync } from 'expo-print';
 import { formatKeyName } from './SeccionRegistro';
 import { generarHTMLInforme } from '../../../services/reportes';
 import { Tarjeta } from '../../../types/kanban';
+import { useAuth } from '../../../context/AuthContext';
 
 interface AccionesExportacionCensoProps {
   tarjetaSeleccionada: Tarjeta;
@@ -15,6 +16,8 @@ interface AccionesExportacionCensoProps {
 }
 
 export function AccionesExportacionCenso({ tarjetaSeleccionada, isSaving }: AccionesExportacionCensoProps) {
+  const { nombreCompleto } = useAuth();
+
   const handleExportWhatsApp = () => {
     const data = tarjetaSeleccionada.datos_valores || {};
     let reporte = '*REPORTE DE CENSO*\n\n';
@@ -170,9 +173,18 @@ export function AccionesExportacionCenso({ tarjetaSeleccionada, isSaving }: Acci
     }
 
     const rawNombre = String(data.nombreApellido || data.nombre || '').trim();
-    const mensaje = rawNombre
-      ? `Hola ${rawNombre}, te escribimos de Metricall con respecto al censo de servicio de Internet.`
-      : 'Hola, te escribimos de Metricall con respecto al censo de servicio de Internet.';
+    const asesor = (nombreCompleto || String(data.asesorComercial || '')).trim();
+
+    let mensaje = '';
+    if (rawNombre && asesor) {
+      mensaje = `Hola ${rawNombre}, te saluda ${asesor} de parte de FIBEX Telecom con respecto a la solicitud de servicio de Internet.`;
+    } else if (rawNombre) {
+      mensaje = `Hola ${rawNombre}, te escribimos de parte de FIBEX Telecom con respecto a la solicitud de servicio de Internet.`;
+    } else if (asesor) {
+      mensaje = `Hola, te saluda ${asesor} de parte de FIBEX Telecom con respecto a la solicitud de servicio de Internet.`;
+    } else {
+      mensaje = 'Hola, te escribimos de parte de FIBEX Telecom con respecto a la solicitud de servicio de Internet.';
+    }
 
     const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(mensaje)}`;
     Linking.openURL(url);

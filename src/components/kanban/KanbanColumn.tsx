@@ -216,33 +216,6 @@ const KanbanColumnComponent = ({
             </View>
           )}
 
-          {/* Botón estático permanente para Censo (siempre visible arriba, nunca se baja con el scroll) */}
-          {puedeCrear && esListaCenso && (
-            <View style={{ marginBottom: 12 }}>
-              <TouchableOpacity
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingVertical: 14,
-                  paddingHorizontal: 12,
-                  backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                  borderRadius: 12,
-                  borderWidth: 1.5,
-                  borderColor: '#333',
-                  borderStyle: 'dashed',
-                }}
-                onPress={() => setModalCensoVisible(true)}
-                activeOpacity={0.6}
-              >
-                <Plus size={20} color="#111" strokeWidth={2} />
-                <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 14, fontStyle: 'italic' }}>
-                  Añadir Tarjeta
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
           <Reanimated.FlatList
             itemLayoutAnimation={LinearTransition.duration(200)}
             style={{ flex: 1 }}
@@ -268,7 +241,7 @@ const KanbanColumnComponent = ({
             )}
             showsVerticalScrollIndicator={false}
             directionalLockEnabled={true}
-            contentContainerStyle={{ paddingBottom: 60, flexGrow: 1 }}
+            contentContainerStyle={{ paddingBottom: esListaCenso ? 12 : 60, flexGrow: 1 }}
             ListFooterComponent={() => {
               if (!puedeCrear || isCobranzaBoard || esListaCenso || esListaClasificacionCenso) return null;
 
@@ -312,6 +285,33 @@ const KanbanColumnComponent = ({
               );
             }}
           />
+
+          {/* Botón estático permanente para Censo (anclado en la parte inferior, siempre visible sin bajar con el scroll) */}
+          {puedeCrear && esListaCenso && (
+            <View style={{ marginTop: 8, marginBottom: 4 }}>
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: 14,
+                  paddingHorizontal: 12,
+                  backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderColor: '#333',
+                  borderStyle: 'dashed',
+                }}
+                onPress={() => setModalCensoVisible(true)}
+                activeOpacity={0.6}
+              >
+                <Plus size={20} color="#111" strokeWidth={2} />
+                <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 14, fontStyle: 'italic' }}>
+                  Añadir Tarjeta
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </Animated.View>
       </Pressable>
 

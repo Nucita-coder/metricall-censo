@@ -220,6 +220,7 @@ export default function NuevaTarjetaScreen() {
       const sinAsesor = !formData.asesorComercial && !formData.vendedor;
       const datosFinales: TarjetaDatosValores = {
         ...formData,
+        ...(isCensoMode ? { origen: 'censo' } : {}),
         ...(lch && !formData.nroAbonado ? { nroAbonado: lch } : {}),
         ...(sinAsesor ? {
           asesorComercial: creadorNombre,

@@ -37,11 +37,15 @@ export function validarDatosCenso(formData: TarjetaDatosValores): ResultadoValid
     if (!proveedor) {
       faltantes.push('Proveedor Actual');
     }
+  }
 
-    const dispuesto = String(formData.dispuestoCambiar || '').trim();
-    if (!dispuesto) {
-      faltantes.push('¿Estaría dispuesto a cambiar de proveedor?');
-    }
+  const dispuesto = String(formData.dispuestoCambiar || '').trim();
+  if (!dispuesto) {
+    faltantes.push(
+      cuentaConInternet === 'No'
+        ? '¿Desea contratar servicio de Internet?'
+        : '¿Estaría dispuesto a cambiar de proveedor?'
+    );
   }
 
   return {

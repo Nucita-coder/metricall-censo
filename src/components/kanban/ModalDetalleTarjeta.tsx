@@ -136,17 +136,10 @@ export const ModalDetalleTarjeta = ({
   };
 
   const handleGuardarCambios = async () => {
-    const validacion = isCensoFormat
-      ? validarDatosCenso(editFormData)
-      : !isMaterialesFormat
-        ? validarDatosVenta(editFormData)
-        : { esValido: true, faltantes: [] };
-
+    const validacion = isCensoFormat ? validarDatosCenso(editFormData) : (!isMaterialesFormat ? validarDatosVenta(editFormData) : { esValido: true, faltantes: [] });
     if (!validacion.esValido) {
-      Alert.alert(
-        'Casillas Obligatorias Requeridas',
-        'Para guardar los cambios, debes completar las siguientes casillas obligatorias:\n\n• ' + validacion.faltantes.join('\n• ')
-      );
+      const msg = 'Casillas obligatorias requeridas:\n\n• ' + validacion.faltantes.join('\n• ');
+      if (Platform.OS === 'web') alert(msg); else Alert.alert('Casillas Obligatorias Requeridas', msg);
       return;
     }
 
@@ -185,27 +178,31 @@ export const ModalDetalleTarjeta = ({
           isDesktop && { maxHeight: '90%', marginTop: 'auto', marginBottom: 'auto' }
           ]}>
             <Animated.View pointerEvents="none" style={[styles.modalHighlightOverlay, { opacity: highlightAnim }]} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: isDesktop ? 20 : 14, paddingVertical: 14, backgroundColor: '#2C333A', borderBottomWidth: 1, borderBottomColor: '#384148' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: '#B6C2CF' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: isDesktop ? 20 : 12, paddingVertical: 12, backgroundColor: '#2C333A', borderBottomWidth: 1, borderBottomColor: '#384148' }}>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 8, overflow: 'hidden' }}>
+                <Text numberOfLines={1} style={{ fontSize: isDesktop ? 18 : 15, fontWeight: '900', color: '#B6C2CF', flexShrink: 1 }}>
                   {tarjetaSeleccionada?.datos_valores?.tipoServicio?.toUpperCase() || 'DETALLE DE TARJETA'}
                 </Text>
-              {puedeEditar && !isEditing && !isMaterialesFormat && (
-                <TouchableOpacity onPress={() => setIsEditing(true)} style={{ marginLeft: 8, padding: 8, backgroundColor: '#1D2125', borderRadius: 8, borderWidth: 1, borderColor: '#384148' }}>
-                  <Pencil size={16} color="#B6C2CF" />
-                </TouchableOpacity>
-              )}
-              {onOpenTrazabilidad && (
-                <TouchableOpacity onPress={() => onOpenTrazabilidad(tarjetaSeleccionada)} style={{ marginLeft: 4, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#1D2125', borderRadius: 8, borderWidth: 1, borderColor: '#0C66E4', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <History size={15} color="#579DFF" />
-                  <Text style={{ color: '#579DFF', fontWeight: 'bold', fontSize: 13 }}>Trazabilidad</Text>
-                </TouchableOpacity>
-              )}
+                {puedeEditar && !isEditing && !isMaterialesFormat && (
+                  <TouchableOpacity onPress={() => setIsEditing(true)} style={{ padding: 6, backgroundColor: '#1D2125', borderRadius: 6, borderWidth: 1, borderColor: '#384148', flexShrink: 0 }}>
+                    <Pencil size={15} color="#B6C2CF" />
+                  </TouchableOpacity>
+                )}
+                {onOpenTrazabilidad && (
+                  <TouchableOpacity onPress={() => onOpenTrazabilidad(tarjetaSeleccionada)} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#1D2125', borderRadius: 6, borderWidth: 1, borderColor: '#0C66E4', flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                    <History size={13} color="#579DFF" />
+                    <Text style={{ color: '#579DFF', fontWeight: 'bold', fontSize: 12 }}>Trazabilidad</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <TouchableOpacity
+                onPress={() => { setTarjetaSeleccionada(null); setConversionData(null); setIsEditing(false); }}
+                style={{ padding: 6, backgroundColor: '#1D2125', borderRadius: 6, borderWidth: 1, borderColor: '#384148', flexShrink: 0 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={20} color="#B6C2CF" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => { setTarjetaSeleccionada(null); setConversionData(null); setIsEditing(false); }} style={{ padding: 4 }}>
-              <X size={26} color="#B6C2CF" />
-            </TouchableOpacity>
-          </View>
 
             {conversionData ? (
               <FormularioConversionVenta

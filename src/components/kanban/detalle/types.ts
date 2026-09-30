@@ -46,7 +46,7 @@ export function checkIsCensoFormat(listaNombre?: string, tarjeta?: Tarjeta | nul
   if (!listaNombre) return false;
 
   const clean = listaNombre.toLowerCase().trim().replace(/_/g, ' ');
-  return ['censo', 'si desea', 'no desea', 'es posible', 'sí desea'].includes(clean);
+  return ['censo', 'si desea', 'no desea', 'es posible', 'sí desea'].some(k => clean.includes(k));
 }
 
 interface TableroSoporteRow {

@@ -109,12 +109,16 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
         )}
 
         <SelectDropdown
-          label="¿Estaría dispuesto a cambiar de proveedor?"
+          label={
+            formData.cuentaConInternet === 'No'
+              ? '¿Desea contratar servicio de Internet?'
+              : '¿Estaría dispuesto a cambiar de proveedor?'
+          }
           value={formData.dispuestoCambiar}
           onSelect={(v: string) => update('dispuestoCambiar', v)}
           options={['Sí', 'No', 'Es posible']}
           placeholder="Seleccione opción"
-          isRequired={formData.cuentaConInternet === 'Sí'}
+          isRequired
           disabled={readOnly}
         />
 

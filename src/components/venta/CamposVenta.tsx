@@ -42,7 +42,7 @@ export const InputTexto = ({
       ]}
     >
       <Text style={styles.label}>
-        {label} {isRequired && <Text style={styles.required}>*</Text>}
+        {label}{isRequired && <Text style={styles.required}>{'\u00A0'}*</Text>}
       </Text>
       <TextInput
         style={[
@@ -104,7 +104,7 @@ export const DatePickerInput = ({
     return (
       <View style={containerStyle}>
         <Text style={styles.label}>
-          {label} {isRequired && <Text style={styles.required}>*</Text>}
+          {label}{isRequired && <Text style={styles.required}>{'\u00A0'}*</Text>}
         </Text>
         <View style={[styles.selectBtn, disabled && styles.btnDisabled]}>
           <input
@@ -139,7 +139,7 @@ export const DatePickerInput = ({
   return (
     <View style={containerStyle}>
       <Text style={styles.label}>
-        {label} {isRequired && <Text style={styles.required}>*</Text>}
+        {label}{isRequired && <Text style={styles.required}>{'\u00A0'}*</Text>}
       </Text>
       <TouchableOpacity
         style={[styles.selectBtn, disabled && styles.btnDisabled]}
@@ -212,7 +212,7 @@ export const SelectDropdown = ({
     >
       {!hideLabel && Boolean(label) && (
         <Text style={[styles.label, compact && styles.labelCompact]}>
-          {label} {isRequired && <Text style={styles.required}>*</Text>}
+          {label}{isRequired && <Text style={styles.required}>{'\u00A0'}*</Text>}
         </Text>
       )}
       <TouchableOpacity

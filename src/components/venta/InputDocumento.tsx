@@ -47,7 +47,7 @@ export const InputDocumento = ({
     >
       {Boolean(label) && (
         <Text style={styles.label}>
-          {label} {isRequired && <Text style={styles.required}>*</Text>}
+          {label}{isRequired && <Text style={styles.required}>{'\u00A0'}*</Text>}
         </Text>
       )}
 

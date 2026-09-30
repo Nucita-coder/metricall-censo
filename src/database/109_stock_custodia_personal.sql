@@ -22,8 +22,18 @@ CREATE INDEX IF NOT EXISTS idx_stock_custodia_usuario ON stock_custodia_personal
 CREATE INDEX IF NOT EXISTS idx_stock_custodia_saldo ON stock_custodia_personal(usuario_id, cantidad);
 CREATE INDEX IF NOT EXISTS idx_stock_custodia_empresa ON stock_custodia_personal(empresa_id);
 
--- 3. Habilitar RLS y Políticas de Acceso
+-- 3. Otorgar Permisos y Habilitar RLS
+GRANT ALL ON TABLE stock_custodia_personal TO authenticated;
+GRANT ALL ON TABLE stock_custodia_personal TO service_role;
+GRANT SELECT ON TABLE stock_custodia_personal TO anon;
+
 ALTER TABLE stock_custodia_personal ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Developer - Full Access Stock Custodia" ON stock_custodia_personal;
+CREATE POLICY "Developer - Full Access Stock Custodia"
+    ON stock_custodia_personal FOR ALL
+    USING (is_developer())
+    WITH CHECK (is_developer());
 
 DROP POLICY IF EXISTS "Lectura stock_custodia_personal" ON stock_custodia_personal;
 CREATE POLICY "Lectura stock_custodia_personal" ON stock_custodia_personal
@@ -36,6 +46,10 @@ CREATE POLICY "Lectura stock_custodia_personal" ON stock_custodia_personal
 DROP POLICY IF EXISTS "Escritura stock_custodia_personal" ON stock_custodia_personal;
 CREATE POLICY "Escritura stock_custodia_personal" ON stock_custodia_personal
     FOR ALL USING (
+        is_developer()
+        OR (empresa_id IS NOT NULL AND empresa_id = get_user_tenant())
+    )
+    WITH CHECK (
         is_developer()
         OR (empresa_id IS NOT NULL AND empresa_id = get_user_tenant())
     );

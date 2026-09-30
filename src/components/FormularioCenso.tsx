@@ -77,7 +77,12 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
         <SelectDropdown
           label="¿Cuenta actualmente con servicio de Internet?"
           value={formData.cuentaConInternet}
-          onSelect={(v: string) => update('cuentaConInternet', v)}
+          onSelect={(v: string) => {
+            update('cuentaConInternet', v);
+            if (v === 'No') {
+              update('proveedorActual', '');
+            }
+          }}
           options={['Sí', 'No']}
           placeholder="Seleccione respuesta"
           isRequired
@@ -142,6 +147,7 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
           onSelect={(v: string) => update('estado', v)}
           options={ESTADOS_VENEZUELA}
           placeholder="Seleccione un estado"
+          isRequired
           disabled={readOnly}
         />
 
@@ -153,6 +159,7 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
             update('ciudadMunicipio', v);
           }}
           placeholder="Ej: Anaco"
+          isRequired
           readOnly={readOnly}
         />
 

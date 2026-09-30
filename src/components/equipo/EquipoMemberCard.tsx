@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
-import { Check, Settings, ShieldAlert, Trash2, X } from 'lucide-react-native';
+import { Check, KeyRound, Settings, ShieldAlert, Trash2, X } from 'lucide-react-native';
 import { router, Href } from 'expo-router';
 
 export interface EquipoMemberItem {
@@ -27,10 +27,11 @@ interface EquipoMemberCardProps {
   onRechazar?: (id: string) => void;
   onBloquear?: (id: string) => void;
   onEliminar?: (id: string, nombre?: string) => void;
+  onResetPassword?: (item: EquipoMemberItem) => void;
   onViewAvatar?: (data: { avatarUrl?: string | null; nombre?: string | null; rol?: string | null; mensaje?: string | null }) => void;
 }
 
-export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear, onEliminar, onViewAvatar }: EquipoMemberCardProps) {
+export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear, onEliminar, onResetPassword, onViewAvatar }: EquipoMemberCardProps) {
   const avatarUrl = type === 'solicitud' ? item.perfil?.avatar_url : item.avatar_url;
   const mensaje = type === 'solicitud' ? item.perfil?.mensaje : item.mensaje;
   const nombre = type === 'solicitud' ? item.perfil?.nombre_completo : item.nombre_completo;
@@ -126,6 +127,15 @@ export function EquipoMemberCard({ type, item, onAceptar, onRechazar, onBloquear
           ) : null}
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {onResetPassword && (
+            <TouchableOpacity
+              style={styles.keyBtn}
+              onPress={() => onResetPassword(item)}
+              accessibilityLabel="Restablecer contraseña"
+            >
+              <KeyRound size={17} color="#8C9BAB" />
+            </TouchableOpacity>
+          )}
           {item.rol === 'empleado' && (
             <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push(`/(drawer)/gestion/permisos/${item.id}` as Href)}>
               <Settings size={22} color="#666" />
@@ -250,5 +260,14 @@ const styles = StyleSheet.create({
   },
   settingsBtn: {
     padding: 8,
+  },
+  keyBtn: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#1D2125',
+    borderWidth: 1,
+    borderColor: '#384148',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

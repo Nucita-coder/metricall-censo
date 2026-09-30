@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { MapPin, Navigation, Plus, Minus, X } from 'lucide-react-native';
-import * as Location from 'expo-location';
 import { WEB_MODAL_CONTAINER } from '../../constants/theme';
 import { getInteractiveMapHtml } from './mapaUbicacionHtml';
 import { styles } from './ModalMapaUbicacion.styles';
+import { ModalPermisoUbicacion } from '../common/ModalPermisoUbicacion';
+import { useCapturaUbicacion } from '../../hooks/useCapturaUbicacion';
 
 interface ModalMapaUbicacionProps {
   visible: boolean;
@@ -42,7 +43,14 @@ export function ModalMapaUbicacion({
 
   const [inputLat, setInputLat] = useState<string>(currentLat.toString());
   const [inputLng, setInputLng] = useState<string>(currentLng.toString());
-  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const {
+    isLocating,
+    isRetrying,
+    modalPermisoVisible,
+    obtenerCoordenadas,
+    reintentarCaptura,
+    cerrarModalPermiso,
+  } = useCapturaUbicacion();
 
   useEffect(() => {
     if (visible) {
@@ -76,20 +84,9 @@ export function ModalMapaUbicacion({
   };
 
   const handleGetCurrentLocation = async () => {
-    try {
-      setIsLocating(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Permiso de ubicación no concedido.');
-        setIsLocating(false);
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({});
-      updateCoords(loc.coords.latitude, loc.coords.longitude);
-    } catch (err: unknown) {
-      alert('Error obteniendo ubicación: ' + ((err as Error).message || String(err)));
-    } finally {
-      setIsLocating(false);
+    const coords = await obtenerCoordenadas();
+    if (coords) {
+      updateCoords(coords.latitud, coords.longitud);
     }
   };
 
@@ -240,6 +237,15 @@ export function ModalMapaUbicacion({
           </View>
         </View>
       </View>
+
+      <ModalPermisoUbicacion
+        visible={modalPermisoVisible}
+        onClose={cerrarModalPermiso}
+        onRetry={() => reintentarCaptura((coords) => {
+          updateCoords(coords.latitud, coords.longitud);
+        })}
+        loading={isRetrying}
+      />
     </Modal>
   );
 }

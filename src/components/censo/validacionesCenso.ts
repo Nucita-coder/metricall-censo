@@ -48,6 +48,17 @@ export function validarDatosCenso(formData: TarjetaDatosValores): ResultadoValid
     );
   }
 
+  // 3. Dirección del Censo (Obligatorios: Estado y Ciudad)
+  const estado = String(formData.estado || '').trim();
+  if (!estado) {
+    faltantes.push('Estado');
+  }
+
+  const ciudad = String(formData.ciudad || formData.ciudadMunicipio || '').trim();
+  if (!ciudad) {
+    faltantes.push('Ciudad / Municipio');
+  }
+
   return {
     esValido: faltantes.length === 0,
     faltantes,

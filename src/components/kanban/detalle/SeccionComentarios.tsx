@@ -24,7 +24,8 @@ export function SeccionComentarios({
   return (
     <View
       style={{
-        flex: 1,
+        flex: isDesktop ? 1 : undefined,
+        width: isDesktop ? undefined : '100%',
         marginTop: isDesktop ? 0 : 24,
         borderLeftWidth: isDesktop ? 1 : 0,
         borderTopWidth: isDesktop ? 0 : 1,

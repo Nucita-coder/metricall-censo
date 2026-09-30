@@ -10,8 +10,9 @@ import {
   View,
 } from 'react-native';
 import { MapPin } from 'lucide-react-native';
-import * as Location from 'expo-location';
 import { GeofotoTool } from './GeofotoTool';
+import { ModalPermisoUbicacion } from '../../common/ModalPermisoUbicacion';
+import { useCapturaUbicacion } from '../../../hooks/useCapturaUbicacion';
 
 interface SeccionGeolocalizacionEnProcesoProps {
   geoNap: { lat: number; lng: number } | null;
@@ -32,42 +33,34 @@ export function SeccionGeolocalizacionEnProceso({
   setGeoFotos,
   isSaving,
 }: SeccionGeolocalizacionEnProcesoProps) {
-  const [obteniendoGeoNap, setObteniendoGeoNap] = useState(false);
-  const [obteniendoGeoCasa, setObteniendoGeoCasa] = useState(false);
+  const {
+    isLocating,
+    isRetrying,
+    modalPermisoVisible,
+    obtenerCoordenadas,
+    reintentarCaptura,
+    cerrarModalPermiso,
+  } = useCapturaUbicacion();
+
+  const [objetivoCaptura, setObjetivoCaptura] = useState<'nap' | 'casa' | null>(null);
+  const obteniendoGeoNap = isLocating && objetivoCaptura === 'nap';
+  const obteniendoGeoCasa = isLocating && objetivoCaptura === 'casa';
 
   const capturarGeoNap = async () => {
-    setObteniendoGeoNap(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'Se necesita acceso al GPS.');
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({});
-      setGeoNap({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+    setObjetivoCaptura('nap');
+    const coords = await obtenerCoordenadas();
+    if (coords) {
+      setGeoNap({ lat: coords.latitud, lng: coords.longitud });
       Alert.alert('Éxito', 'Coordenadas NAP capturadas.');
-    } catch {
-      Alert.alert('Error', 'No se pudo obtener ubicación GPS.');
-    } finally {
-      setObteniendoGeoNap(false);
     }
   };
 
   const capturarGeoCasa = async () => {
-    setObteniendoGeoCasa(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'Se necesita acceso al GPS.');
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({});
-      setGeoCasa({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+    setObjetivoCaptura('casa');
+    const coords = await obtenerCoordenadas();
+    if (coords) {
+      setGeoCasa({ lat: coords.latitud, lng: coords.longitud });
       Alert.alert('Éxito', 'Coordenadas Casa capturadas.');
-    } catch {
-      Alert.alert('Error', 'No se pudo obtener ubicación GPS.');
-    } finally {
-      setObteniendoGeoCasa(false);
     }
   };
 
@@ -135,6 +128,19 @@ export function SeccionGeolocalizacionEnProceso({
           ))}
         </ScrollView>
       )}
+
+      <ModalPermisoUbicacion
+        visible={modalPermisoVisible}
+        onClose={cerrarModalPermiso}
+        onRetry={() => reintentarCaptura((coords) => {
+          if (objetivoCaptura === 'nap') {
+            setGeoNap({ lat: coords.latitud, lng: coords.longitud });
+          } else if (objetivoCaptura === 'casa') {
+            setGeoCasa({ lat: coords.latitud, lng: coords.longitud });
+          }
+        })}
+        loading={isRetrying}
+      />
     </View>
   );
 }

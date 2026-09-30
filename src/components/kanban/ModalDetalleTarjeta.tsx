@@ -231,8 +231,8 @@ export const ModalDetalleTarjeta = ({
             ) : (
               <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: isDesktop ? 24 : 10, paddingVertical: isDesktop ? 20 : 14 }} showsVerticalScrollIndicator={false}>
                 <View style={{ flexDirection: isDesktop ? 'row' : 'column', gap: 24 }}>
-                  <View style={{ flex: isDesktop ? 2 : 1 }}>
-                    <View style={{ flex: 1 }}>
+                  <View style={{ flex: isDesktop ? 2 : undefined, width: isDesktop ? undefined : '100%' }}>
+                    <View style={{ width: '100%' }}>
                       {isCensoFormat ? (
                         <View style={{ marginBottom: 24 }}>
                           <Text style={{ fontSize: 16, fontWeight: '900', color: '#B6C2CF', marginBottom: 16 }}>

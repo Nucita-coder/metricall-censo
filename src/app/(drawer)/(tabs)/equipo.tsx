@@ -6,6 +6,14 @@ import { useAuth } from '../../../context/AuthContext';
 import { EquipoMemberCard, EquipoMemberItem } from '../../../components/equipo/EquipoMemberCard';
 import { ModalAsignacionGranular } from '../../../components/equipo/ModalAsignacionGranular';
 import { ModalVerFotoPerfil } from '../../../components/common/ModalVerFotoPerfil';
+import { ModalResetPassword } from '../../../components/equipo/ModalResetPassword';
+import {
+  confirmAction,
+  rechazarSolicitud,
+  bloquearSolicitud,
+  eliminarMiembro,
+  asignarEmpleado,
+} from '../../../components/equipo/equipoActions';
 
 interface SucursalRow { id: string; nombre: string; }
 interface TableroRow { id: string; nombre: string; }
@@ -15,7 +23,7 @@ interface SolicitudRow extends EquipoMemberItem {
 }
 
 export default function EquipoScreen() {
-  const { userRol, etiquetas = [] } = useAuth();
+  const { userRol, etiquetas = [], isDeveloper } = useAuth();
   const isLiderDelegado = (etiquetas || []).some(e => e.toLowerCase() === 'líder' || e.toLowerCase() === 'lider');
 
   if (userRol === 'empleado' && !isLiderDelegado) {
@@ -40,6 +48,14 @@ export default function EquipoScreen() {
 
   const [fotoPerfilModalVisible, setFotoPerfilModalVisible] = useState(false);
   const [fotoPerfilData, setFotoPerfilData] = useState<{ avatarUrl?: string | null; nombre?: string | null; rol?: string | null; mensaje?: string | null } | null>(null);
+
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [memberToReset, setMemberToReset] = useState<EquipoMemberItem | null>(null);
+
+  const handleOpenResetPassword = (member: EquipoMemberItem) => {
+    setMemberToReset(member);
+    setResetModalVisible(true);
+  };
 
   const OPCIONES_ETIQUETAS = ["Líder", "Supervisor", "Técnico", "Asesor"];
 
@@ -141,31 +157,15 @@ export default function EquipoScreen() {
       Alert.alert('Error', 'Debes seleccionar una sucursal.');
       return;
     }
-
     try {
       setGuardando(true);
-      const { error } = await supabase.rpc('aceptar_empleado_granular', {
-        p_solicitud_id: solicitudEnProceso.id,
-        p_sucursal_id: selectedSucursal,
-        p_tableros_permitidos: selectedTableros
+      await asignarEmpleado({
+        solicitudId: solicitudEnProceso.id,
+        usuarioId: solicitudEnProceso.usuario_id,
+        sucursalId: selectedSucursal,
+        tableros: selectedTableros,
+        etiquetas: selectedEtiquetas,
       });
-
-      if (error) throw error;
-
-      if (solicitudEnProceso.usuario_id) {
-        const esLider = selectedEtiquetas.some(e => e.toLowerCase() === 'líder' || e.toLowerCase() === 'lider');
-        const updatePayload: Record<string, unknown> = { etiquetas: selectedEtiquetas };
-        if (esLider) {
-          updatePayload.permisos_especiales = {
-            sucursales_permitidas: [selectedSucursal],
-            tableros_permitidos: selectedTableros,
-            tarjetas_visibilidad: 'todas',
-            acciones: { crear: true, editar: true, borrar: true },
-          };
-        }
-        await supabase.from('perfiles').update(updatePayload).eq('id', solicitudEnProceso.usuario_id);
-      }
-
       Alert.alert('¡Aceptado!', 'El empleado ha sido integrado al equipo.');
       setAsignarModalVisible(false);
       fetchData();
@@ -176,25 +176,10 @@ export default function EquipoScreen() {
     }
   };
 
-  const confirmAction = (title: string, message: string, onConfirm: () => void) => {
-    if (Platform.OS === 'web') {
-      if (window.confirm(`${title}\n\n${message}`)) onConfirm();
-    } else {
-      Alert.alert(title, message, [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Confirmar', style: 'destructive', onPress: onConfirm }
-      ]);
-    }
-  };
-
   const handleRechazar = (id: string) => {
     confirmAction('¿Rechazar Solicitud?', 'La solicitud de este usuario será eliminada.', async () => {
       try {
-        const { error: rpcErr } = await supabase.rpc('rechazar_solicitud_acceso', { p_solicitud_id: id });
-        if (rpcErr) {
-          const { error: delErr } = await supabase.from('solicitudes_acceso').delete().eq('id', id);
-          if (delErr) throw delErr;
-        }
+        await rechazarSolicitud(id);
         fetchData();
       } catch (e: unknown) {
         Alert.alert('Error', (e as Error).message || 'No se pudo rechazar la solicitud.');
@@ -205,11 +190,7 @@ export default function EquipoScreen() {
   const handleBloquear = (id: string) => {
     confirmAction('¿Bloquear Usuario?', 'Este usuario no podrá volver a solicitar acceso a tu empresa.', async () => {
       try {
-        const { error: rpcErr } = await supabase.rpc('bloquear_solicitud_acceso', { p_solicitud_id: id });
-        if (rpcErr) {
-          const { error: upErr } = await supabase.from('solicitudes_acceso').update({ estado: 'bloqueado' }).eq('id', id);
-          if (upErr) throw upErr;
-        }
+        await bloquearSolicitud(id);
         fetchData();
       } catch (e: unknown) {
         Alert.alert('Error', (e as Error).message || 'No se pudo bloquear la solicitud.');
@@ -220,8 +201,7 @@ export default function EquipoScreen() {
   const handleEliminarMiembro = (miembroId: string, nombre?: string) => {
     confirmAction('¿Eliminar miembro de la compañía?', `El usuario "${nombre || 'Seleccionado'}" será desvinculado de la empresa y perderá acceso a los tableros.`, async () => {
       try {
-        const { error: rpcErr } = await supabase.rpc('eliminar_miembro_empresa', { p_miembro_id: miembroId });
-        if (rpcErr) throw rpcErr;
+        await eliminarMiembro(miembroId);
         setActivos(prev => prev.filter(m => m.id !== miembroId));
         fetchData();
         if (Platform.OS === 'web') alert('El miembro ha sido desvinculado de la empresa.');
@@ -293,6 +273,7 @@ export default function EquipoScreen() {
               item={item}
               onEliminar={handleEliminarMiembro}
               onViewAvatar={handleVerFotoPerfil}
+              onResetPassword={isDeveloper ? handleOpenResetPassword : undefined}
             />
           )}
           contentContainerStyle={styles.listContainer}
@@ -325,6 +306,15 @@ export default function EquipoScreen() {
         nombre={fotoPerfilData?.nombre}
         rol={fotoPerfilData?.rol}
         mensaje={fotoPerfilData?.mensaje}
+      />
+
+      <ModalResetPassword
+        visible={resetModalVisible}
+        member={memberToReset}
+        onClose={() => {
+          setResetModalVisible(false);
+          setMemberToReset(null);
+        }}
       />
     </View>
   );

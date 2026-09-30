@@ -13,26 +13,15 @@ import { ModalMapaUbicacion } from '../../components/tarjetas/ModalMapaUbicacion
 import { validarDatosVenta } from '../../components/venta/validacionesVenta';
 import { validarDatosCenso } from '../../components/censo/validacionesCenso';
 import { validarDatosAlmacen } from '../../components/almacen/formulario/validacionesAlmacen';
+import { checkIsMaterialesMode } from '../../components/almacen/formulario/types';
 import { ModalAvisoFaltantes } from '../../components/common/ModalAvisoFaltantes';
+import { ModalPermisoUbicacion } from '../../components/common/ModalPermisoUbicacion';
+import { useCapturaUbicacion } from '../../hooks/useCapturaUbicacion';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { ejecutarPostCreacionTarjeta } from '../../services/tarjetaCreacionService';
 import { clasificarMovimientoAlmacen } from '../../services/almacenService';
 import { TarjetaDatosValores, TarjetaMaterialItem } from '../../types/kanban';
-
-const LISTAS_ALMACEN = ['Carga de Materiales', 'Material Recibido', 'Material Asignado', 'Recuperados', 'Devolución de Asignación', 'Devolución a Almacén Central', 'Devolución al Almacén Central'];
-
-const checkIsMaterialesMode = (nombre?: string, tipo?: string): boolean => {
-  if (!nombre && !tipo) return false;
-  const n = (nombre || '').toLowerCase().trim();
-  if (n.includes('asignado a') || n.includes('por asignar') || n.includes('en proceso') || n.includes('por instalar')) {
-    return false;
-  }
-  return (
-    LISTAS_ALMACEN.includes(nombre || '') ||
-    clasificarMovimientoAlmacen(tipo, nombre) !== 'OTRO'
-  );
-};
 
 export default function NuevaTarjetaScreen() {
   const {
@@ -56,7 +45,14 @@ export default function NuevaTarjetaScreen() {
   }>();
   const { session, empresaId, nombreCompleto } = useAuth();
 
-  const [isLocating, setIsLocating] = useState(false);
+  const {
+    isLocating,
+    isRetrying,
+    modalPermisoVisible,
+    obtenerCoordenadas,
+    reintentarCaptura,
+    cerrarModalPermiso,
+  } = useCapturaUbicacion();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mapaVisible, setMapaVisible] = useState(false);
   const [ubicacionTemporal, setUbicacionTemporal] = useState<{ latitude: number, longitude: number } | null>(null);
@@ -146,22 +142,15 @@ export default function NuevaTarjetaScreen() {
   const updateForm = (key: string, value: unknown) => setFormData(prev => ({ ...prev, [key]: value }));
 
   const obtenerUbicacion = async () => {
-    try {
-      setIsLocating(true);
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'No se puede acceder a la ubicación.');
-        setIsLocating(false);
-        return;
+    const coords = await obtenerCoordenadas();
+    if (coords) {
+      setFormData(prev => ({ ...prev, latitud: coords.latitud, longitud: coords.longitud }));
+      const msg = 'Coordenadas capturadas con éxito.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Ubicación obtenida', msg);
       }
-
-      let location = await Location.getCurrentPositionAsync({});
-      setFormData(prev => ({ ...prev, latitud: location.coords.latitude, longitud: location.coords.longitude }));
-      Alert.alert('Ubicación obtenida', 'Coordenadas capturadas con éxito.');
-    } catch (e: unknown) {
-      Alert.alert('Error', 'No se pudo obtener la ubicación: ' + (e as Error).message);
-    } finally {
-      setIsLocating(false);
     }
   };
 
@@ -316,6 +305,15 @@ export default function NuevaTarjetaScreen() {
         visible={faltantesAviso.length > 0}
         faltantes={faltantesAviso}
         onClose={() => setFaltantesAviso([])}
+      />
+
+      <ModalPermisoUbicacion
+        visible={modalPermisoVisible}
+        onClose={cerrarModalPermiso}
+        onRetry={() => reintentarCaptura((coords) => {
+          setFormData(prev => ({ ...prev, latitud: coords.latitud, longitud: coords.longitud }));
+        })}
+        loading={isRetrying}
       />
     </>
   );

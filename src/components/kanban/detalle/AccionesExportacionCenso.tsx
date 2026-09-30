@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View, Platform, Alert } from 'react-native';
-import { FileText, Send } from 'lucide-react-native';
+import { FileText, MessageCircle, Send } from 'lucide-react-native';
 import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as shareAsync from 'expo-sharing';
@@ -139,23 +139,105 @@ export function AccionesExportacionCenso({ tarjetaSeleccionada, isSaving }: Acci
     }
   };
 
+  const handleContactarWhatsApp = () => {
+    const data = tarjetaSeleccionada.datos_valores || {};
+    const rawTelefono =
+      data.telefonoMovil ||
+      data.nroTelefonoMovil ||
+      data.telefono ||
+      data.telefonoAdicional;
+
+    if (!rawTelefono || String(rawTelefono).trim() === '') {
+      const msg = 'No hay un número de teléfono móvil registrado en este censo.';
+      if (Platform.OS === 'web') alert(msg);
+      else Alert.alert('Sin Teléfono', msg);
+      return;
+    }
+
+    const cleanDigits = String(rawTelefono).replace(/\D/g, '');
+    if (!cleanDigits) {
+      const msg = 'El número de teléfono registrado no es válido.';
+      if (Platform.OS === 'web') alert(msg);
+      else Alert.alert('Teléfono Inválido', msg);
+      return;
+    }
+
+    let waNumber = cleanDigits;
+    if (cleanDigits.startsWith('0')) {
+      waNumber = '58' + cleanDigits.slice(1);
+    } else if (!cleanDigits.startsWith('58') && cleanDigits.length === 10) {
+      waNumber = '58' + cleanDigits;
+    }
+
+    const rawNombre = String(data.nombreApellido || data.nombre || '').trim();
+    const mensaje = rawNombre
+      ? `Hola ${rawNombre}, te escribimos de Metricall con respecto al censo de servicio de Internet.`
+      : 'Hola, te escribimos de Metricall con respecto al censo de servicio de Internet.';
+
+    const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(mensaje)}`;
+    Linking.openURL(url);
+  };
+
   return (
-    <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+    <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
       <TouchableOpacity
-        style={{ flex: 1, backgroundColor: '#25D366', padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
-        onPress={handleExportWhatsApp}
+        style={{
+          flex: 1,
+          backgroundColor: '#25D366',
+          paddingVertical: 12,
+          paddingHorizontal: 6,
+          borderRadius: 8,
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'center',
+        }}
+        onPress={handleContactarWhatsApp}
       >
-        <Send size={18} color="#FFF" />
-        <Text style={{ color: '#FFF', fontWeight: 'bold', marginLeft: 6, fontSize: 13 }}>WhatsApp</Text>
+        <MessageCircle size={16} color="#FFF" />
+        <Text style={{ color: '#FFF', fontWeight: 'bold', marginLeft: 4, fontSize: 12 }} numberOfLines={1}>
+          Contactar
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={{ flex: 1, backgroundColor: '#E53E3E', padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
+        style={{
+          flex: 1,
+          backgroundColor: '#1D2125',
+          borderWidth: 1,
+          borderColor: '#384148',
+          paddingVertical: 12,
+          paddingHorizontal: 6,
+          borderRadius: 8,
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'center',
+        }}
+        onPress={handleExportWhatsApp}
+      >
+        <Send size={16} color="#B6C2CF" />
+        <Text style={{ color: '#B6C2CF', fontWeight: 'bold', marginLeft: 4, fontSize: 12 }} numberOfLines={1}>
+          Reporte WS
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={{
+          flex: 1,
+          backgroundColor: '#E53E3E',
+          paddingVertical: 12,
+          paddingHorizontal: 6,
+          borderRadius: 8,
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'center',
+        }}
         onPress={handleExportPDF}
         disabled={isSaving}
       >
-        <FileText size={18} color="#FFF" />
-        <Text style={{ color: '#FFF', fontWeight: 'bold', marginLeft: 6, fontSize: 13 }}>Exportar PDF</Text>
+        <FileText size={16} color="#FFF" />
+        <Text style={{ color: '#FFF', fontWeight: 'bold', marginLeft: 4, fontSize: 12 }} numberOfLines={1}>
+          Exportar PDF
+        </Text>
       </TouchableOpacity>
     </View>
   );

@@ -22,6 +22,7 @@ export default function TabLayout() {
       }}
       screenOptions={{
         headerShown: false,
+        tabBarShowLabel: false,
         tabBarActiveTintColor: '#FFF',
         tabBarInactiveTintColor: '#8C9BAB',
         tabBarStyle: [
@@ -29,21 +30,16 @@ export default function TabLayout() {
             borderTopWidth: 1,
             borderTopColor: '#384148',
             backgroundColor: '#22272B',
-            paddingBottom: Platform.OS === 'ios' ? 16 : 4,
-            paddingTop: 4,
-            height: Platform.OS === 'ios' ? 66 : 52,
+            paddingBottom: Platform.OS === 'ios' ? 14 : 0,
+            paddingTop: 0,
+            height: Platform.OS === 'ios' ? 62 : 48,
           },
           isDesktop && { display: 'none' }
         ],
         tabBarItemStyle: {
-          paddingHorizontal: 0,
-          paddingVertical: 1,
-        },
-        tabBarLabelStyle: {
-          fontWeight: '700',
-          fontSize: 9.5,
-          letterSpacing: -0.3,
-          marginTop: -2,
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100%',
         }
       }}
     >
@@ -51,21 +47,21 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Operaciones',
-          tabBarIcon: ({ color }) => <Briefcase size={19} color={color} />,
+          tabBarIcon: ({ color }) => <Briefcase size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="materiales"
         options={{
           title: 'Materiales',
-          tabBarIcon: ({ color }) => <Package size={19} color={color} />,
+          tabBarIcon: ({ color }) => <Package size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="metricas"
         options={{
           title: 'Métricas',
-          tabBarIcon: ({ color }) => <BarChart3 size={19} color={color} />,
+          tabBarIcon: ({ color }) => <BarChart3 size={22} color={color} />,
           href: canSeeAdmin ? '/(drawer)/(tabs)/metricas' : null,
         }}
       />
@@ -73,14 +69,14 @@ export default function TabLayout() {
         name="mensajes"
         options={{
           title: 'Mensajes',
-          tabBarIcon: ({ color }) => <MessageSquare size={19} color={color} />,
+          tabBarIcon: ({ color }) => <MessageSquare size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="equipo"
         options={{
           title: 'Equipo',
-          tabBarIcon: ({ color }) => <Users size={19} color={color} />,
+          tabBarIcon: ({ color }) => <Users size={22} color={color} />,
           href: (isDeveloper || rolLower !== 'empleado') ? '/(drawer)/(tabs)/equipo' : null,
         }}
       />
@@ -88,7 +84,7 @@ export default function TabLayout() {
         name="whatsapp"
         options={{
           title: 'Bot WA',
-          tabBarIcon: ({ color }) => <Bot size={19} color={color} />,
+          tabBarIcon: ({ color }) => <Bot size={22} color={color} />,
           href: isDevUser ? '/(drawer)/(tabs)/whatsapp' : null,
         }}
       />
@@ -96,7 +92,7 @@ export default function TabLayout() {
         name="ajustes"
         options={{
           title: 'Ajustes',
-          tabBarIcon: ({ color }) => <Settings size={19} color={color} />,
+          tabBarIcon: ({ color }) => <Settings size={22} color={color} />,
         }}
       />
     </Tabs>

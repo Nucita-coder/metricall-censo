@@ -131,30 +131,25 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>3. DIRECCIÓN DEL CENSO</Text>
 
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <View style={{ flex: 1 }}>
-            <SelectDropdown
-              label="Estado"
-              value={formData.estado}
-              onSelect={(v: string) => update('estado', v)}
-              options={ESTADOS_VENEZUELA}
-              placeholder="Estado"
-              disabled={readOnly}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <InputTexto
-              label="Ciudad / Municipio"
-              value={formData.ciudad || formData.ciudadMunicipio}
-              onChangeText={(v: string) => {
-                update('ciudad', v);
-                update('ciudadMunicipio', v);
-              }}
-              placeholder="Ciudad"
-              readOnly={readOnly}
-            />
-          </View>
-        </View>
+        <SelectDropdown
+          label="Estado"
+          value={formData.estado}
+          onSelect={(v: string) => update('estado', v)}
+          options={ESTADOS_VENEZUELA}
+          placeholder="Seleccione un estado"
+          disabled={readOnly}
+        />
+
+        <InputTexto
+          label="Ciudad / Municipio"
+          value={formData.ciudad || formData.ciudadMunicipio}
+          onChangeText={(v: string) => {
+            update('ciudad', v);
+            update('ciudadMunicipio', v);
+          }}
+          placeholder="Ej: Anaco"
+          readOnly={readOnly}
+        />
 
         <InputTexto
           label="Sector / Urbanización / Zona"

@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import * as Location from 'expo-location';
 
-interface LocationContextData {
+export interface LocationContextData {
   currentLocation: Location.LocationObject | null;
   isTracking: boolean;
   startTracking: () => Promise<void>;
   stopTracking: () => void;
+  setCurrentLocation: (loc: Location.LocationObject | null) => void;
+  obtenerUbicacionActual: () => Promise<Location.LocationObject | null>;
 }
 
 const LocationContext = createContext<LocationContextData>({
@@ -13,6 +15,8 @@ const LocationContext = createContext<LocationContextData>({
   isTracking: false,
   startTracking: async () => {},
   stopTracking: () => {},
+  setCurrentLocation: () => {},
+  obtenerUbicacionActual: async () => null,
 });
 
 export const useLocation = () => useContext(LocationContext);
@@ -22,6 +26,40 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
   const [isTracking, setIsTracking] = useState(false);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
 
+  const obtenerUbicacionActual = async (): Promise<Location.LocationObject | null> => {
+    try {
+      let perm = await Location.getForegroundPermissionsAsync();
+      if (perm.status !== 'granted') {
+        perm = await Location.requestForegroundPermissionsAsync();
+        if (perm.status !== 'granted') return null;
+      }
+
+      // 1. Obtener última posición conocida de inmediato para respuesta ultrarrápida
+      const lastKnown = await Location.getLastKnownPositionAsync().catch(() => null);
+      if (lastKnown) {
+        setCurrentLocation(lastKnown);
+      }
+
+      // 2. Adquirir lectura satelital en tiempo real con precisión balanceada
+      const freshLoc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      if (freshLoc) {
+        setCurrentLocation(freshLoc);
+        return freshLoc;
+      }
+      return lastKnown;
+    } catch (e) {
+      console.warn('[LocationContext] Error al obtener ubicación actual:', e);
+      const fallback = await Location.getLastKnownPositionAsync().catch(() => null);
+      if (fallback) {
+        setCurrentLocation(fallback);
+        return fallback;
+      }
+      return null;
+    }
+  };
+
   const startTracking = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -30,6 +68,9 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
         return;
       }
 
+      // Obtener lectura inicial inmediata sin esperar movimiento
+      obtenerUbicacionActual().catch(() => {});
+
       if (subscriptionRef.current) {
         return; // Ya está trackeando
       }
@@ -37,8 +78,8 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
       setIsTracking(true);
       subscriptionRef.current = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 2000,
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 2500,
           distanceInterval: 1,
         },
         (location) => {
@@ -57,19 +98,32 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
       subscriptionRef.current = null;
     }
     setIsTracking(false);
-    // Opcional: limpiar la ubicación al salir, o mantener la última conocida. 
-    // Mantenemos la última para evitar nulos si tarda en iniciar la próxima vez.
   };
 
-  // Limpieza por seguridad si el provider se desmonta
+  // Precargar última posición conocida al inicializar el provider
   useEffect(() => {
+    Location.getLastKnownPositionAsync()
+      .then((last) => {
+        if (last) setCurrentLocation(last);
+      })
+      .catch(() => {});
+
     return () => {
       stopTracking();
     };
   }, []);
 
   return (
-    <LocationContext.Provider value={{ currentLocation, isTracking, startTracking, stopTracking }}>
+    <LocationContext.Provider
+      value={{
+        currentLocation,
+        isTracking,
+        startTracking,
+        stopTracking,
+        setCurrentLocation,
+        obtenerUbicacionActual,
+      }}
+    >
       {children}
     </LocationContext.Provider>
   );

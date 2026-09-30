@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import * as Location from 'expo-location';
+import { useLocation } from '../context/LocationContext';
 
 interface Coordenadas {
   latitud: number;
@@ -8,6 +9,7 @@ interface Coordenadas {
 }
 
 export function useCapturaUbicacion() {
+  const { setCurrentLocation } = useLocation();
   const [isLocating, setIsLocating] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [modalPermisoVisible, setModalPermisoVisible] = useState(false);
@@ -29,6 +31,9 @@ export function useCapturaUbicacion() {
       }
 
       const loc = await Location.getCurrentPositionAsync({});
+      if (setCurrentLocation) {
+        setCurrentLocation(loc);
+      }
       return {
         latitud: loc.coords.latitude,
         longitud: loc.coords.longitude,
@@ -56,6 +61,9 @@ export function useCapturaUbicacion() {
 
       if (perm.status === 'granted') {
         const loc = await Location.getCurrentPositionAsync({});
+        if (setCurrentLocation) {
+          setCurrentLocation(loc);
+        }
         const coords = {
           latitud: loc.coords.latitude,
           longitud: loc.coords.longitude,

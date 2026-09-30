@@ -110,7 +110,11 @@ export function SeccionGeolocalizacionEnProceso({
       </View>
 
       <Text style={[styles.seccionTitulo, { marginTop: 8 }]}>EVIDENCIA FOTOGRÁFICA MÚLTIPLE</Text>
-      <GeofotoTool onPhotoCaptured={(url) => setGeoFotos((prev) => [...prev, url])} isSaving={isSaving} />
+      <GeofotoTool
+        onPhotoCaptured={(url) => setGeoFotos((prev) => [...prev, url])}
+        isSaving={isSaving}
+        fallbackCoords={geoCasa || geoNap}
+      />
 
       {geoFotos.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.fotosScroll}>

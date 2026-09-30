@@ -82,18 +82,58 @@ interface GeofotoToolProps {
   isSaving: boolean;
   buttonText?: string;
   buttonStyle?: object;
+  fallbackCoords?: { lat: number; lng: number } | null;
 }
 
-export const GeofotoTool: React.FC<GeofotoToolProps> = ({ onPhotoCaptured, isSaving, buttonText = "Añadir GeoFoto", buttonStyle }) => {
+export const GeofotoTool: React.FC<GeofotoToolProps> = ({
+  onPhotoCaptured,
+  isSaving,
+  buttonText = "Añadir GeoFoto",
+  buttonStyle,
+  fallbackCoords,
+}) => {
   const [obteniendoGeo, setObteniendoGeo] = useState(false);
   const [fotoTemporalParaMarcar, setFotoTemporalParaMarcar] = useState<{ uri: string, width: number, height: number, lat: number, lng: number, altitude?: number, accuracy?: number } | null>(null);
   const watermarkViewRef = useRef<View>(null);
 
-  const { currentLocation } = useLocation();
+  const { currentLocation, obtenerUbicacionActual, setCurrentLocation } = useLocation();
   const { showDiagnosticError } = useErrorDiagnostics();
 
   const tomarGeoFoto = async () => {
-    if (!currentLocation) {
+    let loc = currentLocation;
+
+    // 1. Si no hay ubicación en el contexto, intentar adquirirla de inmediato
+    if (!loc) {
+      setObteniendoGeo(true);
+      try {
+        loc = await obtenerUbicacionActual();
+      } catch (err) {
+        console.warn('[GeoFoto] Error adquiriendo ubicación bajo demanda:', err);
+      } finally {
+        setObteniendoGeo(false);
+      }
+    }
+
+    // 2. Si no hay señal satelital en vivo pero se tienen coordenadas previas (ej. de NAP, Casa o Tarjeta)
+    if (!loc && fallbackCoords && fallbackCoords.lat && fallbackCoords.lng) {
+      loc = {
+        coords: {
+          latitude: fallbackCoords.lat,
+          longitude: fallbackCoords.lng,
+          altitude: 0,
+          accuracy: 5,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+        },
+        timestamp: Date.now(),
+      };
+      if (setCurrentLocation) {
+        setCurrentLocation(loc);
+      }
+    }
+
+    if (!loc) {
       showDiagnosticError(
         'ERR-GEO-GPS-PENDIENTE',
         'Se requiere señal GPS activa antes de tomar la GeoFoto.',
@@ -125,10 +165,10 @@ export const GeofotoTool: React.FC<GeofotoToolProps> = ({ onPhotoCaptured, isSav
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setObteniendoGeo(true);
-        const lat = currentLocation.coords.latitude;
-        const lng = currentLocation.coords.longitude;
-        const altitude = currentLocation.coords.altitude || 0;
-        const accuracy = currentLocation.coords.accuracy || 0;
+        const lat = loc.coords.latitude;
+        const lng = loc.coords.longitude;
+        const altitude = loc.coords.altitude || 0;
+        const accuracy = loc.coords.accuracy || 0;
 
         const asset = result.assets[0];
 

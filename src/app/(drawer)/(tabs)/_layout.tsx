@@ -29,15 +29,16 @@ export default function TabLayout() {
             borderTopWidth: 1,
             borderTopColor: '#384148',
             backgroundColor: '#22272B',
-            paddingBottom: 8,
-            paddingTop: 8,
-            height: 64,
+            paddingBottom: 6,
+            paddingTop: 6,
+            height: 60,
           },
           isDesktop && { display: 'none' }
         ],
         tabBarLabelStyle: {
           fontWeight: 'bold',
-          fontSize: 12,
+          fontSize: 11,
+          marginTop: -2,
         }
       }}
     >
@@ -45,52 +46,53 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Operaciones',
-          tabBarIcon: ({ color }) => <Briefcase size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Briefcase size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="materiales"
         options={{
-          title: 'Mis Materiales',
-          tabBarIcon: ({ color }) => <Package size={24} color={color} />,
+          title: 'Materiales',
+          tabBarIcon: ({ color }) => <Package size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="metricas"
         options={{
           title: 'Métricas',
-          tabBarIcon: ({ color }) => <BarChart3 size={24} color={color} />,
+          tabBarIcon: ({ color }) => <BarChart3 size={22} color={color} />,
           href: canSeeAdmin ? '/(drawer)/(tabs)/metricas' : null,
         }}
       />
       <Tabs.Screen
         name="mensajes"
         options={{
-          title: 'Messenger',
-          tabBarIcon: ({ color }) => <MessageSquare size={24} color={color} />,
+          title: 'Mensajes',
+          tabBarIcon: ({ color }) => <MessageSquare size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="equipo"
         options={{
           title: 'Equipo',
-          tabBarIcon: ({ color }) => <Users size={24} color={color} />,
-          href: (isDeveloper || rolLower !== 'empleado') ? '/(drawer)/(tabs)/equipo' : null,
+          tabBarIcon: ({ color }) => <Users size={22} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="whatsapp"
         options={{
           title: 'Bot WA',
-          tabBarIcon: ({ color }) => <Bot size={24} color={color} />,
-          href: isDevUser ? '/(drawer)/(tabs)/whatsapp' : null,
+          tabBarIcon: ({ color }) => <Bot size={22} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="ajustes"
         options={{
           title: 'Ajustes',
-          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Settings size={22} color={color} />,
+          href: null,
         }}
       />
     </Tabs>

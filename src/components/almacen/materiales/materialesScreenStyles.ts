@@ -49,5 +49,5 @@ export const styles = StyleSheet.create({
   tabTextActiveHis: { color: '#FFFFFF', fontWeight: 'bold' },
   centerLoading: { padding: 40, alignItems: 'center' },
   loadingTxt: { color: '#8C9BAB', marginTop: 12, fontSize: 14 },
-  scrollContent: { paddingBottom: 40, paddingTop: 16 },
+  scrollContent: { paddingBottom: 100, paddingTop: 16 },
 });

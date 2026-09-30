@@ -220,12 +220,12 @@ export const GeofotoTool: React.FC<GeofotoToolProps> = ({
   return (
     <>
       <TouchableOpacity
-        style={[{ backgroundColor: '#DD6B20', padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }, buttonStyle]}
+        style={[{ backgroundColor: '#2C333A', borderWidth: 1, borderColor: '#384148', padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }, buttonStyle]}
         onPress={tomarGeoFoto}
         disabled={obteniendoGeo || isSaving}
       >
-        {obteniendoGeo ? <ActivityIndicator color="#FFF" size="small" /> : <ImageIcon size={16} color="#FFF" style={{ marginRight: 8 }} />}
-        <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 12 }}>{buttonText}</Text>
+        {obteniendoGeo ? <ActivityIndicator color="#B6C2CF" size="small" /> : <ImageIcon size={16} color="#B6C2CF" style={{ marginRight: 8 }} />}
+        <Text style={{ color: '#B6C2CF', fontWeight: 'bold', fontSize: 12 }}>{buttonText}</Text>
       </TouchableOpacity>
 
       {/* HIDDEN WATERMARK VIEW */}

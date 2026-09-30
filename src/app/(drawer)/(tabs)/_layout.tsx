@@ -47,6 +47,7 @@ export default function TabLayout() {
             borderTopWidth: 1,
             borderTopColor: '#384148',
             backgroundColor: '#22272B',
+            paddingHorizontal: 12,
             paddingBottom: Platform.OS === 'ios' ? 14 : 0,
             paddingTop: 0,
             height: Platform.OS === 'ios' ? 66 : 52,
@@ -57,6 +58,8 @@ export default function TabLayout() {
           justifyContent: 'center',
           alignItems: 'center',
           height: '100%',
+          padding: 0,
+          margin: 0,
         }
       }}
     >
@@ -118,11 +121,12 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   iconPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 12,
+    width: 40,
+    height: 34,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
   },
   iconPillActive: {
     backgroundColor: '#2C333A',

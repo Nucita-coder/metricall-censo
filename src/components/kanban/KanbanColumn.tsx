@@ -189,6 +189,29 @@ const KanbanColumnComponent = ({
               <Text style={styles.columnCount}>{item.tarjetas.length}</Text>
             </TouchableOpacity>
 
+            {/* Botón cuadrado redondeado estático con el más para Censo */}
+            {puedeCrear && esListaCenso && (
+              <TouchableOpacity
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                  borderWidth: 1.5,
+                  borderColor: '#333',
+                  borderStyle: 'dashed',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 6,
+                }}
+                onPress={() => setModalCensoVisible(true)}
+                activeOpacity={0.6}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Plus size={18} color="#111" strokeWidth={2} />
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               ref={dotsRef}
               style={styles.moreBtn}
@@ -285,33 +308,6 @@ const KanbanColumnComponent = ({
               );
             }}
           />
-
-          {/* Botón estático permanente para Censo (anclado en la parte inferior, siempre visible sin bajar con el scroll) */}
-          {puedeCrear && esListaCenso && (
-            <View style={{ marginTop: 8, marginBottom: 4 }}>
-              <TouchableOpacity
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingVertical: 14,
-                  paddingHorizontal: 12,
-                  backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                  borderRadius: 12,
-                  borderWidth: 1.5,
-                  borderColor: '#333',
-                  borderStyle: 'dashed',
-                }}
-                onPress={() => setModalCensoVisible(true)}
-                activeOpacity={0.6}
-              >
-                <Plus size={20} color="#111" strokeWidth={2} />
-                <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 14, fontStyle: 'italic' }}>
-                  Añadir Tarjeta
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </Animated.View>
       </Pressable>
 

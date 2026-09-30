@@ -35,8 +35,8 @@ const generarWatermarkWeb = async (fotoInfo: { uri: string, width: number, heigh
 
           ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-          const boxWidth = 400;
-          const boxHeight = 220;
+          const boxWidth = 420;
+          const boxHeight = 260;
           const margin = 20;
           const boxX = targetWidth - boxWidth - margin;
           const boxY = targetHeight - boxHeight - margin;
@@ -50,16 +50,26 @@ const generarWatermarkWeb = async (fotoInfo: { uri: string, width: number, heigh
             ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
           }
 
+          // Encabezado corporativo
+          ctx.fillStyle = '#A0B2C6';
+          ctx.font = 'bold 18px Arial, sans-serif';
+          ctx.fillText('TECHNOLOGICAL PROJECT', boxX + 20, boxY + 30);
+
+          // Separador visual
+          ctx.fillStyle = 'rgba(160,178,198,0.35)';
+          ctx.fillRect(boxX + 20, boxY + 40, boxWidth - 40, 1);
+
+          // Coordenadas
           ctx.fillStyle = '#FFFFFF';
           ctx.font = 'bold 22px Arial, sans-serif';
-          ctx.fillText(`Lat: ${fotoInfo.lat.toFixed(6)}`, boxX + 20, boxY + 40);
-          ctx.fillText(`Lng: ${fotoInfo.lng.toFixed(6)}`, boxX + 20, boxY + 75);
-          ctx.fillText(`Elev: ${(fotoInfo.altitude || 0).toFixed(2)} m`, boxX + 20, boxY + 110);
-          ctx.fillText(`Prec: ±${(fotoInfo.accuracy || 0).toFixed(2)} m`, boxX + 20, boxY + 145);
+          ctx.fillText(`Lat: ${fotoInfo.lat.toFixed(6)}`, boxX + 20, boxY + 75);
+          ctx.fillText(`Lng: ${fotoInfo.lng.toFixed(6)}`, boxX + 20, boxY + 110);
+          ctx.fillText(`Elev: ${(fotoInfo.altitude || 0).toFixed(2)} m`, boxX + 20, boxY + 145);
+          ctx.fillText(`Prec: \u00b1${(fotoInfo.accuracy || 0).toFixed(2)} m`, boxX + 20, boxY + 180);
 
           ctx.font = '18px Arial, sans-serif';
           ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-          ctx.fillText(new Date().toLocaleString(), boxX + 20, boxY + 185);
+          ctx.fillText(new Date().toLocaleString(), boxX + 20, boxY + 222);
 
           const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
           resolve(dataUrl);
@@ -271,6 +281,8 @@ export const GeofotoTool: React.FC<GeofotoToolProps> = ({
                   />
                 </View>
                 <View style={{ backgroundColor: 'rgba(0,0,0,0.6)', padding: 16, borderRadius: 12 }}>
+                  <Text style={{ color: '#A0B2C6', fontSize: 16, fontWeight: 'bold', letterSpacing: 1, marginBottom: 6 }}>TECHNOLOGICAL PROJECT</Text>
+                  <View style={{ height: 1, backgroundColor: 'rgba(160,178,198,0.35)', marginBottom: 10 }} />
                   <Text style={{ color: '#FFF', fontSize: 24, fontWeight: 'bold' }}>Lat: {fotoTemporalParaMarcar.lat.toFixed(6)}</Text>
                   <Text style={{ color: '#FFF', fontSize: 24, fontWeight: 'bold' }}>Lng: {fotoTemporalParaMarcar.lng.toFixed(6)}</Text>
                   <Text style={{ color: '#FFF', fontSize: 24, fontWeight: 'bold' }}>Elev: {fotoTemporalParaMarcar.altitude?.toFixed(2) || '0.00'} m</Text>

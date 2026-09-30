@@ -3,6 +3,7 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { Wifi, MapPin } from 'lucide-react-native';
 import * as Linking from 'expo-linking';
 import { AuditoriaMaterialesGrid } from './AuditoriaMaterialesGrid';
+import { GaleriaGeofotos } from './GaleriaGeofotos';
 
 interface FasePorActivarAuditoriaProps {
   data: Record<string, unknown>;
@@ -166,6 +167,9 @@ export function FasePorActivarAuditoria({
           </View>
         </View>
       </View>
+
+      {/* Galería Visual de GeoFotos */}
+      <GaleriaGeofotos geofotos={geofotos} />
 
       {/* Selector de Evidencias para Reporte */}
       {(geofotos.length > 0 || adjuntos.length > 0 || lch) && (

@@ -1,9 +1,26 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { useWindowDimensions, Platform } from 'react-native';
-import { Briefcase, Users, Settings, MessageSquare, BarChart3, Package, Bot } from 'lucide-react-native';
+import { useWindowDimensions, Platform, View, StyleSheet } from 'react-native';
+import { Briefcase, Users, Settings, MessageSquare, BarChart3, Package, Bot, LucideIcon } from 'lucide-react-native';
 import { useAuth } from '../../../context/AuthContext';
 import { soundService } from '../../../services/soundService';
+
+interface TabIconProps {
+  icon: LucideIcon;
+  focused: boolean;
+}
+
+function TabIcon({ icon: Icon, focused }: TabIconProps) {
+  return (
+    <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+      <Icon
+        size={20}
+        color={focused ? '#FFFFFF' : '#8C9BAB'}
+        strokeWidth={focused ? 2.4 : 2}
+      />
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const { userRol, isDeveloper } = useAuth();
@@ -32,7 +49,7 @@ export default function TabLayout() {
             backgroundColor: '#22272B',
             paddingBottom: Platform.OS === 'ios' ? 14 : 0,
             paddingTop: 0,
-            height: Platform.OS === 'ios' ? 62 : 48,
+            height: Platform.OS === 'ios' ? 66 : 52,
           },
           isDesktop && { display: 'none' }
         ],
@@ -47,21 +64,21 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Operaciones',
-          tabBarIcon: ({ color }) => <Briefcase size={22} color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={Briefcase} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="materiales"
         options={{
           title: 'Materiales',
-          tabBarIcon: ({ color }) => <Package size={22} color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={Package} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="metricas"
         options={{
           title: 'Métricas',
-          tabBarIcon: ({ color }) => <BarChart3 size={22} color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={BarChart3} focused={focused} />,
           href: canSeeAdmin ? '/(drawer)/(tabs)/metricas' : null,
         }}
       />
@@ -69,14 +86,14 @@ export default function TabLayout() {
         name="mensajes"
         options={{
           title: 'Mensajes',
-          tabBarIcon: ({ color }) => <MessageSquare size={22} color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={MessageSquare} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="equipo"
         options={{
           title: 'Equipo',
-          tabBarIcon: ({ color }) => <Users size={22} color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={Users} focused={focused} />,
           href: (isDeveloper || rolLower !== 'empleado') ? '/(drawer)/(tabs)/equipo' : null,
         }}
       />
@@ -84,7 +101,7 @@ export default function TabLayout() {
         name="whatsapp"
         options={{
           title: 'Bot WA',
-          tabBarIcon: ({ color }) => <Bot size={22} color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={Bot} focused={focused} />,
           href: isDevUser ? '/(drawer)/(tabs)/whatsapp' : null,
         }}
       />
@@ -92,12 +109,27 @@ export default function TabLayout() {
         name="ajustes"
         options={{
           title: 'Ajustes',
-          tabBarIcon: ({ color }) => <Settings size={22} color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={Settings} focused={focused} />,
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconPillActive: {
+    backgroundColor: '#2C333A',
+    borderWidth: 1,
+    borderColor: '#384148',
+  },
+});
 
 
 

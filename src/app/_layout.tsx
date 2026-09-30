@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { Stack, useRouter, useSegments, useRootNavigationState, type Href } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../context/AuthContext';
@@ -15,6 +16,47 @@ function RootLayoutNav() {
   
   // Inicializamos el demonio de sincronización offline-first a nivel global
   useSyncQueue();
+
+  // Registro de PWA (Service Worker, Manifiesto y meta-etiquetas web)
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('/sw.js')
+            .then((reg) => console.log('[PWA] Service Worker activo:', reg.scope))
+            .catch((err) => console.log('[PWA] Error en Service Worker:', err));
+        });
+      }
+
+      if (typeof document !== 'undefined') {
+        if (!document.querySelector('link[rel="manifest"]')) {
+          const link = document.createElement('link');
+          link.rel = 'manifest';
+          link.href = '/manifest.json';
+          document.head.appendChild(link);
+        }
+        if (!document.querySelector('meta[name="theme-color"]')) {
+          const meta = document.createElement('meta');
+          meta.name = 'theme-color';
+          meta.content = '#22272B';
+          document.head.appendChild(meta);
+        }
+        if (!document.querySelector('meta[name="apple-mobile-web-app-capable"]')) {
+          const meta = document.createElement('meta');
+          meta.name = 'apple-mobile-web-app-capable';
+          meta.content = 'yes';
+          document.head.appendChild(meta);
+        }
+        if (!document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')) {
+          const meta = document.createElement('meta');
+          meta.name = 'apple-mobile-web-app-status-bar-style';
+          meta.content = 'black-translucent';
+          document.head.appendChild(meta);
+        }
+      }
+    }
+  }, []);
 
   const isAuth = !!session;
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -98,11 +99,13 @@ export const useSyncQueue = () => {
 
         if (updateError) throw new Error('Error actualizando tarjeta');
 
-        // 5. Borrar archivo local para liberar caché
-        try {
-          await FileSystem.deleteAsync(job.localUri);
-        } catch (e) {
-          console.log('Error borrando archivo local, no crítico', e);
+        // 5. Borrar archivo local para liberar caché (solo en móvil nativo)
+        if (Platform.OS !== 'web') {
+          try {
+            await FileSystem.deleteAsync(job.localUri);
+          } catch (e) {
+            console.log('Error borrando archivo local, no crítico', e);
+          }
         }
 
         // 6. Quitar de la cola
@@ -121,18 +124,31 @@ export const useSyncQueue = () => {
   }, [isSyncing]);
 
   useEffect(() => {
-    // Listener automático de la red
+    // Listener automático de la red (NetInfo)
     const unsubscribe = NetInfo.addEventListener(state => {
-      // isInternetReachable puede ser null en emuladores o al inicio, así que validamos isConnected
       if (state.isConnected) {
         processQueue();
       }
     });
 
+    // Listener de red para navegadores web y PWA
+    const handleOnline = () => {
+      processQueue();
+    };
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.addEventListener('online', handleOnline);
+    }
+
     // Conteo inicial
     getQueue().then(q => setPendingCount(q.filter(j => j.status === 'pending').length));
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline);
+      }
+    };
   }, [processQueue]);
 
   return {

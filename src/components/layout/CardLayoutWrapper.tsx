@@ -17,7 +17,7 @@ export default function CardLayoutWrapper({ title, onClose, children, iconType =
   const isDesktop = width > 768;
 
   return (
-    <View style={{ flex: 1, backgroundColor: 'rgba(15, 17, 20, 0.95)', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: 'rgba(15, 17, 20, 0.95)' }}>
       <View style={[{ 
         flex: 1, 
         backgroundColor: '#22272B', 
@@ -27,20 +27,40 @@ export default function CardLayoutWrapper({ title, onClose, children, iconType =
         ...Platform.select({ web: { boxShadow: '0px 10px 20px rgba(0,0,0,0.3)' }, default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20 } }), 
       }, 
       WEB_MODAL_CONTAINER,
-      isDesktop && { maxHeight: '90%', marginVertical: 'auto' }
+      isDesktop && { maxHeight: '90%', marginTop: 'auto', marginBottom: 'auto' }
       ]}>
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: isDesktop ? 20 : 60, backgroundColor: '#2C333A', borderBottomWidth: 1, borderBottomColor: '#384148' }}>
-          <Text style={{ fontSize: 18, fontWeight: '900', color: '#B6C2CF' }}>
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: isDesktop ? 20 : 14,
+          paddingVertical: 14,
+          backgroundColor: '#2C333A',
+          borderBottomWidth: 1,
+          borderBottomColor: '#384148'
+        }}>
+          <Text style={{ fontSize: 17, fontWeight: '900', color: '#B6C2CF' }}>
             {title.toUpperCase()}
           </Text>
           <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
-            {iconType === 'close' ? <X size={28} color="#B6C2CF" /> : <ChevronLeft size={28} color="#B6C2CF" />}
+            {iconType === 'close' ? <X size={26} color="#B6C2CF" /> : <ChevronLeft size={26} color="#B6C2CF" />}
           </TouchableOpacity>
         </View>
 
         {/* Content */}
-        <ScrollView contentContainerStyle={[{ padding: 24, paddingBottom: footer ? 100 : 24 }, contentContainerStyle]} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            {
+              paddingHorizontal: isDesktop ? 24 : 10,
+              paddingTop: isDesktop ? 20 : 12,
+              paddingBottom: footer ? 100 : 24,
+            },
+            contentContainerStyle,
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
           {children}
         </ScrollView>
         

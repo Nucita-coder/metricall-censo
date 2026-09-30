@@ -33,7 +33,14 @@
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Metricall - Gestión y Censo",
+      "shortName": "Metricall",
+      "themeColor": "#22272B",
+      "backgroundColor": "#1D2125",
+      "display": "standalone",
+      "orientation": "any",
+      "lang": "es"
     },
     "plugins": [
       "expo-router",

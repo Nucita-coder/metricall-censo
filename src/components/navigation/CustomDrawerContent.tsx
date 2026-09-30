@@ -1,10 +1,11 @@
 import React from 'react';
 import { usePathname, useRouter, Href } from 'expo-router';
-import { Archive, BarChart3, Bot, FolderKanban, LifeBuoy, MessageSquare, Package, Settings, Users, Code2, LucideIcon, FileText } from 'lucide-react-native';
+import { Archive, BarChart3, Bot, Download, FolderKanban, LifeBuoy, MessageSquare, Package, Settings, Users, Code2, LucideIcon, FileText } from 'lucide-react-native';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGlobalUi } from '../../context/GlobalUiContext';
 import { useAuth } from '../../context/AuthContext';
+import { usePwaInstall } from '../../hooks/usePwaInstall';
 
 interface CustomDrawerContentProps {
   isDesktop?: boolean;
@@ -32,6 +33,7 @@ export function CustomDrawerContent(props: CustomDrawerContentProps) {
 
   const insets = useSafeAreaInsets();
   const { triggerSoporteModal, triggerArchivadosModal } = useGlobalUi();
+  const { canInstall, isInstalled, installApp } = usePwaInstall();
 
   const MenuItem = ({ label, icon: Icon, route, onPress }: MenuItemProps) => {
     const routeStr = typeof route === 'string' ? route : '';
@@ -59,6 +61,17 @@ export function CustomDrawerContent(props: CustomDrawerContentProps) {
           <Text style={styles.devBadgeText}>MODO DEVELOPER</Text>
         </View>
       )}
+
+      {canInstall && !isInstalled && (
+        <TouchableOpacity
+          style={styles.installButton}
+          onPress={() => installApp()}
+        >
+          <Download size={16} color="#1D2125" />
+          <Text style={styles.installButtonText}>INSTALAR APLICACIÓN</Text>
+        </TouchableOpacity>
+      )}
+
       <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#8C9BAB', marginBottom: 12, marginLeft: 8 }}>MENU PRINCIPAL</Text>
 
       {!isDesktop && (
@@ -127,5 +140,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#F59E0B',
     letterSpacing: 0.8,
+  },
+  installButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#A0B2C6',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  installButtonText: {
+    color: '#1D2125',
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
 });

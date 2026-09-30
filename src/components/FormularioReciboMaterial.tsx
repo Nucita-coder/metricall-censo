@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useFormularioReciboMaterial } from '../hooks/useFormularioReciboMaterial';
 import { FormularioReciboMaterialProps } from './almacen/formulario/types';
 import { ModalInsumosPrecargados } from './almacen/formulario/ModalInsumosPrecargados';
@@ -43,7 +43,7 @@ export default function FormularioReciboMaterial({
   } = useFormularioReciboMaterial({ formData, handleChange, readOnly });
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
       {/* 1. GUÍA Y ORDEN DE ENTREGA */}
       <SeccionGuiaOrden
         formData={formData}
@@ -108,13 +108,12 @@ export default function FormularioReciboMaterial({
           setModalPrecargadosIndex(null);
         }}
       />
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     paddingVertical: 10,
   },
 });

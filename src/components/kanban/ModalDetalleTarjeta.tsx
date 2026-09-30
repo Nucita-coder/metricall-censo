@@ -167,7 +167,7 @@ export const ModalDetalleTarjeta = ({
   return (
     <>
       <Modal visible={!!tarjetaSeleccionada} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center' }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)' }}>
           <View style={[{
             flex: 1,
             width: '100%',
@@ -178,10 +178,10 @@ export const ModalDetalleTarjeta = ({
             ...Platform.select({ web: { boxShadow: '0px 10px 20px rgba(0,0,0,0.3)' }, default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20 } }),
           },
             WEB_MODAL_CONTAINER,
-          isDesktop && { maxHeight: '90%', marginVertical: 'auto' }
+          isDesktop && { maxHeight: '90%', marginTop: 'auto', marginBottom: 'auto' }
           ]}>
             <Animated.View pointerEvents="none" style={[styles.modalHighlightOverlay, { opacity: highlightAnim }]} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#2C333A', borderBottomWidth: 1, borderBottomColor: '#384148' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: isDesktop ? 20 : 14, paddingVertical: 14, backgroundColor: '#2C333A', borderBottomWidth: 1, borderBottomColor: '#384148' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 <Text style={{ fontSize: 18, fontWeight: '900', color: '#B6C2CF' }}>
                   {tarjetaSeleccionada?.datos_valores?.tipoServicio?.toUpperCase() || 'DETALLE DE TARJETA'}
@@ -199,7 +199,7 @@ export const ModalDetalleTarjeta = ({
               )}
             </View>
             <TouchableOpacity onPress={() => { setTarjetaSeleccionada(null); setConversionData(null); setIsEditing(false); }} style={{ padding: 4 }}>
-              <X size={28} color="#B6C2CF" />
+              <X size={26} color="#B6C2CF" />
             </TouchableOpacity>
           </View>
 
@@ -228,7 +228,7 @@ export const ModalDetalleTarjeta = ({
                 }}
               />
             ) : (
-              <ScrollView contentContainerStyle={{ padding: 24 }} showsVerticalScrollIndicator={false}>
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: isDesktop ? 24 : 10, paddingVertical: isDesktop ? 20 : 14 }} showsVerticalScrollIndicator={false}>
                 <View style={{ flexDirection: isDesktop ? 'row' : 'column', gap: 24 }}>
                   <View style={{ flex: isDesktop ? 2 : 1 }}>
                     <View style={{ flex: 1 }}>

@@ -28,7 +28,7 @@ export default function FormularioVenta({
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
       {/* 1. DATOS COMERCIALES */}
       <SeccionDatosComerciales
         formData={formData}
@@ -53,15 +53,13 @@ export default function FormularioVenta({
         readOnly={readOnly}
       />
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
+      <View style={{ height: 20 }} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: '#22272B',
-    padding: 16,
   },
 });

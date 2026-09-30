@@ -18,7 +18,7 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
       {/* 1. DATOS DEL PROSPECTO */}
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>1. DATOS DEL PROSPECTO</Text>
@@ -208,31 +208,30 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
           readOnly={readOnly}
         />
       </View>
-      <View style={{ height: 40 }} />
-    </ScrollView>
+      <View style={{ height: 20 }} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: '#22272B',
-    padding: 16,
   },
   sectionCard: {
     backgroundColor: '#2C333A',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#384148',
     elevation: 2,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     color: '#B6C2CF',
-    marginBottom: 16,
+    marginBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#384148',
     paddingBottom: 8,

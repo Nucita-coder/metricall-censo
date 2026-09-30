@@ -14,9 +14,9 @@ function TabIcon({ icon: Icon, focused }: TabIconProps) {
   return (
     <View style={[styles.iconPill, focused && styles.iconPillActive]}>
       <Icon
-        size={20}
+        size={19}
         color={focused ? '#FFFFFF' : '#8C9BAB'}
-        strokeWidth={focused ? 2.4 : 2}
+        strokeWidth={focused ? 2.3 : 2}
       />
     </View>
   );
@@ -47,10 +47,10 @@ export default function TabLayout() {
             borderTopWidth: 1,
             borderTopColor: '#384148',
             backgroundColor: '#22272B',
-            paddingHorizontal: 12,
+            paddingHorizontal: 8,
             paddingBottom: Platform.OS === 'ios' ? 14 : 0,
             paddingTop: 0,
-            height: Platform.OS === 'ios' ? 66 : 52,
+            height: Platform.OS === 'ios' ? 68 : 58,
           },
           isDesktop && { display: 'none' }
         ],
@@ -121,8 +121,8 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   iconPill: {
-    width: 40,
-    height: 34,
+    width: 36,
+    height: 32,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',

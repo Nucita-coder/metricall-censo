@@ -16,8 +16,9 @@ import { SeccionAdjuntos } from './detalle/SeccionAdjuntos';
 import { SeccionComentarios } from './detalle/SeccionComentarios';
 import { SeccionGestion } from './detalle/SeccionGestion';
 import { SeccionRegistro } from './detalle/SeccionRegistro';
-import { FaseProps, Miembro } from './detalle/types';
+import { checkIsCensoFormat, FaseProps, Miembro } from './detalle/types';
 import { validarDatosVenta } from '../venta/validacionesVenta';
+import { validarDatosCenso } from '../censo/validacionesCenso';
 import { clasificarMovimientoAlmacen, esTarjetaFormatoAlmacen } from '../../services/almacenService';
 import { ejecutarConversionCensoAVenta, notificarAsignacionMaterialDetalle } from './detalle/modalDetalleHelpers';
 
@@ -113,7 +114,7 @@ export const ModalDetalleTarjeta = ({
   if (!tarjetaSeleccionada) return null;
 
   const listaActualNombre = nombreListaRemota || listas.find(l => l.id === tarjetaSeleccionada.lista_id)?.nombre || '';
-  const isCensoFormat = ['censo', 'si desea', 'no desea', 'es posible', 'sí desea'].includes(listaActualNombre.toLowerCase().trim());
+  const isCensoFormat = checkIsCensoFormat(listaActualNombre, tarjetaSeleccionada);
   const isMaterialesFormat = esTarjetaFormatoAlmacen(
     tarjetaSeleccionada?.datos_valores,
     listaActualNombre
@@ -135,15 +136,18 @@ export const ModalDetalleTarjeta = ({
   };
 
   const handleGuardarCambios = async () => {
-    if (!isCensoFormat && !isMaterialesFormat) {
-      const { esValido, faltantes } = validarDatosVenta(editFormData);
-      if (!esValido) {
-        Alert.alert(
-          'Casillas Obligatorias Requeridas',
-          'Para guardar los cambios, debes completar las siguientes casillas obligatorias:\n\n• ' + faltantes.join('\n• ')
-        );
-        return;
-      }
+    const validacion = isCensoFormat
+      ? validarDatosCenso(editFormData)
+      : !isMaterialesFormat
+        ? validarDatosVenta(editFormData)
+        : { esValido: true, faltantes: [] };
+
+    if (!validacion.esValido) {
+      Alert.alert(
+        'Casillas Obligatorias Requeridas',
+        'Para guardar los cambios, debes completar las siguientes casillas obligatorias:\n\n• ' + validacion.faltantes.join('\n• ')
+      );
+      return;
     }
 
     setIsSaving(true);

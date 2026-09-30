@@ -11,6 +11,7 @@ import { checkIsCensoFormat } from '../../components/kanban/detalle/types';
 import CardLayoutWrapper from '../../components/layout/CardLayoutWrapper';
 import { ModalMapaUbicacion } from '../../components/tarjetas/ModalMapaUbicacion';
 import { validarDatosVenta } from '../../components/venta/validacionesVenta';
+import { validarDatosCenso } from '../../components/censo/validacionesCenso';
 import { validarDatosAlmacen } from '../../components/almacen/formulario/validacionesAlmacen';
 import { ModalAvisoFaltantes } from '../../components/common/ModalAvisoFaltantes';
 import { useAuth } from '../../context/AuthContext';
@@ -164,16 +165,17 @@ export default function NuevaTarjetaScreen() {
     }
   };
 
+  const isCensoMode = checkIsCensoFormat(listaNombre || (lista_nombre as string));
+  const isMaterialesMode = checkIsMaterialesMode(
+    listaNombre || (lista_nombre as string) || '',
+    formData.tipoCarga || paramTipoCarga
+  );
+
   const handleGuardar = async () => {
     if (!lista_id) {
       Alert.alert('Error', 'No se pudo identificar la lista de destino.');
       return;
     }
-
-    const isMaterialesMode = checkIsMaterialesMode(
-      listaNombre || (lista_nombre as string) || '',
-      formData.tipoCarga || paramTipoCarga
-    );
 
     if (isMaterialesMode) {
       const tipoCargaStr = String(formData.tipoCarga || '').toUpperCase();
@@ -195,15 +197,16 @@ export default function NuevaTarjetaScreen() {
         setFaltantesAviso(faltantes);
         return;
       }
-    } else if (listaNombre !== 'Censo') {
-      const { esValido, faltantes } = validarDatosVenta(formData);
+    } else if (isCensoMode) {
+      const { esValido, faltantes } = validarDatosCenso(formData);
       if (!esValido) {
         setFaltantesAviso(faltantes);
         return;
       }
     } else {
-      if (formData.cuentaConInternet === 'Sí' && !formData.dispuestoCambiar) {
-        setFaltantesAviso(['Disposición a cambiar de operador (Requerido al contar con internet)']);
+      const { esValido, faltantes } = validarDatosVenta(formData);
+      if (!esValido) {
+        setFaltantesAviso(faltantes);
         return;
       }
     }
@@ -261,12 +264,6 @@ export default function NuevaTarjetaScreen() {
       setIsSubmitting(false);
     }
   };
-
-  const isCensoMode = checkIsCensoFormat(listaNombre || lista_nombre);
-  const isMaterialesMode = checkIsMaterialesMode(
-    listaNombre || (lista_nombre as string) || '',
-    formData.tipoCarga || paramTipoCarga
-  );
 
   return (
     <>

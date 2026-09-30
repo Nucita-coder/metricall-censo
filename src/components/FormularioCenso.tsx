@@ -38,7 +38,6 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
           onSelectTipo={(v: string) => update('tipoDocumento', v)}
           numeroValue={formData.documentoIdentidad}
           onChangeNumero={(v: string) => update('documentoIdentidad', v)}
-          isRequired
           readOnly={readOnly}
         />
 
@@ -81,6 +80,7 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
           onSelect={(v: string) => update('cuentaConInternet', v)}
           options={['Sí', 'No']}
           placeholder="Seleccione respuesta"
+          isRequired
           disabled={readOnly}
         />
 
@@ -103,6 +103,7 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
               'Otro'
             ]}
             placeholder="Seleccione proveedor actual"
+            isRequired
             disabled={readOnly}
           />
         )}
@@ -113,7 +114,7 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
           onSelect={(v: string) => update('dispuestoCambiar', v)}
           options={['Sí', 'No', 'Es posible']}
           placeholder="Seleccione opción"
-          isRequired
+          isRequired={formData.cuentaConInternet === 'Sí'}
           disabled={readOnly}
         />
 

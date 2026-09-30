@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { InputTexto, SelectDropdown } from './venta/CamposVenta';
+import { InputDocumento, InputTexto, SelectDropdown } from './venta/CamposVenta';
 import { ESTADOS_VENEZUELA } from './venta/constantes';
 
 import { TarjetaDatosValores } from '../types/kanban';
@@ -32,30 +32,15 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
           readOnly={readOnly}
         />
 
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <View style={{ flex: 1 }}>
-            <SelectDropdown
-              label="Tipo Documento"
-              value={formData.tipoDocumento}
-              onSelect={(v: string) => update('tipoDocumento', v)}
-              options={['V', 'E', 'J', 'P', 'RIF']}
-              placeholder="Tipo"
-              isRequired
-              disabled={readOnly}
-            />
-          </View>
-          <View style={{ flex: 2 }}>
-            <InputTexto
-              label="Nro. Documento / RIF"
-              value={formData.documentoIdentidad}
-              onChangeText={(v: string) => update('documentoIdentidad', v)}
-              placeholder="Ej: 12345678"
-              keyboardType="numeric"
-              isRequired
-              readOnly={readOnly}
-            />
-          </View>
-        </View>
+        <InputDocumento
+          label="Documento de Identidad / RIF"
+          tipoValue={formData.tipoDocumento || 'V'}
+          onSelectTipo={(v: string) => update('tipoDocumento', v)}
+          numeroValue={formData.documentoIdentidad}
+          onChangeNumero={(v: string) => update('documentoIdentidad', v)}
+          isRequired
+          readOnly={readOnly}
+        />
 
         <InputTexto
           label="Teléfono Móvil"

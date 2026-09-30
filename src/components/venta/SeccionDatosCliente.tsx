@@ -1,7 +1,7 @@
 import { MapPin, Navigation } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { DatePickerInput, InputTexto, SelectDropdown } from './CamposVenta';
+import { DatePickerInput, InputDocumento, InputTexto, SelectDropdown } from './CamposVenta';
 import { ESTADOS_VENEZUELA, OPCIONES_TIPO_DOC } from './constantes';
 import { TarjetaDatosValores } from '../../types/kanban';
 
@@ -35,33 +35,19 @@ export const SeccionDatosCliente = ({
         readOnly={readOnly}
       />
 
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <View style={{ flex: 1 }}>
-          <SelectDropdown
-            label="Tipo Doc."
-            value={formData.tipoDocumento}
-            onSelect={(v: string) => update('tipoDocumento', v)}
-            options={OPCIONES_TIPO_DOC}
-            placeholder="Tipo"
-            isRequired
-            disabled={readOnly}
-          />
-        </View>
-        <View style={{ flex: 2 }}>
-          <InputTexto
-            label="Nro. Identidad"
-            value={formData.documentoIdentidad || formData.nroIdentidad}
-            onChangeText={(v: string) => {
-              update('documentoIdentidad', v);
-              update('nroIdentidad', v);
-            }}
-            placeholder="Ej. 12345678"
-            keyboardType="numeric"
-            isRequired
-            readOnly={readOnly}
-          />
-        </View>
-      </View>
+      <InputDocumento
+        label="Nro. Identidad"
+        tipoValue={formData.tipoDocumento || 'V'}
+        onSelectTipo={(v: string) => update('tipoDocumento', v)}
+        numeroValue={formData.documentoIdentidad || formData.nroIdentidad}
+        onChangeNumero={(v: string) => {
+          update('documentoIdentidad', v);
+          update('nroIdentidad', v);
+        }}
+        opcionesTipo={OPCIONES_TIPO_DOC}
+        isRequired
+        readOnly={readOnly}
+      />
 
       <DatePickerInput
         label="Fecha de Nacimiento"

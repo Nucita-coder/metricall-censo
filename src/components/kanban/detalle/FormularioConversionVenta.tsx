@@ -4,7 +4,7 @@ import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpa
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { ModalMapaUbicacion } from '../../tarjetas/ModalMapaUbicacion';
-import { DatePickerInput, InputTexto, SelectDropdown } from '../../venta/CamposVenta';
+import { DatePickerInput, InputDocumento, InputTexto, SelectDropdown } from '../../venta/CamposVenta';
 
 import { TarjetaDatosValores } from '../../../types/kanban';
 
@@ -161,21 +161,13 @@ export const FormularioConversionVenta = ({ onConfirm, onCancel, isSubmitting, i
             isRequired
           />
 
-          <SelectDropdown
-            label="Tipo Documento"
-            value={String(formData.tipoDocumento || '')}
-            onSelect={(v: string) => updateForm('tipoDocumento', v)}
-            options={['V', 'E', 'J', 'P']}
-            placeholder="Seleccione"
-            isRequired
-          />
-
-          <InputTexto
+          <InputDocumento
             label="Documento Identidad / Cédula"
-            value={formData.documentoIdentidad}
-            onChangeText={(v: string) => updateForm('documentoIdentidad', v)}
-            placeholder="Ej. 12345678"
-            keyboardType="numeric"
+            tipoValue={String(formData.tipoDocumento || 'V')}
+            onSelectTipo={(v: string) => updateForm('tipoDocumento', v)}
+            numeroValue={formData.documentoIdentidad}
+            onChangeNumero={(v: string) => updateForm('documentoIdentidad', v)}
+            opcionesTipo={['V', 'E', 'J', 'P']}
             isRequired
           />
 

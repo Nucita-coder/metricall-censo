@@ -5,6 +5,7 @@ import {
   FlatList, Modal, Platform, StyleProp, StyleSheet, Text,
   TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions,
 } from 'react-native';
+import { styles } from './camposVentaStyles';
 
 export interface InputTextoProps {
   label: string;
@@ -266,64 +267,4 @@ export const SelectDropdown = ({
   );
 };
 
-const styles = StyleSheet.create({
-  fieldContainer: {
-    marginBottom: 16,
-    width: '100%',
-  },
-  fieldContainerCompact: {
-    marginBottom: 0,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#B6C2CF',
-    marginBottom: 6,
-  },
-  labelCompact: {
-    fontSize: 11,
-    color: '#8C9BAB',
-    marginBottom: 4,
-  },
-  required: {
-    color: '#E53E3E',
-  },
-  input: {
-    backgroundColor: '#1D2125',
-    borderWidth: 1,
-    borderColor: '#384148',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#B6C2CF',
-  },
-  inputReadOnly: {
-    backgroundColor: '#171B21',
-    color: '#8C9BAB',
-  },
-  inputMultiline: {
-    minHeight: 70,
-    textAlignVertical: 'top',
-  },
-  selectBtn: {
-    backgroundColor: '#1D2125',
-    borderWidth: 1,
-    borderColor: '#384148',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  selectBtnCompact: { height: 34, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6 },
-  btnDisabled: { opacity: 0.5 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.65)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  modalContent: { backgroundColor: '#2C333A', borderRadius: 12, width: '85%', maxWidth: 340, maxHeight: '60%', paddingBottom: 8, borderWidth: 1, borderColor: '#384148', elevation: 5 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#384148' },
-  modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#B6C2CF' },
-  optionItem: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#384148' },
-  optionText: { fontSize: 15, color: '#B6C2CF', textTransform: 'capitalize' },
-  optionTextSelected: { fontWeight: 'bold', color: '#90CDF4' },
-});
+export { InputDocumento, InputDocumentoProps } from './InputDocumento';

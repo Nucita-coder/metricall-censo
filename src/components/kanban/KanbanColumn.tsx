@@ -224,19 +224,20 @@ const KanbanColumnComponent = ({
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  paddingVertical: 11,
+                  paddingVertical: 14,
                   paddingHorizontal: 12,
-                  backgroundColor: '#2C333A',
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: '#384148',
+                  backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderColor: '#333',
+                  borderStyle: 'dashed',
                 }}
                 onPress={() => setModalCensoVisible(true)}
-                activeOpacity={0.7}
+                activeOpacity={0.6}
               >
-                <Plus size={16} color="#B6C2CF" strokeWidth={2} />
-                <Text style={{ marginLeft: 8, fontWeight: 'bold', color: '#B6C2CF', fontSize: 13 }}>
-                  Añadir Tarjeta Censo
+                <Plus size={20} color="#111" strokeWidth={2} />
+                <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 14, fontStyle: 'italic' }}>
+                  Añadir Tarjeta
                 </Text>
               </TouchableOpacity>
             </View>

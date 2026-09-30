@@ -10,15 +10,13 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
-import { UserCheck, X, MapPin, CheckCircle2 } from 'lucide-react-native';
+import { UserCheck, X } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { TarjetaDatosValores } from '../../../types/kanban';
 import FormularioCenso from '../../FormularioCenso';
 import { validarDatosCenso } from '../../censo/validacionesCenso';
-import { useCapturaUbicacion } from '../../../hooks/useCapturaUbicacion';
-import { ModalPermisoUbicacion } from '../../common/ModalPermisoUbicacion';
 import { ejecutarPostCreacionTarjeta } from '../../../services/tarjetaCreacionService';
 import { styles } from './ModalNuevoCenso.styles';
 
@@ -53,8 +51,6 @@ const ESTADO_INICIAL: TarjetaDatosValores = {
   piso: '',
   edificio: '',
   referencia: '',
-  latitud: null,
-  longitud: null,
   origen: 'censo',
 };
 
@@ -71,15 +67,6 @@ export function ModalNuevoCenso({
 
   const [formData, setFormData] = useState<TarjetaDatosValores>(ESTADO_INICIAL);
   const [isSaving, setIsSaving] = useState(false);
-
-  const {
-    isLocating,
-    isRetrying,
-    modalPermisoVisible,
-    obtenerCoordenadas,
-    reintentarCaptura,
-    cerrarModalPermiso,
-  } = useCapturaUbicacion();
 
   useEffect(() => {
     if (!visible) return;
@@ -98,26 +85,6 @@ export function ModalNuevoCenso({
 
   const updateForm = (key: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleCapturarGPS = async () => {
-    const coords = await obtenerCoordenadas();
-    if (coords) {
-      setFormData((prev) => ({
-        ...prev,
-        latitud: coords.latitud,
-        longitud: coords.longitud,
-        geo_censo: {
-          lat: coords.latitud,
-          lng: coords.longitud,
-          latitud: coords.latitud,
-          longitud: coords.longitud,
-        },
-      }));
-      const msg = 'Coordenadas GPS registradas con éxito.';
-      if (Platform.OS === 'web') window.alert(msg);
-      else Alert.alert('Ubicación Obtenida', msg);
-    }
   };
 
   const handleGuardar = async () => {
@@ -200,8 +167,6 @@ export function ModalNuevoCenso({
     onClose();
   };
 
-  const tieneGps = formData.latitud !== null && formData.latitud !== undefined;
-
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleCerrar}>
       <View style={styles.overlay}>
@@ -214,30 +179,6 @@ export function ModalNuevoCenso({
             </View>
             <TouchableOpacity onPress={handleCerrar} disabled={isSaving} style={styles.btnClose}>
               <X size={20} color="#8C9BAB" />
-            </TouchableOpacity>
-          </View>
-
-          {/* BARRA DE CAPTURA GPS RÁPIDA */}
-          <View style={styles.gpsBar}>
-            <TouchableOpacity
-              style={[styles.gpsBtn, tieneGps && styles.gpsBtnSuccess]}
-              onPress={handleCapturarGPS}
-              disabled={isLocating || isSaving}
-            >
-              {isLocating ? (
-                <ActivityIndicator size="small" color="#B6C2CF" />
-              ) : tieneGps ? (
-                <CheckCircle2 size={16} color="#4ADE80" />
-              ) : (
-                <MapPin size={16} color="#579DFF" />
-              )}
-              <Text style={[styles.gpsBtnTxt, tieneGps && { color: '#4ADE80' }]}>
-                {isLocating
-                  ? 'Obteniendo GPS...'
-                  : tieneGps
-                  ? `GPS: ${Number(formData.latitud).toFixed(5)}, ${Number(formData.longitud).toFixed(5)}`
-                  : 'Capturar Ubicación GPS en Sitio'}
-              </Text>
             </TouchableOpacity>
           </View>
 
@@ -266,20 +207,6 @@ export function ModalNuevoCenso({
           </View>
         </View>
       </View>
-
-      <ModalPermisoUbicacion
-        visible={modalPermisoVisible}
-        onClose={cerrarModalPermiso}
-        onRetry={() => reintentarCaptura(async (c) => {
-          setFormData((p) => ({
-            ...p,
-            latitud: c.latitud,
-            longitud: c.longitud,
-            geo_censo: { lat: c.latitud, lng: c.longitud },
-          }));
-        })}
-        loading={isRetrying}
-      />
     </Modal>
   );
 }

@@ -36,31 +36,6 @@ export const styles = StyleSheet.create({
   btnClose: {
     padding: 4,
   },
-  gpsBar: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  gpsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#1D2125',
-    borderWidth: 1,
-    borderColor: '#384148',
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  gpsBtnSuccess: {
-    borderColor: 'rgba(74, 222, 128, 0.4)',
-    backgroundColor: 'rgba(74, 222, 128, 0.08)',
-  },
-  gpsBtnTxt: {
-    color: '#B6C2CF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
   body: {
     paddingHorizontal: 16,
     paddingVertical: 12,

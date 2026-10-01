@@ -29,162 +29,41 @@ const formatKey = (k: string) => {
   return k.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').toUpperCase().trim();
 };
 
-export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
+import { generarHTMLInformeEscrito } from './informeHtmlBuilder';
+
+export { generarHTMLInformeEscrito };
+
+const generarHTMLCenso = (tarjeta: TarjetaDatos): string => {
   const datos = tarjeta.datos_valores || {};
-  
   const geofotosArr = Array.isArray(datos.geofotos) ? datos.geofotos : (datos.geofotos ? [datos.geofotos] : []);
   const adjuntosArr = Array.isArray(datos.adjuntos) ? datos.adjuntos : (datos.adjuntos ? [datos.adjuntos] : []);
-  const lchImagen = datos.lch_imagen as string | undefined;
-
   const allImages = [
-    ...(lchImagen ? [lchImagen] : []),
     ...(geofotosArr as unknown[]).map(f => typeof f === 'string' ? f : (f as { url?: string; uri?: string })?.url || (f as { url?: string; uri?: string })?.uri).filter(Boolean) as string[],
     ...(adjuntosArr as unknown[]).map(a => typeof a === 'string' ? a : (a as { url?: string; uri?: string })?.url || (a as { url?: string; uri?: string })?.uri).filter(Boolean) as string[],
   ];
   const imagesHtml = allImages.map(url => `<img src="${url}" style="width: 100%; max-width: 500px; display: block; margin: 0 auto 20px auto; border-radius: 8px; border: 1px solid #CCC;" />`).join('\n');
 
   let comentariosHtml = '';
-  let comentariosTexto = '';
   if (Array.isArray(datos.comentarios)) {
-    comentariosTexto = (datos.comentarios as ComentarioItem[]).map(c => `[${c.fecha}] ${c.autor}: ${c.texto}`).join('<br/>');
+    comentariosHtml = (datos.comentarios as ComentarioItem[]).map(c => `[${c.fecha}] ${c.autor}: ${c.texto}`).join('<br/>');
   } else if (typeof datos.comentarios === 'string') {
-    comentariosTexto = datos.comentarios;
+    comentariosHtml = datos.comentarios;
   }
-
-  const posiblesComentarios = [
-    { label: 'COMENTARIOS GENERALES', val: comentariosTexto },
-    { label: 'MOTIVO FACTIBILIDAD', val: datos.motivoFactibilidad },
-    { label: 'OBSERVACIONES', val: datos.observaciones },
-    { label: 'MOTIVO DE RETORNO', val: datos.motivoRetorno || datos.ultimoMotivoRetorno },
-    { label: 'COMENTARIO DE INSTALACIÓN', val: datos.comentario_instalacion }
-  ];
-  
-  posiblesComentarios.forEach(c => {
-    if (c.val && typeof c.val === 'string' && c.val.trim() !== '') {
-      comentariosHtml += `<div style="background:#F7FAFC; padding:10px; border-radius:4px; margin-bottom:8px; border-left:4px solid #3182CE;"><strong>${c.label}:</strong><br/>${c.val}</div>`;
-    }
-  });
-  
   if (!comentariosHtml) comentariosHtml = '<p>No hay comentarios registrados.</p>';
 
-  const clienteKeys = ['nombreApellido', 'nombres', 'lch_numero', 'tecnico', 'asignado_a', 'serial_onu', 'serialEquipo', 'mac_equipo', 'macEquipo'];
-  const redKeys = ['tipoInstalacion', 'tipo_instalacion', 'cable_preconectorizado', 'nap', 'nroNap', 'potenciaNap', 'potencia_casa', 'potenciaCasa', 'cable_drop', 'cableDrop', 'puerto', 'puertoAsignado', 'puertos_disponibles', 'geo_nap', 'geo_casa'];
-  
-  const excludeKeys = ['geofotos', 'adjuntos', 'lch_imagen', 'comentarios', 'motivoFactibilidad', 'observaciones', 'motivoRetorno', 'ultimoMotivoRetorno', 'comentario_instalacion', 'materiales', 'historial_auditoria', 'gestiones'];
-  
-  const camposOmitidos: string[] = [];
-
-  const renderGroup = (keys: string[], title: string) => {
-    let html = '';
-    keys.forEach(k => {
-      excludeKeys.push(k);
-      const val = formatValue(datos[k]);
-      if (val !== null && val !== '') {
-        html += `<tr><th>${formatKey(k)}</th><td style="color: #2B6CB0; font-weight: bold;">${val}</td></tr>`;
-      } else {
-        html += `<tr><th>${formatKey(k)}</th><td style="color: #A0AEC0; font-style: italic; background-color: #F7FAFC;">⚠️ Sin registrar / Dejado de lado</td></tr>`;
-        camposOmitidos.push(formatKey(k));
-      }
-    });
-    if (html) {
-      return `
-        <div class="section">
-          <h3>${title}</h3>
-          <table>${html}</table>
-        </div>`;
-    }
-    return '';
-  };
-
-  const ventaHtml = renderGroup(['nombreApellido', 'nombres', 'nroIdentidad', 'telefono', 'tipoInstalacion', 'tipo_instalacion'], '1. DATOS DEL CLIENTE Y VENTA');
-  const factibilidadHtml = renderGroup(['lch_numero', 'tecnico', 'asignado_a', 'geo_casa', 'potencia_casa', 'potenciaCasa'], '2. ASIGNACIÓN Y FACTIBILIDAD');
-  const redHtml = renderGroup(['nap', 'nroNap', 'puertos_disponibles', 'puerto', 'puertoAsignado', 'potenciaNap', 'cable_preconectorizado', 'cable_drop', 'cableDrop', 'geo_nap'], '3. INSTALACIÓN Y RED');
-  const activacionHtml = renderGroup(['serial_onu', 'serialEquipo', 'mac_equipo', 'macEquipo'], '4. ACTIVACIÓN DE SERVICIO');
-
-  let otrosHtml = '';
+  const excludeKeys = ['geofotos', 'adjuntos', 'lch_imagen', 'comentarios', 'historial_auditoria', 'gestiones'];
+  let camposRows = '';
   Object.keys(datos).forEach(key => {
     if (excludeKeys.includes(key)) return;
     let val = formatValue(datos[key]);
-    
-    // Tratamiento especial para geo_censo
     const punto = datos[key] as { lat?: string | number; lng?: string | number } | undefined;
     if (key === 'geo_censo' && punto?.lat && punto?.lng) {
       val = `<a href="https://www.google.com/maps/search/?api=1&query=${punto.lat},${punto.lng}" style="color: #3182CE; text-decoration: none;"><strong>Ver en Google Maps (${Number(punto.lat).toFixed(6)}, ${Number(punto.lng).toFixed(6)})</strong></a>`;
     }
-    
     if (val !== null && val !== '') {
-      otrosHtml += `<tr><th>${formatKey(key)}</th><td style="color: #2B6CB0; font-weight: bold;">${val}</td></tr>`;
-    } else {
-      otrosHtml += `<tr><th>${formatKey(key)}</th><td style="color: #A0AEC0; font-style: italic; background-color: #F7FAFC;">⚠️ Sin registrar / Dejado de lado</td></tr>`;
-      camposOmitidos.push(formatKey(key));
+      camposRows += `<tr><th>${formatKey(key)}</th><td style="color: #2B6CB0; font-weight: bold;">${val}</td></tr>`;
     }
   });
-  if (otrosHtml) {
-    const tituloSeccion = datos.fechaCenso ? '2. DETALLES DEL CENSO' : '5. INFORMACIÓN ADICIONAL';
-    otrosHtml = `
-        <div class="section">
-          <h3>${tituloSeccion}</h3>
-          <table>${otrosHtml}</table>
-        </div>`;
-  }
-
-  let materialesHtml = '';
-  if (datos.materiales && typeof datos.materiales === 'object') {
-    const matObj = datos.materiales as Record<string, unknown>;
-    Object.keys(matObj).forEach(key => {
-      const val = formatValue(matObj[key]);
-      if (val !== null && val !== '0' && val !== '') {
-        materialesHtml += `<tr><th>${formatKey(key)}</th><td style="color: #2B6CB0; font-weight: bold;">${val}</td></tr>`;
-      } else {
-        materialesHtml += `<tr><th>${formatKey(key)}</th><td style="color: #A0AEC0; font-style: italic; background-color: #F7FAFC;">0 (Sin consumo)</td></tr>`;
-        camposOmitidos.push(`Material: ${formatKey(key)}`);
-      }
-    });
-    if (materialesHtml) {
-      materialesHtml = `
-        <div class="section">
-          <h3>6. INVENTARIO DE MATERIALES</h3>
-          <table>${materialesHtml}</table>
-        </div>`;
-    }
-  }
-
-  let gestionesHtml = '';
-  if (datos.gestiones && Array.isArray(datos.gestiones) && datos.gestiones.length > 0) {
-    let gestRows = '';
-    (datos.gestiones as Array<GestionItem & Record<string, unknown>>).forEach((g) => {
-      const etapaStr = g.etapa === 'gestion_1' ? 'Gestión 1' : 'Gestión 2 (Cierre)';
-      let rowHtml = `<tr><th colspan="2" style="background-color: #EBF8FF; color: #2B6CB0; text-align: center;">${etapaStr} - ${String(g.fecha || '')}</th></tr>`;
-      rowHtml += `<tr><th>Tipo de Contacto</th><td>${String(g.tipoContacto || g.tipo || '')}</td></tr>`;
-      rowHtml += `<tr><th>Resultado</th><td>${String(g.resultado || '')}</td></tr>`;
-      
-      if (g.motivoRechazo) {
-        rowHtml += `<tr><th>Motivo de Rechazo</th><td style="color: #E53E3E;">${String(g.motivoRechazo)}</td></tr>`;
-      }
-      
-      if (g.evidenciaUrl) {
-        rowHtml += `<tr><th>Evidencia</th><td><a href="${String(g.evidenciaUrl)}" style="color: #3182CE; text-decoration: none;"><strong>Ver Evidencia Adjunta</strong></a></td></tr>`;
-      }
-      gestRows += rowHtml;
-    });
-    
-    gestionesHtml = `
-      <div class="section">
-        <h3>GESTIONES COMERCIALES</h3>
-        <table>${gestRows}</table>
-      </div>`;
-  }
-
-  let omitidosSectionHtml = '';
-  if (camposOmitidos.length > 0) {
-    const listBadges = camposOmitidos.map(c => `<span style="display: inline-block; background-color: #FFF5F5; color: #E53E3E; border: 1px solid #FEB2B2; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin: 3px; font-weight: bold;">⚠️ ${c}</span>`).join(' ');
-    omitidosSectionHtml = `
-      <div class="section" style="background-color: #FFF5F5; border: 1px solid #FEB2B2; padding: 15px; border-radius: 8px; margin-bottom: 24px;">
-        <h3 style="color: #C53030; border-bottom: 1px solid #FEB2B2; margin-top: 0; padding-bottom: 6px;">RESUMEN DE CAMPOS DEJADOS DE LADO / NO LLENADOS (${camposOmitidos.length})</h3>
-        <p style="font-size: 13px; color: #742A2A; margin-top: 0; margin-bottom: 10px;">Los siguientes campos no fueron completados o no registraron datos/consumo en esta tarjeta:</p>
-        <div>${listBadges}</div>
-      </div>`;
-  }
 
   return `
     <html>
@@ -192,47 +71,47 @@ export const generarHTMLInforme = (tarjeta: TarjetaDatos) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
         <style>
           body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; position: relative; }
-          .header { text-align: center; border-bottom: 2px solid #E53E3E; padding-bottom: 20px; margin-bottom: 20px; position: relative; }
-          .header h1 { color: #E53E3E; margin: 0; font-size: 24px; text-transform: uppercase; padding-right: 60px; }
+          .header { text-align: center; border-bottom: 2px solid #3182CE; padding-bottom: 20px; margin-bottom: 20px; position: relative; }
+          .header h1 { color: #2B6CB0; margin: 0; font-size: 22px; text-transform: uppercase; padding-right: 60px; }
           .logo { position: absolute; top: 0; right: 0; width: 60px; height: auto; border-radius: 4px; }
           .section { margin-bottom: 24px; }
-          .section h3 { margin-top: 0; color: #2D3748; font-size: 16px; border-bottom: 1px solid #CBD5E0; padding-bottom: 8px; text-transform: uppercase; }
+          .section h3 { margin-top: 0; color: #2D3748; font-size: 15px; border-bottom: 1px solid #CBD5E0; padding-bottom: 8px; text-transform: uppercase; }
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th, td { border: 1px solid #E2E8F0; padding: 10px; text-align: left; }
-          th { background-color: #F7FAFC; color: #4A5568; font-weight: bold; width: 40%; text-transform: uppercase; font-size: 14px; }
-          td { font-size: 14px; }
+          th, td { border: 1px solid #E2E8F0; padding: 8px 10px; text-align: left; }
+          th { background-color: #F7FAFC; color: #4A5568; font-weight: bold; width: 40%; text-transform: uppercase; font-size: 13px; }
+          td { font-size: 13px; }
         </style>
       </head>
       <body>
         <div class="header">
           <img src="${logoBase64}" class="logo" />
-          <h1>${datos.fechaCenso ? 'REPORTE TÉCNICO DE CENSO' : 'REPORTE TÉCNICO DE INSTALACIÓN'}</h1>
-          <p style="color:#718096; margin:4px 0;"><strong>ID Tarjeta:</strong> ${tarjeta.id || 'N/A'} | <strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
+          <h1>REPORTE TÉCNICO DE CENSO</h1>
+          <p style="color:#718096; margin:4px 0;"><strong>ID:</strong> ${tarjeta.id || 'N/A'} | <strong>Fecha:</strong> ${new Date().toLocaleDateString('es-VE')}</p>
         </div>
-        
-        ${ventaHtml}
-        ${factibilidadHtml}
-        ${redHtml}
-        ${activacionHtml}
-        ${otrosHtml}
-        ${materialesHtml}
-        ${gestionesHtml}
-        ${omitidosSectionHtml}
-
         <div class="section">
-          <h3>7. HISTORIAL DE COMENTARIOS</h3>
+          <h3>DATOS RECOLECTADOS EN CENSO</h3>
+          <table>${camposRows}</table>
+        </div>
+        <div class="section">
+          <h3>OBSERVACIONES / COMENTARIOS</h3>
           ${comentariosHtml}
         </div>
-
         ${allImages.length > 0 ? `
-        <div class="section" style="page-break-before: always;">
-          <h3>8. EVIDENCIA FOTOGRÁFICA</h3>
+        <div class="section" style="page-break-before: auto;">
+          <h3>EVIDENCIAS FOTOGRÁFICAS</h3>
           ${imagesHtml}
-        </div>
-        ` : ''}
+        </div>` : ''}
       </body>
     </html>
   `;
+};
+
+export const generarHTMLInforme = (tarjeta: TarjetaDatos): string => {
+  const datos = tarjeta.datos_valores || {};
+  if (datos.fechaCenso || datos.dispuestoCambiar || datos.origenCenso) {
+    return generarHTMLCenso(tarjeta);
+  }
+  return generarHTMLInformeEscrito(tarjeta);
 };
 
 export const generarReporteActivacion = (datos: DatosValores, fotosSeleccionadas: Record<string, boolean>) => {

@@ -9,6 +9,8 @@ import { Tarjeta, TarjetaMaterialItem } from '../../../types/kanban';
 import { SeccionMaterialesEnProceso } from './SeccionMaterialesEnProceso';
 import { SeccionGeolocalizacionEnProceso } from './SeccionGeolocalizacionEnProceso';
 import { obtenerStockCustodiaTecnico } from '../../../services/custodiaService';
+import { ModalAvisoFaltantes } from '../../common/ModalAvisoFaltantes';
+import { validarFaseEnProceso } from './validacionesEnProceso';
 
 export const FaseEnProceso = ({
   tarjeta,
@@ -47,6 +49,7 @@ export const FaseEnProceso = ({
   const [geoNap, setGeoNap] = useState<{ lat: number; lng: number } | null>((data.geo_nap && typeof data.geo_nap.lat === 'number' && typeof data.geo_nap.lng === 'number') ? { lat: data.geo_nap.lat, lng: data.geo_nap.lng } : null);
   const [geoCasa, setGeoCasa] = useState<{ lat: number; lng: number } | null>((data.geo_casa && typeof data.geo_casa.lat === 'number' && typeof data.geo_casa.lng === 'number') ? { lat: data.geo_casa.lat, lng: data.geo_casa.lng } : null);
   const [geoFotos, setGeoFotos] = useState<string[]>(data.geofotos || []);
+  const [faltantesAviso, setFaltantesAviso] = useState<string[]>([]);
 
   const [materiales, setMateriales] = useState<Record<string, string>>((data.materiales as Record<string, string>) || {
     ontConWifi: '',
@@ -129,7 +132,7 @@ export const FaseEnProceso = ({
           </View>
         )}
 
-        <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8, textTransform: 'uppercase' }}>TIPO DE INSTALACIÓN / ATENCIÓN</Text>
+        <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8, textTransform: 'uppercase' }}>TIPO DE INSTALACIÓN / ATENCIÓN *</Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           {['tradicional', 'preconectorizado'].map(tipo => {
             const isSelected = tipoInstalacion.toLowerCase() === tipo;
@@ -157,11 +160,11 @@ export const FaseEnProceso = ({
 
         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, marginTop: 12 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8 }}>SERIAL EQUIPO</Text>
+            <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8 }}>SERIAL EQUIPO *</Text>
             <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 10, color: '#B6C2CF' }} value={serialEquipo} onChangeText={setSerialEquipo} editable={!readOnly && !isSaving} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8 }}>MAC EQUIPO</Text>
+            <Text style={{ fontSize: 12, color: '#8C9BAB', fontWeight: '600', marginBottom: 8 }}>MAC EQUIPO *</Text>
             <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 10, color: '#B6C2CF' }} value={macEquipo} onChangeText={setMacEquipo} editable={!readOnly && !isSaving} />
           </View>
         </View>
@@ -181,19 +184,21 @@ export const FaseEnProceso = ({
         <View style={{ marginBottom: 16 }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
             <View style={{ width: '48%', marginBottom: 12 }}>
-              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>NRO DE NAP</Text>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>NRO DE NAP *</Text>
               <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={nroNap} onChangeText={setNroNap} editable={!readOnly && !isSaving} />
             </View>
             <View style={{ width: '48%', marginBottom: 12 }}>
-              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>POTENCIA NAP</Text>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>POTENCIA NAP *</Text>
               <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={potenciaNap} onChangeText={setPotenciaNap} editable={!readOnly && !isSaving} />
             </View>
             <View style={{ width: '48%', marginBottom: 12 }}>
-              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>POTENCIA CASA</Text>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>POTENCIA CASA *</Text>
               <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={potenciaCasa} onChangeText={setPotenciaCasa} editable={!readOnly && !isSaving} />
             </View>
             <View style={{ width: '48%', marginBottom: 12 }}>
-              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>CABLE DROP</Text>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>
+                CABLE DROP {tipoInstalacion.toLowerCase() === 'tradicional' ? '*' : ''}
+              </Text>
               <TextInput
                 style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }}
                 value={tipoInstalacion.toLowerCase() === 'preconectorizado' ? (materiales.cablePreconectorizado ? `${materiales.cablePreconectorizado} mts` : '') : cableDrop}
@@ -205,11 +210,11 @@ export const FaseEnProceso = ({
               />
             </View>
             <View style={{ width: '48%', marginBottom: 12 }}>
-              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>PUERTO ASIGNADO</Text>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>PUERTO ASIGNADO *</Text>
               <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={puertoAsignado} onChangeText={setPuertoAsignado} editable={!readOnly && !isSaving} />
             </View>
             <View style={{ width: '48%', marginBottom: 12 }}>
-              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>PUERTOS DISPONIBLES</Text>
+              <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>PUERTOS DISPONIBLES *</Text>
               <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} keyboardType="numeric" value={puertosDisponibles} onChangeText={setPuertosDisponibles} editable={!readOnly && !isSaving} />
             </View>
           </View>
@@ -231,6 +236,24 @@ export const FaseEnProceso = ({
           <TouchableOpacity
             style={{ backgroundColor: '#0C66E4', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 8 }}
             onPress={async () => {
+              const validacion = validarFaseEnProceso({
+                tipoInstalacion,
+                serialEquipo,
+                macEquipo,
+                materiales,
+                cableDrop,
+                nroNap,
+                potenciaNap,
+                potenciaCasa,
+                puertoAsignado,
+                puertosDisponibles,
+              });
+
+              if (!validacion.esValido) {
+                setFaltantesAviso(validacion.faltantes);
+                return;
+              }
+
               setIsSaving(true);
               try {
                 await onUpdateTarjeta({
@@ -313,6 +336,12 @@ export const FaseEnProceso = ({
             )}
           </TouchableOpacity>
         )}
+
+        <ModalAvisoFaltantes
+          visible={faltantesAviso.length > 0}
+          onClose={() => setFaltantesAviso([])}
+          faltantes={faltantesAviso}
+        />
       </View>
     ));
 };

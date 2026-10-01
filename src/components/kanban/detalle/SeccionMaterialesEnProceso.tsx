@@ -70,7 +70,10 @@ export function SeccionMaterialesEnProceso({
 
           return (
             <View key={item.key} style={styles.colMaterial}>
-              <Text style={styles.labelMaterial}>{item.label}</Text>
+              <Text style={styles.labelMaterial}>
+                {item.label}
+                {(item.key === 'ontConWifi' || item.key === 'ontSinWifi') ? ' *' : ''}
+              </Text>
               <TextInput
                 style={[
                   styles.inputMaterial,
@@ -121,7 +124,7 @@ export function SeccionMaterialesEnProceso({
       {/* 1. SELECCIÓN PARA INSTALACIÓN TRADICIONAL: CABLE DROP DE BOBINA (METROS) */}
       {esTradicional && (
         <View style={{ marginBottom: 16 }}>
-          <Text style={styles.labelMaterial}>Cable Drop de Bobina (Metros Utilizados)</Text>
+          <Text style={styles.labelMaterial}>Cable Drop de Bobina (Metros Utilizados) *</Text>
           <TextInput
             style={{
               backgroundColor: '#1D2125',
@@ -171,7 +174,7 @@ export function SeccionMaterialesEnProceso({
       {/* 2. SELECCIÓN PARA INSTALACIÓN PRECONECTORIZADA: ROLLO CERRADO 50/70/100 M */}
       {esPreconectorizado && (
         <View style={{ marginBottom: 16 }}>
-          <Text style={styles.labelMaterial}>Cable Preconectorizado (1 Rollo / Paquete)</Text>
+          <Text style={styles.labelMaterial}>Cable Preconectorizado (1 Rollo / Paquete) *</Text>
           <TouchableOpacity
             style={styles.dropdownToggle}
             onPress={() => !readOnly && !isSaving && setMostrarDropdownCable(!mostrarDropdownCable)}

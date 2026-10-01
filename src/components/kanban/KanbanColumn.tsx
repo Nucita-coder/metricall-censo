@@ -33,6 +33,24 @@ export interface KanbanColumnProps {
   isCobranzaBoard?: boolean;
 }
 
+const TERMINOS_LISTAS_SIN_BOTON_CREAR = [
+  'ventas online',
+  'reporte falla',
+  'reporte pago',
+  'material recibido',
+  'material asignado',
+  'recuperado',
+  'devolución',
+  'devolucion',
+  'factibilidad',
+  'por instalar',
+  'asignado',
+  'liberada',
+  'en proceso',
+  'por activar',
+  'cliente activo',
+];
+
 const KanbanColumnComponent = ({
   item,
   tarjetaEnMovimiento,
@@ -73,20 +91,14 @@ const KanbanColumnComponent = ({
 
   const { userRol } = useAuth();
   const puedeCrear = userRol !== 'empleado' || item.permisos_relacionales?.puede_crear === true;
+  const esListaRestringida = TERMINOS_LISTAS_SIN_BOTON_CREAR.some((termino) =>
+    nombreLower.includes(termino)
+  );
   const puedeMostrarBotonCrear =
     puedeCrear &&
     !isCobranzaBoard &&
     !esListaClasificacionCenso &&
-    !(
-      nombreLower.includes('ventas online') ||
-      nombreLower.includes('reporte falla') ||
-      nombreLower.includes('reporte pago') ||
-      nombreLower.includes('material recibido') ||
-      nombreLower.includes('material asignado') ||
-      nombreLower.includes('recuperado') ||
-      nombreLower.includes('devolución') ||
-      nombreLower.includes('devolucion')
-    );
+    !esListaRestringida;
 
   const handleCrearTarjeta = () => {
     if (esListaCenso) {

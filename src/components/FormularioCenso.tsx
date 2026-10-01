@@ -2,7 +2,8 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { InputDocumento, InputTexto, SelectDropdown } from './venta/CamposVenta';
 import { ESTADOS_VENEZUELA } from './venta/constantes';
-import { SECTORES_ANACO } from './censo/sectoresAnaco';
+import { useSectoresEmpresa } from './censo/useSectoresEmpresa';
+import { useAuth } from '../context/AuthContext';
 
 import { TarjetaDatosValores } from '../types/kanban';
 
@@ -13,6 +14,9 @@ interface FormularioCensoProps {
 }
 
 export default function FormularioCenso({ formData, handleChange, readOnly = false }: FormularioCensoProps) {
+  const { empresaId } = useAuth();
+  const { sectoresOpciones } = useSectoresEmpresa(empresaId);
+
   const update = (key: string, val: unknown) => {
     if (readOnly) return;
     if (handleChange) handleChange(key, val);
@@ -170,12 +174,30 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
           onSelect={(v: string) => {
             update('sector', v);
             update('urbanizacion', v);
+            if (v !== 'Otro') {
+              update('sectorOtro', '');
+              update('sectorSolicitado', '');
+            }
           }}
-          options={SECTORES_ANACO}
+          options={sectoresOpciones}
           placeholder="Seleccione o busque el sector..."
           searchable={true}
           disabled={readOnly}
         />
+
+        {(formData.sector === 'Otro' || formData.urbanizacion === 'Otro') && (
+          <InputTexto
+            label="Nombre del Nuevo Sector"
+            value={formData.sectorOtro}
+            onChangeText={(v: string) => {
+              update('sectorOtro', v);
+              update('sectorSolicitado', v);
+            }}
+            placeholder="Ej: Sector Las Casitas..."
+            isRequired
+            readOnly={readOnly}
+          />
+        )}
 
         <InputTexto
           label="Calle / Edificio / Casa"

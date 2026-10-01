@@ -116,6 +116,8 @@ export interface TarjetaDatosValores {
   proveedorActual?: string;
   dispuestoCambiar?: string;
   observacionesCenso?: string;
+  sectorOtro?: string;
+  sectorSolicitado?: string;
   texto_libre?: string;
   origen?: string;
 

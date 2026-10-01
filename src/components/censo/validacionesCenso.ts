@@ -59,6 +59,14 @@ export function validarDatosCenso(formData: TarjetaDatosValores): ResultadoValid
     faltantes.push('Ciudad / Municipio');
   }
 
+  const sector = String(formData.sector || formData.urbanizacion || '').trim();
+  if (sector === 'Otro') {
+    const sectorOtro = String(formData.sectorOtro || formData.sectorSolicitado || '').trim();
+    if (!sectorOtro) {
+      faltantes.push('Nombre del Nuevo Sector (al seleccionar "Otro")');
+    }
+  }
+
   return {
     esValido: faltantes.length === 0,
     faltantes,

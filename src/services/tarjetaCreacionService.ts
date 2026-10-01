@@ -87,6 +87,24 @@ export async function ejecutarPostCreacionTarjeta({
     }
   }
 
+  // 3.1 Registrar solicitud de nuevo sector si seleccionó 'Otro'
+  const sectorVal = formData.sector || formData.urbanizacion;
+  const nuevoSector = formData.sectorOtro || formData.sectorSolicitado;
+  const targetEmpresaId = empresaId || payload.empresa_id;
+  if (sectorVal === 'Otro' && nuevoSector && targetEmpresaId && nuevaTarjetaId) {
+    try {
+      await supabase.from('solicitudes_sectores').insert({
+        empresa_id: targetEmpresaId,
+        usuario_id: payload.creador_id,
+        tarjeta_id: nuevaTarjetaId,
+        nombre_sector: String(nuevoSector).trim(),
+        estado: 'pendiente',
+      });
+    } catch (errSector) {
+      console.warn('Error registrando solicitud de nuevo sector:', errSector);
+    }
+  }
+
   // 4. Procesamiento de Materiales y Notificaciones
   if (isMaterialesMode && formData.tipoCarga && currentLista?.tablero_id && nuevaTarjetaId) {
     const movTipo = clasificarMovimientoAlmacen(formData.tipoCarga);

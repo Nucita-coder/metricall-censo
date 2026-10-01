@@ -1,7 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Users, UserCheck, HelpCircle, UserX, PhoneCall } from 'lucide-react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Users, UserCheck, HelpCircle, UserX, PhoneCall, MapPin } from 'lucide-react-native';
 import { SelectDropdown } from '../../venta/CamposVenta';
+import { useAuth } from '../../../context/AuthContext';
+import { supabase } from '../../../lib/supabase';
+import { ModalGestionSectores } from '../../censo/ModalGestionSectores';
+import { styles } from './ResumenKpiCenso.styles';
 import { CensoKpis, PeriodoCensoTipo } from './types';
 import {
   OPCIONES_PERIODO_CENSO,
@@ -39,6 +43,34 @@ export function ResumenKpiCenso({
   kpis,
   isDesktop,
 }: ResumenKpiCensoProps) {
+  const { userRol: authRol, isDeveloper, etiquetas = [], empresaId } = useAuth();
+  const currentRol = (authRol || '').toLowerCase();
+  const isDevUser = isDeveloper || currentRol === 'developer' || currentRol === 'desarrollador';
+  const isLiderEtiqueta = (etiquetas || []).some((e) => e.toLowerCase() === 'líder' || e.toLowerCase() === 'lider');
+  const canManageSectores = isDevUser || isLiderEtiqueta || ['admin', 'lider', 'administrador', 'supervisor'].includes(currentRol);
+
+  const [modalSectoresVisible, setModalSectoresVisible] = useState(false);
+  const [solicitudesCount, setSolicitudesCount] = useState(0);
+
+  const fetchSolicitudesCount = useCallback(async () => {
+    if (!empresaId || !canManageSectores) return;
+    try {
+      const { count, error } = await supabase
+        .from('solicitudes_sectores')
+        .select('*', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('estado', 'pendiente');
+      if (!error && count !== null) {
+        setSolicitudesCount(count);
+      }
+    } catch {
+      // Ignorar silenciosamente
+    }
+  }, [empresaId, canManageSectores]);
+
+  useEffect(() => {
+    fetchSolicitudesCount();
+  }, [fetchSolicitudesCount]);
   return (
     <View style={styles.container}>
       {/* BARRA DE FILTROS SUPERIOR */}
@@ -88,6 +120,24 @@ export function ResumenKpiCenso({
               onSelect={(selected: string) => setAsesorFiltro(selected)}
             />
           </View>
+
+          {canManageSectores && (
+            <View style={styles.botonContainer}>
+              <TouchableOpacity
+                style={styles.botonGestionSectores}
+                onPress={() => setModalSectoresVisible(true)}
+                activeOpacity={0.7}
+              >
+                <MapPin size={14} color="#B6C2CF" />
+                <Text style={styles.botonGestionSectoresText}>Sectores</Text>
+                {solicitudesCount > 0 && (
+                  <View style={styles.badgeSolicitudes}>
+                    <Text style={styles.badgeSolicitudesText}>{solicitudesCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
 
@@ -174,100 +224,17 @@ export function ResumenKpiCenso({
           <Text style={styles.kpiSubtitle}>Contactos comerciales efectuados</Text>
         </View>
       </View>
+
+      {canManageSectores && (
+        <ModalGestionSectores
+          visible={modalSectoresVisible}
+          onClose={() => {
+            setModalSectoresVisible(false);
+            fetchSolicitudesCount();
+          }}
+          onSectorAprobado={fetchSolicitudesCount}
+        />
+      )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 20,
-  },
-  filterBar: {
-    backgroundColor: '#22272B',
-    borderRadius: 0,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#384148',
-    marginBottom: 16,
-  },
-  filterBarRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    alignItems: 'center',
-  },
-  kpiGrid: {
-    flexDirection: 'column',
-    backgroundColor: '#2C333A',
-    borderWidth: 1,
-    borderColor: '#384148',
-    borderRadius: 0,
-    overflow: 'hidden',
-  },
-  kpiGridDesktop: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-  },
-  kpiCard: {
-    flex: 1,
-    backgroundColor: '#2C333A',
-    borderRadius: 0,
-    padding: 16,
-  },
-  borderRight: {
-    borderRightWidth: 1,
-    borderRightColor: '#384148',
-  },
-  borderBottom: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#384148',
-  },
-  kpiHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  kpiLabel: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#8C9BAB',
-    textTransform: 'uppercase',
-    flex: 1,
-  },
-  iconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#384148',
-  },
-  valueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-  },
-  kpiMainValue: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  pillBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 0,
-    borderWidth: 1,
-    backgroundColor: '#1D2125',
-  },
-  pillText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  kpiSubtitle: {
-    fontSize: 11,
-    color: '#8C9BAB',
-    marginTop: 4,
-  },
-});

@@ -211,12 +211,12 @@ export default function NuevaTarjetaScreen() {
       const creadorNombre = (nombreCompleto || session?.user?.email || '').trim();
       const vendedorFinal = (formData.vendedor || formData.asesorComercial || creadorNombre).trim();
       const asesorFinal = (formData.asesorComercial || vendedorFinal).trim();
+      const autoAsignar = !isMaterialesMode || clasificarMovimientoAlmacen(formData.tipoCarga, listaNombre) === 'MATERIAL_ASIGNADO';
       const datosFinales: TarjetaDatosValores = {
         ...formData,
-        vendedor: vendedorFinal,
-        asesorComercial: asesorFinal,
-        asignadoA: formData.asignadoA || asesorFinal,
-        asignado_a: formData.asignado_a || session?.user?.id || null,
+        ...(isMaterialesMode ? {} : { vendedor: vendedorFinal, asesorComercial: asesorFinal }),
+        asignadoA: formData.asignadoA || (autoAsignar ? asesorFinal : undefined),
+        asignado_a: formData.asignado_a || (autoAsignar ? session?.user?.id || null : null),
         ...(isCensoMode ? { origen: 'censo' } : {}),
         ...(lch && !formData.nroAbonado ? { nroAbonado: lch } : {}),
       };

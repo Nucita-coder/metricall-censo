@@ -1,5 +1,6 @@
 import { KANBAN_COLORS, getResultadoColor } from '../../../constants/theme';
 import { Tarjeta, TarjetaMaterialItem } from '../../../types/kanban';
+import { clasificarMovimientoAlmacen } from '../../../services/almacenService';
 import {
   StatusBadgeItem,
   UniversalCardData,
@@ -13,7 +14,8 @@ function extractMaterialesData(
   item: Tarjeta,
   data: Record<string, unknown>,
   cardBg: string,
-  isBloqueada: boolean
+  isBloqueada: boolean,
+  listaNombre?: string
 ): UniversalCardData {
   const items = Array.isArray(data.items) ? (data.items as TarjetaMaterialItem[]) : [];
   const totalCant =
@@ -33,8 +35,13 @@ function extractMaterialesData(
   const matNom = String(data.nombreMaterial || items[0]?.nombreMaterial || 'Carga de Material').trim();
   const matMod = String(data.modeloMaterial || items[0]?.modeloMaterial || 'GENERAL').toUpperCase();
 
+  const tipoMov = clasificarMovimientoAlmacen(
+    typeof data.tipoCarga === 'string' ? data.tipoCarga : undefined,
+    listaNombre || item.listas?.nombre
+  );
+
   const badges: StatusBadgeItem[] = [];
-  if (data.asignadoA) {
+  if (tipoMov === 'MATERIAL_ASIGNADO' && data.asignadoA) {
     badges.push({
       text: `Asignado a: ${String(data.asignadoA)}`,
       bg: 'rgba(59, 130, 246, 0.12)',
@@ -49,12 +56,22 @@ function extractMaterialesData(
     ? `Entregó: ${String(data.entregadoPor)}`
     : ' ';
 
+  const codMat = String(data.codigoMaterial || items[0]?.codigoMaterial || '').toUpperCase();
+  const nomMat = String(data.nombreMaterial || items[0]?.nombreMaterial || '').toUpperCase();
+  const esMetraje =
+    items.length > 1
+      ? false
+      : codMat === 'MAT-CABLE-DROP' ||
+        nomMat.includes('BOBINA') ||
+        (nomMat.includes('CABLE DROP') && !nomMat.includes('MTS'));
+  const unidad = esMetraje ? 'mts' : 'und';
+
   return {
     topBadgeText: badge,
     topBadgeBg: 'rgba(12, 102, 228, 0.15)',
     topBadgeColor: '#0C66E4',
     isCobranzaBadge: false,
-    topMetricText: totalCant > 0 ? `${totalCant} und` : '',
+    topMetricText: totalCant > 0 ? `${totalCant} ${unidad}` : '',
     title: toTitleCase(cleanEmojis(matNom)),
     subtitle: matMod !== 'GENERAL' ? `Modelo: ${matMod}` : '',
     statusBadges: badges,
@@ -228,7 +245,7 @@ export function extractUniversalCardData(
     data.codigoMaterial !== undefined ||
     data.nroOrdenEntrega !== undefined
   ) {
-    return extractMaterialesData(item, data, cardBg, isBloqueada);
+    return extractMaterialesData(item, data, cardBg, isBloqueada, listaNombre);
   }
 
   if (

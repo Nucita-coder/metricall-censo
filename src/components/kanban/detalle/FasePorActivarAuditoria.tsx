@@ -26,13 +26,9 @@ export function FasePorActivarAuditoria({
 }: FasePorActivarAuditoriaProps) {
   const geoNap = data.geo_nap as { lat?: number; lng?: number } | undefined;
   const geoCasa = data.geo_casa as { lat?: number; lng?: number } | undefined;
-
   const handleOpenMap = (lat?: number, lng?: number) => {
-    if (lat && lng) {
-      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
-    }
+    if (lat && lng) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
   };
-
   const tipoInstalacion = (data.tipoInstalacion as string) || '';
   const potenciaCasaVal = data.potencia_casa || data.potenciaCasa;
   const cableDropVal = data.cable_drop || data.cableDrop;
@@ -118,10 +114,11 @@ export function FasePorActivarAuditoria({
         </View>
       </View>
 
-      {/* Desglose Completo de Materiales (14 Insumos) */}
+      {/* Desglose Completo de Materiales */}
       <AuditoriaMaterialesGrid
         materiales={data.materiales as Record<string, string | number | undefined>}
         cablePreconectorizadoFallback={(data.cable_preconectorizado || data.cablePreconectorizado) as string}
+        cableDropFallback={(data.cable_drop || data.cableDrop) as string}
       />
 
       {/* Geolocalización Satelital (Geo NAP y Geo Casa) */}

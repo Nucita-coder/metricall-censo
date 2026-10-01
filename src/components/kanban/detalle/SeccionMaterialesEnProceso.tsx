@@ -8,6 +8,9 @@ interface SeccionMaterialesEnProcesoProps {
   stockCustodia: Record<string, number>;
   readOnly: boolean;
   isSaving: boolean;
+  tipoInstalacion?: string;
+  cableDrop?: string;
+  setCableDrop?: (val: string) => void;
 }
 
 const ITEMS_MATERIALES = [
@@ -34,8 +37,22 @@ export function SeccionMaterialesEnProceso({
   stockCustodia,
   readOnly,
   isSaving,
+  tipoInstalacion = 'tradicional',
+  cableDrop = '',
+  setCableDrop,
 }: SeccionMaterialesEnProcesoProps) {
   const [mostrarDropdownCable, setMostrarDropdownCable] = useState(false);
+  const esTradicional = (tipoInstalacion || 'tradicional').toLowerCase() === 'tradicional';
+  const esPreconectorizado = (tipoInstalacion || '').toLowerCase() === 'preconectorizado';
+
+  const dispBobina =
+    stockCustodia['MAT-CABLE-DROP'] !== undefined
+      ? stockCustodia['MAT-CABLE-DROP']
+      : stockCustodia['CABLE DROP'] !== undefined
+      ? stockCustodia['CABLE DROP']
+      : stockCustodia['BOBINA CABLE DROP'] !== undefined
+      ? stockCustodia['BOBINA CABLE DROP']
+      : 0;
 
   return (
     <View>
@@ -101,67 +118,121 @@ export function SeccionMaterialesEnProceso({
         })}
       </View>
 
-      {/* Selector Cable Preconectorizado */}
-      <View style={{ marginBottom: 16 }}>
-        <Text style={styles.labelMaterial}>Cable Preconectorizado (1 Rollo / Paquete)</Text>
-        <TouchableOpacity
-          style={styles.dropdownToggle}
-          onPress={() => !readOnly && !isSaving && setMostrarDropdownCable(!mostrarDropdownCable)}
-          disabled={readOnly || isSaving}
-        >
-          <Text style={{ color: materiales.cablePreconectorizado ? '#B6C2CF' : '#8C9BAB' }}>
-            {materiales.cablePreconectorizado ? `${materiales.cablePreconectorizado} Mts (1 Rollo)` : 'Seleccionar...'}
-          </Text>
-          {!readOnly && <ChevronDown size={16} color="#8C9BAB" />}
-        </TouchableOpacity>
+      {/* 1. SELECCIÓN PARA INSTALACIÓN TRADICIONAL: CABLE DROP DE BOBINA (METROS) */}
+      {esTradicional && (
+        <View style={{ marginBottom: 16 }}>
+          <Text style={styles.labelMaterial}>Cable Drop de Bobina (Metros Utilizados)</Text>
+          <TextInput
+            style={{
+              backgroundColor: '#1D2125',
+              borderWidth: 1,
+              borderColor: '#384148',
+              borderRadius: 8,
+              padding: 10,
+              color: '#B6C2CF',
+              fontSize: 14,
+            }}
+            value={cableDrop}
+            onChangeText={(val) => {
+              const numericVal = val.replace(/[^0-9]/g, '');
+              const num = parseFloat(numericVal || '0');
+              if (dispBobina > 0 && num > dispBobina) {
+                Alert.alert(
+                  'Stock insuficiente en custodia',
+                  `Solo dispones de ${dispBobina} metros de cable drop / bobina en tu custodia.`
+                );
+                return;
+              }
+              setCableDrop?.(numericVal);
+            }}
+            placeholder="Ej. 50 (metros)"
+            placeholderTextColor="#8C9BAB"
+            keyboardType="numeric"
+            editable={!readOnly && !isSaving}
+          />
+          {!readOnly && (
+            <Text style={[styles.stockInfoText, { marginTop: 6 }]}>
+              {dispBobina <= 0 ? (
+                <Text style={{ color: '#8C9BAB', fontStyle: 'italic' }}>
+                  Sin bobina de cable asignada en custodia
+                </Text>
+              ) : cableDrop && parseFloat(cableDrop) > 0 ? (
+                <Text style={{ color: '#4ADE80' }}>
+                  ✓ Se descontarán {cableDrop} metros de tu custodia de bobina (Disponible: {dispBobina} mts.)
+                </Text>
+              ) : (
+                `Disponible en tu custodia de bobina: ${dispBobina} mts.`
+              )}
+            </Text>
+          )}
+        </View>
+      )}
 
-        {mostrarDropdownCable && !readOnly && !isSaving && (
-          <View style={styles.dropdownMenu}>
-            {['50', '70', '100'].map((opcion) => {
-              const codRollo = `MAT-CABLE-DROP-${opcion}`;
-              const dispCable =
-                stockCustodia[codRollo] !== undefined
-                  ? stockCustodia[codRollo]
-                  : stockCustodia[`CABLE DROP ${opcion} MTS`] !== undefined
-                  ? stockCustodia[`CABLE DROP ${opcion} MTS`]
-                  : stockCustodia['MAT-CABLE-PRECONECTORIZADO'] !== undefined
-                  ? stockCustodia['MAT-CABLE-PRECONECTORIZADO']
-                  : stockCustodia['CABLE PRECONECTORIZADO'] || 0;
+      {/* 2. SELECCIÓN PARA INSTALACIÓN PRECONECTORIZADA: ROLLO CERRADO 50/70/100 M */}
+      {esPreconectorizado && (
+        <View style={{ marginBottom: 16 }}>
+          <Text style={styles.labelMaterial}>Cable Preconectorizado (1 Rollo / Paquete)</Text>
+          <TouchableOpacity
+            style={styles.dropdownToggle}
+            onPress={() => !readOnly && !isSaving && setMostrarDropdownCable(!mostrarDropdownCable)}
+            disabled={readOnly || isSaving}
+          >
+            <Text style={{ color: materiales.cablePreconectorizado ? '#B6C2CF' : '#8C9BAB' }}>
+              {materiales.cablePreconectorizado ? `${materiales.cablePreconectorizado} Mts (1 Rollo)` : 'Seleccionar...'}
+            </Text>
+            {!readOnly && <ChevronDown size={16} color="#8C9BAB" />}
+          </TouchableOpacity>
 
-              return (
-                <TouchableOpacity
-                  key={opcion}
-                  style={styles.dropdownMenuItem}
-                  onPress={() => {
-                    if (dispCable < 1) {
-                      Alert.alert(
-                        'Acción no permitida',
-                        `No posees paquetes de Cable Preconectorizado de ${opcion}m en tu custodia (Disponible: ${dispCable} und.).`
-                      );
+          {mostrarDropdownCable && !readOnly && !isSaving && (
+            <View style={styles.dropdownMenu}>
+              {['50', '70', '100'].map((opcion) => {
+                const codRollo = `MAT-CABLE-DROP-${opcion}`;
+                const dispCable =
+                  stockCustodia[codRollo] !== undefined
+                    ? stockCustodia[codRollo]
+                    : stockCustodia[`CABLE DROP ${opcion} MTS`] !== undefined
+                    ? stockCustodia[`CABLE DROP ${opcion} MTS`]
+                    : stockCustodia['MAT-CABLE-PRECONECTORIZADO'] !== undefined
+                    ? stockCustodia['MAT-CABLE-PRECONECTORIZADO']
+                    : stockCustodia['CABLE PRECONECTORIZADO'] || 0;
+
+                return (
+                  <TouchableOpacity
+                    key={opcion}
+                    style={styles.dropdownMenuItem}
+                    onPress={() => {
+                      if (dispCable < 1) {
+                        Alert.alert(
+                          'Acción no permitida',
+                          `No posees paquetes de Cable Preconectorizado de ${opcion}m en tu custodia (Disponible: ${dispCable} und.).`
+                        );
+                        setMostrarDropdownCable(false);
+                        return;
+                      }
+                      const nuevoPrecon = materiales.cablePreconectorizado === opcion ? '' : opcion;
+                      setMateriales((p) => ({
+                        ...p,
+                        cablePreconectorizado: nuevoPrecon,
+                      }));
+                      setCableDrop?.(nuevoPrecon);
                       setMostrarDropdownCable(false);
-                      return;
-                    }
-                    setMateriales((p) => ({
-                      ...p,
-                      cablePreconectorizado: p.cablePreconectorizado === opcion ? '' : opcion,
-                    }));
-                    setMostrarDropdownCable(false);
-                  }}
-                >
-                  <Text style={{ color: '#B6C2CF' }}>
-                    {opcion} Mts {dispCable > 0 ? `(${dispCable} rollo${dispCable > 1 ? 's' : ''} disp.)` : '(Sin stock)'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-        {!readOnly && Boolean(materiales.cablePreconectorizado) && (
-          <Text style={[styles.stockInfoText, { color: '#4ADE80', marginTop: 4 }]}>
-            ✓ Se descontará 1 paquete de {materiales.cablePreconectorizado} Mts de tu custodia
-          </Text>
-        )}
-      </View>
+                    }}
+                  >
+                    <Text style={{ color: '#B6C2CF' }}>
+                      {opcion} Mts {dispCable > 0 ? `(${dispCable} rollo${dispCable > 1 ? 's' : ''} disp.)` : '(Sin stock)'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+          {!readOnly && Boolean(materiales.cablePreconectorizado) && (
+            <Text style={[styles.stockInfoText, { color: '#4ADE80', marginTop: 4 }]}>
+              ✓ Se descontará 1 paquete de {materiales.cablePreconectorizado} Mts de tu custodia
+            </Text>
+          )}
+        </View>
+      )}
     </View>
   );
 }

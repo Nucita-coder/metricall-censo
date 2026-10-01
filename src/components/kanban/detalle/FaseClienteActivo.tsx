@@ -81,6 +81,7 @@ export const FaseClienteActivo = ({ tarjeta, isSaving, setImagenExpandida }: Fas
       <AuditoriaMaterialesGrid
         materiales={data.materiales as Record<string, string | number | undefined>}
         cablePreconectorizadoFallback={(data.cable_preconectorizado || data.cablePreconectorizado) as string}
+        cableDropFallback={(data.cable_drop || data.cableDrop) as string}
       />
 
       {/* 6. Resumen de Campos Dejados de Lado / En Blanco */}

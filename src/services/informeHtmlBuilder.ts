@@ -16,6 +16,7 @@ const ITEMS_MATERIALES_MAP: Record<string, string> = {
   conectorMecanicoUpc: 'Conector Mecánico UPC',
   precinto: 'Precinto',
   cablePreconectorizado: 'Cable Preconectorizado',
+  cableDrop: 'Cable Drop (Bobina / Metros)',
 };
 
 function formatFecha(fechaStr?: string | null): string {
@@ -80,6 +81,7 @@ export function generarHTMLInformeEscrito(tarjeta: TarjetaDatos): string {
   Object.keys(ITEMS_MATERIALES_MAP).forEach((key) => {
     let cant = mat[key];
     if (key === 'cablePreconectorizado' && (!cant || cant === '0')) cant = cablePrecon !== 'N/A' ? cablePrecon : '0';
+    if (key === 'cableDrop' && (!cant || cant === '0')) cant = (d.cable_drop || d.cableDrop) ? `${d.cable_drop || d.cableDrop} mts` : '0';
     const cantStr = cant !== undefined && cant !== null && String(cant).trim() !== '' ? String(cant) : '0';
     tablaMateriales += `<tr><td style="padding: 6px 10px; border: 1px solid #E2E8F0; font-weight: 500;">${ITEMS_MATERIALES_MAP[key]}</td><td style="padding: 6px 10px; border: 1px solid #E2E8F0; text-align: right; font-weight: 700; color: ${cantStr !== '0' ? '#0F172A' : '#94A3B8'};">${cantStr}</td></tr>`;
   });

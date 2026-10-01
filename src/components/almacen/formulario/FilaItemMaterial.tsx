@@ -45,6 +45,8 @@ export const FilaItemMaterial: React.FC<FilaItemMaterialProps> = ({
 }) => {
   const isCustodiaMode = !readOnly && isDevolucionAsignacionMode;
   const isAlmacenStockMode = !readOnly && (isAsignadoMode || isDevolucionCentralMode);
+  const isBobinaOMetros = item.codigoMaterial === 'MAT-CABLE-DROP' || item.nombreMaterial?.toUpperCase().includes('BOBINA') || (item.nombreMaterial?.toUpperCase().includes('CABLE DROP') && !item.nombreMaterial?.toUpperCase().includes('MTS'));
+  const unidadTxt = isBobinaOMetros ? 'mts.' : 'und.';
 
   const handleSelectFromList = (sel: string, list: StockItemDisponible[]) => {
     const codePart = sel.split(' - ')[0]?.trim();
@@ -221,7 +223,7 @@ export const FilaItemMaterial: React.FC<FilaItemMaterialProps> = ({
                     ? 'Stock disponible en almacén: '
                     : 'Stock actual en almacén: '}
               <Text style={{ fontWeight: 'bold', color: '#FFF' }}>
-                {info.stockExistente} und.
+                {info.stockExistente} {unidadTxt}
               </Text>
             </Text>
           </View>
@@ -243,14 +245,14 @@ export const FilaItemMaterial: React.FC<FilaItemMaterialProps> = ({
           <InputTexto
             label={
               isDevolucionMode
-                ? 'Cantidad a Devolver'
+                ? (isBobinaOMetros ? 'Metros a Devolver' : 'Cantidad a Devolver')
                 : isAsignadoMode
-                  ? 'Cantidad a Asignar'
-                  : 'Cantidad Recibida'
+                  ? (isBobinaOMetros ? 'Metros a Asignar' : 'Cantidad a Asignar')
+                  : (isBobinaOMetros ? 'Metros Recibidos' : 'Cantidad Recibida')
             }
             value={item.cantidadRecibida ? String(item.cantidadRecibida) : ''}
             onChangeText={(v) => updateItemField(idx, 'cantidadRecibida', v)}
-            placeholder="Ej. 50"
+            placeholder={isBobinaOMetros ? 'Ej. 500' : 'Ej. 50'}
             keyboardType="numeric"
             isRequired
             readOnly={readOnly}
@@ -260,7 +262,7 @@ export const FilaItemMaterial: React.FC<FilaItemMaterialProps> = ({
             info?.stockExistente !== undefined &&
             parseFloat(String(item.cantidadRecibida || '0')) > info.stockExistente && (
               <Text style={styles.excedeErrorText}>
-                {`Excede las ${info.stockExistente} und. ${
+                {`Excede los ${info.stockExistente} ${unidadTxt} ${
                   isDevolucionCentralMode
                     ? 'disponibles en almacén local'
                     : isDevolucionAsignacionMode

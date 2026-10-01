@@ -1,85 +1,7 @@
--- ========================================================================================
--- MIGRACIÓN 109: Arquitectura Ledger Transaccional de Custodia Personal de Materiales
--- Sincroniza Asignaciones, Devoluciones y Consumo en Instalaciones de forma atómica.
--- ========================================================================================
+-- MIGRACIÓN 114: Descuento condicional de bobina vs preconectorizado en custodia técnica
+-- Asegura que las bobinas (por metraje) solo se descuenten en instalación tradicional
+-- y los paquetes de cable preconectorizado solo en instalación preconectorizada.
 
--- 1. Crear tabla relacional stock_custodia_personal
-CREATE TABLE IF NOT EXISTS stock_custodia_personal (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    empresa_id UUID REFERENCES empresas(id) ON DELETE CASCADE,
-    usuario_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    usuario_nombre TEXT,
-    codigo_material TEXT NOT NULL,
-    nombre_material TEXT NOT NULL,
-    modelo_material TEXT NOT NULL DEFAULT 'GENERAL',
-    cantidad NUMERIC NOT NULL DEFAULT 0,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT uq_stock_custodia_personal UNIQUE (usuario_id, codigo_material, modelo_material)
-);
-
--- 2. Índices para alto rendimiento (< 5ms)
-CREATE INDEX IF NOT EXISTS idx_stock_custodia_usuario ON stock_custodia_personal(usuario_id);
-CREATE INDEX IF NOT EXISTS idx_stock_custodia_saldo ON stock_custodia_personal(usuario_id, cantidad);
-CREATE INDEX IF NOT EXISTS idx_stock_custodia_empresa ON stock_custodia_personal(empresa_id);
-
--- 3. Otorgar Permisos y Habilitar RLS
-GRANT ALL ON TABLE stock_custodia_personal TO authenticated;
-GRANT ALL ON TABLE stock_custodia_personal TO service_role;
-GRANT SELECT ON TABLE stock_custodia_personal TO anon;
-
-ALTER TABLE stock_custodia_personal ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Developer - Full Access Stock Custodia" ON stock_custodia_personal;
-CREATE POLICY "Developer - Full Access Stock Custodia"
-    ON stock_custodia_personal FOR ALL
-    USING (is_developer())
-    WITH CHECK (is_developer());
-
-DROP POLICY IF EXISTS "Lectura stock_custodia_personal" ON stock_custodia_personal;
-CREATE POLICY "Lectura stock_custodia_personal" ON stock_custodia_personal
-    FOR SELECT USING (
-        is_developer()
-        OR usuario_id = auth.uid()
-        OR (empresa_id IS NOT NULL AND empresa_id = get_user_tenant())
-    );
-
-DROP POLICY IF EXISTS "Escritura stock_custodia_personal" ON stock_custodia_personal;
-CREATE POLICY "Escritura stock_custodia_personal" ON stock_custodia_personal
-    FOR ALL USING (
-        is_developer()
-        OR (empresa_id IS NOT NULL AND empresa_id = get_user_tenant())
-    )
-    WITH CHECK (
-        is_developer()
-        OR (empresa_id IS NOT NULL AND empresa_id = get_user_tenant())
-    );
-
--- 4. Funciones auxiliares de casteo seguro
-CREATE OR REPLACE FUNCTION safe_cast_numeric(p_val TEXT, p_default NUMERIC DEFAULT 0)
-RETURNS NUMERIC AS $$
-BEGIN
-    IF p_val IS NULL OR TRIM(p_val) = '' THEN
-        RETURN p_default;
-    END IF;
-    RETURN p_val::NUMERIC;
-EXCEPTION WHEN OTHERS THEN
-    RETURN p_default;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
-CREATE OR REPLACE FUNCTION safe_cast_uuid(p_val TEXT)
-RETURNS UUID AS $$
-BEGIN
-    IF p_val IS NULL OR TRIM(p_val) = '' THEN
-        RETURN NULL;
-    END IF;
-    RETURN p_val::UUID;
-EXCEPTION WHEN OTHERS THEN
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
--- 5. Función central de aplicación de impacto transaccional
 CREATE OR REPLACE FUNCTION fn_aplicar_impacto_tarjeta_custodia(
     p_tarjeta_id UUID,
     p_lista_id UUID,
@@ -93,45 +15,75 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-    v_tipo_carga       TEXT;
-    v_lista_nombre     TEXT;
-    v_tablero_tipo     TEXT;
-    v_es_devolucion    BOOLEAN;
-    v_es_asignacion    BOOLEAN;
-    v_es_instalacion   BOOLEAN;
-    v_delta_base       NUMERIC;
-    v_user_uuid        UUID;
-    v_nombre_resp      TEXT;
-    v_nombre_perfil    TEXT;
-    v_item             JSONB;
-    v_codigo           TEXT;
-    v_nombre           TEXT;
-    v_modelo           TEXT;
-    v_cant             NUMERIC;
-    v_mat_k            TEXT;
-    v_mat_v            TEXT;
-    v_ont_cod          TEXT;
-    v_ont_nom          TEXT;
-    v_ont_mod          TEXT;
+    v_tablero_tipo TEXT;
+    v_tablero_nombre TEXT;
+    v_lista_nombre TEXT;
+    v_tipo_carga TEXT;
+    v_es_almacen BOOLEAN := FALSE;
+    v_es_instalacion BOOLEAN := FALSE;
+    v_es_asignacion BOOLEAN := FALSE;
+    v_tipo_instalacion TEXT;
+
+    v_user_uuid UUID;
+    v_nombre_resp TEXT;
+    v_nombre_perfil TEXT;
+
+    v_item JSONB;
+    v_mat_k TEXT;
+    v_mat_v TEXT;
+    v_cant NUMERIC;
+    v_codigo TEXT;
+    v_nombre TEXT;
+    v_modelo TEXT;
+    v_delta_base NUMERIC;
+
+    v_ont_cod TEXT;
+    v_ont_nom TEXT;
+    v_ont_mod TEXT;
+    v_modelo_drop TEXT;
 BEGIN
     IF p_datos IS NULL THEN
         RETURN;
     END IF;
 
-    v_tipo_carga := TRIM(UPPER(COALESCE(p_datos->>'tipoCarga', '')));
-
-    -- Obtener metadata de la lista y tablero
-    SELECT LOWER(TRIM(l.nombre)), t.tipo
-    INTO v_lista_nombre, v_tablero_tipo
+    SELECT t.tipo, LOWER(TRIM(t.nombre)), LOWER(TRIM(l.nombre))
+    INTO v_tablero_tipo, v_tablero_nombre, v_lista_nombre
     FROM listas l
     JOIN tableros t ON l.tablero_id = t.id
     WHERE l.id = p_lista_id;
 
-    -- Identificar si es tarjeta de instalación con materiales o equipo reportados
+    v_tipo_carga := UPPER(TRIM(COALESCE(p_datos->>'tipoCarga', '')));
+    v_tipo_instalacion := LOWER(TRIM(COALESCE(p_datos->>'tipoInstalacion', 'tradicional')));
+
+    v_es_almacen := (
+        v_tablero_tipo = 'almacen'
+        OR v_tipo_carga IN ('MATERIAL_ASIGNADO', 'DEVOLUCION_ASIGNACION', 'MATERIAL_RECIBIDO', 'DEVOLUCION_ALMACEN_CENTRAL')
+        OR v_lista_nombre LIKE '%asignad%'
+        OR v_lista_nombre LIKE '%devuelt%'
+        OR v_lista_nombre LIKE '%recibid%'
+    );
+
+    v_es_asignacion := (
+        v_tipo_carga = 'MATERIAL_ASIGNADO'
+        OR v_lista_nombre LIKE '%material%asignad%'
+        OR v_lista_nombre LIKE '%materiales asignados%'
+        OR (v_es_almacen AND v_lista_nombre LIKE '%asignad%')
+    );
+
     v_es_instalacion := (
-        (p_datos->'materiales' IS NOT NULL AND p_datos->'materiales' != '{}'::jsonb)
-        OR (p_datos->>'serialEquipo' IS NOT NULL AND TRIM(p_datos->>'serialEquipo') != '')
-        OR (p_datos->>'serial_onu' IS NOT NULL AND TRIM(p_datos->>'serial_onu') != '')
+        NOT v_es_almacen
+        AND (
+            v_tablero_tipo IN ('operaciones', 'instalaciones', 'censo', 'ventas', 'soporte')
+            OR p_datos->'materiales' IS NOT NULL
+            OR p_datos->>'serialEquipo' IS NOT NULL
+            OR p_datos->>'serial_onu' IS NOT NULL
+            OR p_datos->>'nroNap' IS NOT NULL
+            OR p_datos->>'potencia_casa' IS NOT NULL
+            OR p_datos->>'cable_drop' IS NOT NULL
+            OR v_tablero_nombre LIKE '%instalac%'
+            OR v_tablero_nombre LIKE '%atenci%'
+            OR v_tablero_nombre LIKE '%falla%'
+        )
     );
 
     -- ─────────────────────────────────────────────────────────────────────────────
@@ -157,12 +109,13 @@ BEGIN
             RETURN;
         END IF;
 
-        -- 1. Descontar los insumos reportados en materiales
+        -- 1. Descontar insumos reportados en materiales
         IF p_datos->'materiales' IS NOT NULL AND jsonb_typeof(p_datos->'materiales') = 'object' THEN
             FOR v_mat_k, v_mat_v IN SELECT * FROM jsonb_each_text(p_datos->'materiales')
             LOOP
                 v_cant := safe_cast_numeric(v_mat_v);
-                -- Si es cablePreconectorizado ('50', '70', '100'), la cantidad consumida es 1 paquete/rollo
+
+                -- Cable preconectorizado: SOLO se descuenta si la instalación es preconectorizada
                 IF v_mat_k = 'cablePreconectorizado' AND TRIM(COALESCE(v_mat_v, '')) != '' THEN
                     IF v_tipo_instalacion = 'preconectorizado' THEN
                         v_cant := 1;
@@ -237,10 +190,20 @@ BEGIN
         IF v_tipo_instalacion != 'preconectorizado' THEN
             v_cant := safe_cast_numeric(COALESCE(p_datos->>'cable_drop', p_datos->>'cableDrop'));
             IF v_cant > 0 THEN
+                -- Identificar el modelo exacto que el técnico tiene asignado en custodia para MAT-CABLE-DROP
+                SELECT modelo_material INTO v_modelo_drop
+                FROM stock_custodia_personal
+                WHERE usuario_id = v_user_uuid AND codigo_material = 'MAT-CABLE-DROP'
+                ORDER BY cantidad DESC LIMIT 1;
+
+                IF v_modelo_drop IS NULL THEN
+                    v_modelo_drop := 'DROP';
+                END IF;
+
                 INSERT INTO stock_custodia_personal (
                     empresa_id, usuario_id, usuario_nombre, codigo_material, nombre_material, modelo_material, cantidad, updated_at
                 ) VALUES (
-                    p_empresa_id, v_user_uuid, v_nombre_resp, 'MAT-CABLE-DROP', 'CABLE DROP', 'DROP', -1 * v_cant * p_multiplicador, now()
+                    p_empresa_id, v_user_uuid, v_nombre_resp, 'MAT-CABLE-DROP', 'CABLE DROP', v_modelo_drop, -1 * v_cant * p_multiplicador, now()
                 )
                 ON CONFLICT (usuario_id, codigo_material, modelo_material)
                 DO UPDATE SET
@@ -249,7 +212,7 @@ BEGIN
             END IF;
         END IF;
 
-        -- 3. Descontar equipo ONT/ONU si vino serial y NO fue reportado en materiales
+        -- 3. Descontar ONT/ONU si vino serial y NO fue reportado en materiales
         IF TRIM(COALESCE(p_datos->>'serialEquipo', p_datos->>'serial_onu', '')) != ''
            AND safe_cast_numeric(p_datos->'materiales'->>'ontConWifi') = 0
            AND safe_cast_numeric(p_datos->'materiales'->>'ontSinWifi') = 0 THEN
@@ -275,32 +238,11 @@ BEGIN
     END IF;
 
     -- ─────────────────────────────────────────────────────────────────────────────
-    -- CASO B: TARJETAS DE ALMACÉN (ASIGNACIÓN O DEVOLUCIÓN DE ASIGNACIÓN)
+    -- CASO B: TARJETA DE ALMACÉN (ASIGNACIÓN O DEVOLUCIÓN A CUSTODIA)
     -- ─────────────────────────────────────────────────────────────────────────────
-    IF COALESCE(v_tablero_tipo, '') != 'almacen'
-       AND v_tipo_carga NOT ILIKE '%ASIGNA%'
-       AND v_tipo_carga NOT ILIKE '%DEVOLUC%' THEN
-        RETURN;
-    END IF;
-
-    IF v_tipo_carga ILIKE '%CENTRAL%' OR COALESCE(v_lista_nombre, '') ILIKE '%CENTRAL%' THEN
-        RETURN;
-    END IF;
-
-    v_es_devolucion := (
-        v_tipo_carga ILIKE '%DEVOLUC%'
-        OR COALESCE(v_lista_nombre, '') ILIKE '%DEVOLUC%'
-    );
-
-    v_es_asignacion := (
-        NOT v_es_devolucion
-        AND (
-            v_tipo_carga ILIKE '%ASIGNA%'
-            OR COALESCE(v_lista_nombre, '') ILIKE '%ASIGNA%'
-        )
-    );
-
-    IF NOT v_es_asignacion AND NOT v_es_devolucion THEN
+    IF NOT (v_tipo_carga IN ('MATERIAL_ASIGNADO', 'DEVOLUCION_ASIGNACION')
+            OR v_lista_nombre LIKE '%asignad%'
+            OR v_lista_nombre LIKE '%devuelt%') THEN
         RETURN;
     END IF;
 
@@ -380,65 +322,5 @@ BEGIN
                 updated_at = now();
         END IF;
     END IF;
-END;
-$$;
-
--- 6. Trigger automático sobre la tabla tarjetas
-CREATE OR REPLACE FUNCTION fn_sync_custodia_personal()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-    IF TG_OP = 'DELETE' THEN
-        PERFORM fn_aplicar_impacto_tarjeta_custodia(OLD.id, OLD.lista_id, OLD.empresa_id, OLD.datos_valores, -1);
-        RETURN OLD;
-    ELSIF TG_OP = 'INSERT' THEN
-        PERFORM fn_aplicar_impacto_tarjeta_custodia(NEW.id, NEW.lista_id, NEW.empresa_id, NEW.datos_valores, 1);
-        RETURN NEW;
-    ELSIF TG_OP = 'UPDATE' THEN
-        IF OLD.datos_valores IS DISTINCT FROM NEW.datos_valores
-           OR OLD.lista_id IS DISTINCT FROM NEW.lista_id
-           OR OLD.empresa_id IS DISTINCT FROM NEW.empresa_id THEN
-            PERFORM fn_aplicar_impacto_tarjeta_custodia(OLD.id, OLD.lista_id, OLD.empresa_id, OLD.datos_valores, -1);
-            PERFORM fn_aplicar_impacto_tarjeta_custodia(NEW.id, NEW.lista_id, NEW.empresa_id, NEW.datos_valores, 1);
-        END IF;
-        RETURN NEW;
-    END IF;
-    RETURN NULL;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_sync_custodia_personal ON tarjetas;
-CREATE TRIGGER trg_sync_custodia_personal
-AFTER INSERT OR UPDATE OR DELETE ON tarjetas
-FOR EACH ROW
-EXECUTE FUNCTION fn_sync_custodia_personal();
-
--- 7. Rutina de Backfill Inicial (Población inmediata de saldos exactos)
-DO $$
-DECLARE
-    r RECORD;
-    v_count INTEGER := 0;
-BEGIN
-    TRUNCATE TABLE stock_custodia_personal;
-
-    FOR r IN (
-        SELECT t.id, t.lista_id, t.empresa_id, t.datos_valores
-        FROM tarjetas t
-        JOIN listas l ON t.lista_id = l.id
-        JOIN tableros tab ON l.tablero_id = tab.id
-        WHERE tab.tipo = 'almacen'
-           OR t.datos_valores->>'tipoCarga' IS NOT NULL
-           OR t.datos_valores->'materiales' IS NOT NULL
-           OR t.datos_valores->>'serialEquipo' IS NOT NULL
-        ORDER BY t.created_at ASC
-    ) LOOP
-        PERFORM fn_aplicar_impacto_tarjeta_custodia(r.id, r.lista_id, r.empresa_id, r.datos_valores, 1);
-        v_count := v_count + 1;
-    END LOOP;
-
-    RAISE NOTICE 'Backfill de stock_custodia_personal completado con éxito (% tarjetas procesadas).', v_count;
 END;
 $$;

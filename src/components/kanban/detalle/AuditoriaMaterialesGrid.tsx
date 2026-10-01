@@ -5,6 +5,7 @@ import { Package } from 'lucide-react-native';
 interface AuditoriaMaterialesGridProps {
   materiales?: Record<string, string | number | undefined>;
   cablePreconectorizadoFallback?: string;
+  cableDropFallback?: string | number;
 }
 
 const ITEMS_MATERIALES = [
@@ -22,16 +23,22 @@ const ITEMS_MATERIALES = [
   { key: 'conectorMecanicoUpc', label: 'CONECTOR MECÁNICO UPC' },
   { key: 'precinto', label: 'PRECINTO' },
   { key: 'cablePreconectorizado', label: 'CABLE PRECONECTORIZADO' },
+  { key: 'cableDrop', label: 'CABLE DROP (BOBINA)' },
 ];
 
 export function AuditoriaMaterialesGrid({
   materiales = {},
   cablePreconectorizadoFallback,
+  cableDropFallback,
 }: AuditoriaMaterialesGridProps) {
   const getValor = (key: string) => {
     if (key === 'cablePreconectorizado') {
       const val = materiales[key] || cablePreconectorizadoFallback;
-      return val && String(val).trim() !== '' ? String(val) : '-';
+      return val && String(val).trim() !== '' && String(val) !== '0' ? `${val} mts` : '-';
+    }
+    if (key === 'cableDrop') {
+      const val = materiales[key] || cableDropFallback;
+      return val && String(val).trim() !== '' && String(val) !== '0' ? `${val} mts` : '-';
     }
     const val = materiales[key];
     if (val === undefined || val === null || String(val).trim() === '') return '-';

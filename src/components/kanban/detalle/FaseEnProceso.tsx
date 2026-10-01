@@ -137,7 +137,16 @@ export const FaseEnProceso = ({
               <TouchableOpacity
                 key={tipo}
                 style={{ flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: isSelected ? '#0C66E4' : '#384148', backgroundColor: isSelected ? '#0C66E4' : '#1D2125', alignItems: 'center' }}
-                onPress={() => !readOnly && !isSaving && setTipoInstalacion(tipo)}
+                onPress={() => {
+                  if (!readOnly && !isSaving) {
+                    setTipoInstalacion(tipo);
+                    if (tipo === 'tradicional') {
+                      setMateriales(p => ({ ...p, cablePreconectorizado: '' }));
+                    } else if (tipo === 'preconectorizado') {
+                      setCableDrop('');
+                    }
+                  }
+                }}
                 disabled={readOnly || isSaving}
               >
                 <Text style={{ fontWeight: 'bold', color: isSelected ? '#FFF' : '#B6C2CF', textTransform: 'capitalize' }}>{tipo}</Text>
@@ -164,6 +173,9 @@ export const FaseEnProceso = ({
           stockCustodia={stockCustodia}
           readOnly={readOnly}
           isSaving={isSaving}
+          tipoInstalacion={tipoInstalacion}
+          cableDrop={cableDrop}
+          setCableDrop={setCableDrop}
         />
 
         <View style={{ marginBottom: 16 }}>
@@ -182,7 +194,15 @@ export const FaseEnProceso = ({
             </View>
             <View style={{ width: '48%', marginBottom: 12 }}>
               <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>CABLE DROP</Text>
-              <TextInput style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }} value={cableDrop} onChangeText={setCableDrop} editable={!readOnly && !isSaving} />
+              <TextInput
+                style={{ backgroundColor: '#1D2125', borderWidth: 1, borderColor: '#384148', borderRadius: 8, padding: 8, color: '#B6C2CF' }}
+                value={tipoInstalacion.toLowerCase() === 'preconectorizado' ? (materiales.cablePreconectorizado ? `${materiales.cablePreconectorizado} mts` : '') : cableDrop}
+                onChangeText={tipoInstalacion.toLowerCase() === 'tradicional' ? setCableDrop : undefined}
+                editable={tipoInstalacion.toLowerCase() === 'tradicional' && !readOnly && !isSaving}
+                placeholder={tipoInstalacion.toLowerCase() === 'preconectorizado' ? 'Fijado por rollo' : 'Metros'}
+                placeholderTextColor="#8C9BAB"
+                keyboardType="numeric"
+              />
             </View>
             <View style={{ width: '48%', marginBottom: 12 }}>
               <Text style={{ fontSize: 10, color: '#8C9BAB', fontWeight: '600', marginBottom: 4 }}>PUERTO ASIGNADO</Text>

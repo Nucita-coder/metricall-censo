@@ -33,7 +33,9 @@ export const TabCustodiaActiva: React.FC<TabCustodiaActivaProps> = ({
           </View>
           <View style={styles.rightBox}>
             <View style={styles.qtyBadgeActive}>
-              <Text style={styles.qtyTextActive}>{item.cantidad} und.</Text>
+              <Text style={styles.qtyTextActive}>
+                {item.cantidad} {item.codigo === 'MAT-CABLE-DROP' || item.nombre?.toUpperCase().includes('BOBINA') || (item.nombre?.toUpperCase().includes('CABLE DROP') && !item.nombre?.toUpperCase().includes('MTS')) ? 'mts.' : 'und.'}
+              </Text>
             </View>
           </View>
         </View>

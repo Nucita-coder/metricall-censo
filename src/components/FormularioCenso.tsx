@@ -2,6 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { InputDocumento, InputTexto, SelectDropdown } from './venta/CamposVenta';
 import { ESTADOS_VENEZUELA } from './venta/constantes';
+import { SECTORES_ANACO } from './censo/sectoresAnaco';
 
 import { TarjetaDatosValores } from '../types/kanban';
 
@@ -163,15 +164,17 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
           readOnly={readOnly}
         />
 
-        <InputTexto
+        <SelectDropdown
           label="Sector / Urbanización / Zona"
           value={formData.sector || formData.urbanizacion}
-          onChangeText={(v: string) => {
+          onSelect={(v: string) => {
             update('sector', v);
             update('urbanizacion', v);
           }}
-          placeholder="Sector o Urbanización"
-          readOnly={readOnly}
+          options={SECTORES_ANACO}
+          placeholder="Seleccione o busque el sector..."
+          searchable={true}
+          disabled={readOnly}
         />
 
         <InputTexto

@@ -1,5 +1,6 @@
 import { Tarjeta, TarjetaDatosValores } from '../../../types/kanban';
 import { AsesorCensoStat, SectorCensoStat, CensoKpis } from './types';
+import { normalizarSectorCenso } from '../../censo/sectoresAnaco';
 
 export interface PerfilRow {
   id: string;
@@ -155,7 +156,7 @@ export function procesarMetricasCenso(
     else asStat.noInteresados++;
 
     const sectorRaw = String(d.sector || d.urbanizacion || d.zona || d.ciudad || 'Sector No Especificado').trim();
-    const sectorNombre = sectorRaw || 'Sector No Especificado';
+    const sectorNombre = normalizarSectorCenso(sectorRaw);
     mapaSectores.set(sectorNombre, (mapaSectores.get(sectorNombre) || 0) + 1);
   });
 

@@ -143,4 +143,27 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#B6C2CF',
   },
+  modalSearchBox: {
+    backgroundColor: '#1D2125',
+    borderWidth: 1,
+    borderColor: '#384148',
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 6,
+    paddingHorizontal: 10,
+    height: 38,
+    justifyContent: 'center',
+  },
+  modalSearchInput: {
+    color: '#B6C2CF',
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  emptyOptionsText: {
+    padding: 16,
+    textAlign: 'center',
+    color: '#8C9BAB',
+    fontSize: 13,
+  },
 });

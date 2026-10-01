@@ -183,6 +183,7 @@ export interface SelectDropdownProps {
   fullWidth?: boolean;
   compact?: boolean;
   hideLabel?: boolean;
+  searchable?: boolean;
 }
 
 export const SelectDropdown = ({
@@ -196,10 +197,41 @@ export const SelectDropdown = ({
   halfWidth = false,
   compact = false,
   hideLabel = false,
+  searchable,
 }: SelectDropdownProps) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
   const { width } = useWindowDimensions();
   const isDesktop = width > 768;
+
+  const esBuscable = searchable !== undefined ? searchable : options.length > 8;
+
+  const opcionesFiltradas = React.useMemo(() => {
+    if (!esBuscable || !busqueda.trim()) return options;
+    const cleanTerm = busqueda
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+    return options.filter((item) =>
+      item
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .includes(cleanTerm)
+    );
+  }, [options, busqueda, esBuscable]);
+
+  const handleOpen = () => {
+    if (disabled) return;
+    setBusqueda('');
+    setModalVisible(true);
+  };
+
+  const handleClose = () => {
+    setBusqueda('');
+    setModalVisible(false);
+  };
 
   return (
     <View
@@ -217,7 +249,7 @@ export const SelectDropdown = ({
       )}
       <TouchableOpacity
         style={[styles.selectBtn, compact && styles.selectBtnCompact]}
-        onPress={() => !disabled && setModalVisible(true)}
+        onPress={handleOpen}
         disabled={disabled}
       >
         <Text style={{ color: value ? (disabled ? '#8C9BAB' : '#B6C2CF') : '#8C9BAB', fontSize: compact ? 13 : 16 }}>
@@ -226,26 +258,45 @@ export const SelectDropdown = ({
         <ChevronDown size={compact ? 16 : 20} color={disabled ? '#8C9BAB' : '#B6C2CF'} />
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} transparent animationType="fade">
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={handleClose}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setModalVisible(false)} />
+          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={handleClose} />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{label || 'Seleccionar opción'}</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity onPress={handleClose}>
                 <X size={20} color="#B6C2CF" />
               </TouchableOpacity>
             </View>
+
+            {esBuscable && (
+              <View style={styles.modalSearchBox}>
+                <TextInput
+                  style={styles.modalSearchInput}
+                  placeholder="Buscar opción..."
+                  placeholderTextColor="#8C9BAB"
+                  value={busqueda}
+                  onChangeText={setBusqueda}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            )}
+
             <FlatList
-              data={options}
+              data={opcionesFiltradas}
               keyExtractor={(item) => item}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                <Text style={styles.emptyOptionsText}>No se encontraron resultados</Text>
+              }
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.optionItem}
                   onPress={() => {
                     onSelect(item === 'Ninguno' ? '' : item);
-                    setModalVisible(false);
+                    handleClose();
                   }}
                 >
                   <Text

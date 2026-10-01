@@ -122,6 +122,11 @@ export function generarHTMLInformeEscrito(tarjeta: TarjetaDatos): string {
     .material-tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
     .signatures { display: flex; justify-content: space-between; margin-top: 26px; gap: 30px; page-break-inside: avoid; }
     .sig-col { flex: 1; text-align: center; border-top: 1.5px solid #0F172A; padding-top: 6px; }
+    @media print {
+      @page { margin: 10mm; size: A4; }
+      body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .card-block, .hero-box, .signatures { page-break-inside: avoid; }
+    }
   </style>
 </head>
 <body>

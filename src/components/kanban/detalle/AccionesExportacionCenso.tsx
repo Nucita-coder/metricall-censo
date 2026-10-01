@@ -2,11 +2,8 @@ import React from 'react';
 import { Text, TouchableOpacity, View, Platform, Alert } from 'react-native';
 import { FileText, MessageCircle, Send } from 'lucide-react-native';
 import * as Linking from 'expo-linking';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as shareAsync from 'expo-sharing';
-import { printToFileAsync } from 'expo-print';
 import { formatKeyName } from './SeccionRegistro';
-import { generarHTMLInforme } from '../../../services/reportes';
+import { generarHTMLInforme, imprimirODescargarReporte } from '../../../services/reportes';
 import { Tarjeta } from '../../../types/kanban';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -119,19 +116,7 @@ export function AccionesExportacionCenso({ tarjetaSeleccionada, isSaving }: Acci
   const handleExportPDF = async () => {
     try {
       const htmlEstructural = generarHTMLInforme(tarjetaSeleccionada);
-      const { base64 } = await printToFileAsync({ html: htmlEstructural, base64: true });
-      if (Platform.OS === 'web') {
-        const link = document.createElement('a');
-        link.href = `data:application/pdf;base64,${base64}`;
-        link.download = `Censo_${tarjetaSeleccionada.id}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        const finalUri = (FileSystem.documentDirectory || '') + `Censo_${tarjetaSeleccionada.id}.pdf`;
-        await FileSystem.writeAsStringAsync(finalUri, base64!, { encoding: FileSystem.EncodingType.Base64 });
-        await shareAsync.shareAsync(finalUri, { mimeType: 'application/pdf', dialogTitle: 'Descargar Censo PDF' });
-      }
+      await imprimirODescargarReporte(htmlEstructural, `Censo_${tarjetaSeleccionada.id}`);
     } catch (error: unknown) {
       const msg = (error as Error).message || String(error);
       if (Platform.OS === 'web') {

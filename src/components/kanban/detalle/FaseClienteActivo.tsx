@@ -1,12 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Alert, Platform, StyleSheet } from 'react-native';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as shareAsync from 'expo-sharing';
-import { printToFileAsync } from 'expo-print';
 import { FileText, ShieldCheck } from 'lucide-react-native';
 import { FaseProps } from './types';
 import { renderSection } from './SeccionRegistro';
-import { generarHTMLInforme } from '../../../services/reportes';
+import { generarHTMLInformeEscrito, imprimirODescargarReporte } from '../../../services/reportes';
 import { AuditoriaDatosClienteVenta } from './AuditoriaDatosClienteVenta';
 import { AuditoriaDatosTecnicosActivo } from './AuditoriaDatosTecnicosActivo';
 import { AuditoriaEvidenciasActivo } from './AuditoriaEvidenciasActivo';
@@ -18,27 +15,14 @@ export const FaseClienteActivo = ({ tarjeta, isSaving, setImagenExpandida }: Fas
 
   const handleDescargarPDF = async () => {
     try {
-      const htmlEstructural = generarHTMLInforme(tarjeta);
-      const { base64 } = await printToFileAsync({ html: htmlEstructural, base64: true });
-
-      if (Platform.OS === 'web') {
-        const link = document.createElement('a');
-        link.href = `data:application/pdf;base64,${base64}`;
-        link.download = `Reporte_Instalacion_${tarjeta.id}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        const finalUri = (FileSystem.documentDirectory || '') + `Reporte_Instalacion_${tarjeta.id}.pdf`;
-        await FileSystem.writeAsStringAsync(finalUri, base64!, { encoding: FileSystem.EncodingType.Base64 });
-        await shareAsync.shareAsync(finalUri, { mimeType: 'application/pdf', dialogTitle: 'Descargar Informe' });
-      }
+      const htmlEstructural = generarHTMLInformeEscrito(tarjeta);
+      await imprimirODescargarReporte(htmlEstructural, `Reporte_Instalacion_${tarjeta.id}`);
     } catch (error: unknown) {
       const msg = (error as Error).message || String(error);
       if (Platform.OS === 'web') {
-        alert('Error al generar el PDF: ' + msg);
+        alert('Error al generar el informe: ' + msg);
       } else {
-        Alert.alert('Error', 'No se pudo generar el PDF: ' + msg);
+        Alert.alert('Error', 'No se pudo generar el informe: ' + msg);
       }
     }
   };

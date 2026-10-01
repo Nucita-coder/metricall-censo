@@ -1,5 +1,12 @@
+import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as shareAsync from 'expo-sharing';
+import { printToFileAsync } from 'expo-print';
 import { logoBase64 } from '../../assets/logoBase64';
-import { ComentarioItem, GestionItem, TarjetaDatosValores } from '../types/kanban';
+import { ComentarioItem, TarjetaDatosValores } from '../types/kanban';
+import { generarHTMLInformeEscrito } from './informeHtmlBuilder';
+
+export { generarHTMLInformeEscrito };
 
 export type DatosValores = TarjetaDatosValores;
 
@@ -14,7 +21,7 @@ const formatValue = (val: unknown) => {
   if (typeof val === 'object') {
     if (Array.isArray(val)) {
       if (val.length === 0) return null;
-      return val.map(v => typeof v === 'object' ? JSON.stringify(v) : String(v)).join(', ');
+      return val.map((v) => (typeof v === 'object' ? JSON.stringify(v) : String(v))).join(', ');
     } else {
       const obj = val as Record<string, unknown>;
       if (Object.keys(obj).length === 0) return null;
@@ -29,9 +36,62 @@ const formatKey = (k: string) => {
   return k.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').toUpperCase().trim();
 };
 
-import { generarHTMLInformeEscrito } from './informeHtmlBuilder';
+export async function imprimirODescargarReporte(
+  html: string,
+  nombreArchivo: string
+): Promise<void> {
+  if (Platform.OS === 'web') {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
 
-export { generarHTMLInformeEscrito };
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      throw new Error('No se pudo acceder al documento de impresión.');
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+
+    setTimeout(() => {
+      try {
+        document.body.removeChild(iframe);
+      } catch {
+        // Ignorar si ya fue removido
+      }
+    }, 5000);
+    return;
+  }
+
+  const { uri, base64 } = await printToFileAsync({ html, base64: true });
+  const finalUri = (FileSystem.documentDirectory || '') + `${nombreArchivo}.pdf`;
+
+  if (base64) {
+    await FileSystem.writeAsStringAsync(finalUri, base64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    await shareAsync.shareAsync(finalUri, {
+      mimeType: 'application/pdf',
+      dialogTitle: 'Descargar Informe',
+    });
+  } else if (uri) {
+    await shareAsync.shareAsync(uri, {
+      mimeType: 'application/pdf',
+      dialogTitle: 'Descargar Informe',
+    });
+  }
+}
 
 const generarHTMLCenso = (tarjeta: TarjetaDatos): string => {
   const datos = tarjeta.datos_valores || {};

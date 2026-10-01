@@ -103,13 +103,23 @@ function extractCensoData(
     badges.push({ text: 'REASIGNADA', bg: 'rgba(239, 68, 68, 0.15)', color: '#DC2626', border: 'rgba(239, 68, 68, 0.3)' });
   }
 
+  const cleanInternet = String(data.cuentaConInternet ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
   const tieneInternet =
     data.cuentaConInternet === true ||
-    data.cuentaConInternet === 'si' ||
-    data.cuentaConInternet === 'SI' ||
-    data.cuentaConInternet === 'true';
+    cleanInternet === 'si' ||
+    cleanInternet === 'true' ||
+    Boolean(data.proveedorActual && String(data.proveedorActual).trim() !== '');
 
-  if (data.cuentaConInternet !== undefined && data.cuentaConInternet !== '') {
+  const debeMostrarBadgeInternet =
+    (data.cuentaConInternet !== undefined && data.cuentaConInternet !== null && String(data.cuentaConInternet).trim() !== '') ||
+    Boolean(data.proveedorActual && String(data.proveedorActual).trim() !== '');
+
+  if (debeMostrarBadgeInternet) {
     badges.push({
       text: tieneInternet ? 'CON INTERNET' : 'SIN INTERNET',
       bg: tieneInternet ? 'rgba(59, 130, 246, 0.12)' : 'rgba(100, 116, 139, 0.12)',

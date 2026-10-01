@@ -30,9 +30,14 @@ export function validarDatosCenso(formData: TarjetaDatosValores): ResultadoValid
 
   // 2. Encuesta de Servicio
   const cuentaConInternet = String(formData.cuentaConInternet || '').trim();
+  const cuentaNorm = cuentaConInternet
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
   if (!cuentaConInternet) {
     faltantes.push('¿Cuenta actualmente con servicio de Internet?');
-  } else if (cuentaConInternet === 'Sí') {
+  } else if (cuentaNorm === 'si') {
     const proveedor = String(formData.proveedorActual || '').trim();
     if (!proveedor) {
       faltantes.push('Proveedor Actual');
@@ -42,7 +47,7 @@ export function validarDatosCenso(formData: TarjetaDatosValores): ResultadoValid
   const dispuesto = String(formData.dispuestoCambiar || '').trim();
   if (!dispuesto) {
     faltantes.push(
-      cuentaConInternet === 'No'
+      cuentaNorm === 'no'
         ? '¿Desea contratar servicio de Internet?'
         : '¿Estaría dispuesto a cambiar de proveedor?'
     );
@@ -60,7 +65,9 @@ export function validarDatosCenso(formData: TarjetaDatosValores): ResultadoValid
   }
 
   const sector = String(formData.sector || formData.urbanizacion || '').trim();
-  if (sector === 'Otro') {
+  if (!sector) {
+    faltantes.push('Sector / Urbanización');
+  } else if (sector === 'Otro') {
     const sectorOtro = String(formData.sectorOtro || formData.sectorSolicitado || '').trim();
     if (!sectorOtro) {
       faltantes.push('Nombre del Nuevo Sector (al seleccionar "Otro")');

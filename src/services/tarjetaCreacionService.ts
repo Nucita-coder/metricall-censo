@@ -63,24 +63,45 @@ export async function ejecutarPostCreacionTarjeta({
   }
 
   // 3. Clonado automático de Censo
-  if (listaNombre === 'Censo' && formData.dispuestoCambiar && currentLista?.tablero_id) {
+  if (listaNombre === 'Censo' && currentLista?.tablero_id) {
     try {
-      let targetListName = '';
-      if (formData.dispuestoCambiar === 'Sí') targetListName = 'si desea';
-      else if (formData.dispuestoCambiar === 'No') targetListName = 'no desea';
-      else if (formData.dispuestoCambiar === 'Es posible') targetListName = 'es posible';
+      const dispRaw = String(formData.dispuestoCambiar || '').trim();
+      const dispLower = dispRaw
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
 
-      if (targetListName) {
-        const { data: targetList } = await supabase
-          .from('listas')
-          .select('id')
-          .eq('tablero_id', currentLista.tablero_id)
-          .eq('nombre', targetListName)
-          .single();
-        if (targetList) {
-          const clonePayload = { ...payload, lista_id: targetList.id };
-          await supabase.from('tarjetas').insert(clonePayload);
-        }
+      let targetListName = '';
+      if (dispLower === 'si') {
+        targetListName = 'si desea';
+      } else if (dispLower === 'no') {
+        targetListName = 'no desea';
+      } else if (dispLower.includes('posible')) {
+        targetListName = 'es posible';
+      } else {
+        // Fallback defensivo: si no se indicó respuesta, se clasifica en 'no desea'
+        // para garantizar que la tarjeta nunca quede fuera de las columnas del tablero
+        targetListName = 'no desea';
+      }
+
+      const { data: targetList } = await supabase
+        .from('listas')
+        .select('id')
+        .eq('tablero_id', currentLista.tablero_id)
+        .ilike('nombre', targetListName)
+        .maybeSingle();
+
+      if (targetList) {
+        const valorFinalDispuesto = formData.dispuestoCambiar || (targetListName === 'si desea' ? 'Sí' : targetListName === 'es posible' ? 'Es posible' : 'No');
+        const clonePayload = {
+          ...payload,
+          lista_id: targetList.id,
+          datos_valores: {
+            ...payload.datos_valores,
+            dispuestoCambiar: valorFinalDispuesto,
+          },
+        };
+        await supabase.from('tarjetas').insert(clonePayload);
       }
     } catch (err) {
       console.log('Error silenciado al clonar tarjeta de censo:', err);

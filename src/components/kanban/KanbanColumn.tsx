@@ -73,6 +73,31 @@ const KanbanColumnComponent = ({
 
   const { userRol } = useAuth();
   const puedeCrear = userRol !== 'empleado' || item.permisos_relacionales?.puede_crear === true;
+  const puedeMostrarBotonCrear =
+    puedeCrear &&
+    !isCobranzaBoard &&
+    !esListaClasificacionCenso &&
+    !(
+      nombreLower.includes('ventas online') ||
+      nombreLower.includes('reporte falla') ||
+      nombreLower.includes('reporte pago') ||
+      nombreLower.includes('material recibido') ||
+      nombreLower.includes('material asignado') ||
+      nombreLower.includes('recuperado') ||
+      nombreLower.includes('devolución') ||
+      nombreLower.includes('devolucion')
+    );
+
+  const handleCrearTarjeta = () => {
+    if (esListaCenso) {
+      setModalCensoVisible(true);
+    } else {
+      router.push({
+        pathname: '/tarjeta/nueva',
+        params: { lista_id: item.id, lista_nombre: item.nombre },
+      });
+    }
+  };
 
   const dotsRef = useRef<View>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -189,8 +214,8 @@ const KanbanColumnComponent = ({
               <Text style={styles.columnCount}>{item.tarjetas.length}</Text>
             </TouchableOpacity>
 
-            {/* Botón cuadrado redondeado estático con el más para Censo */}
-            {puedeCrear && esListaCenso && (
+            {/* Botón cuadrado redondeado estático con el más en la cabecera */}
+            {puedeMostrarBotonCrear && (
               <TouchableOpacity
                 style={{
                   width: 32,
@@ -204,7 +229,7 @@ const KanbanColumnComponent = ({
                   justifyContent: 'center',
                   marginRight: 6,
                 }}
-                onPress={() => setModalCensoVisible(true)}
+                onPress={handleCrearTarjeta}
                 activeOpacity={0.6}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
@@ -264,49 +289,7 @@ const KanbanColumnComponent = ({
             )}
             showsVerticalScrollIndicator={false}
             directionalLockEnabled={true}
-            contentContainerStyle={{ paddingBottom: esListaCenso ? 12 : 60, flexGrow: 1 }}
-            ListFooterComponent={() => {
-              if (!puedeCrear || isCobranzaBoard || esListaCenso || esListaClasificacionCenso) return null;
-
-              if (
-                nombreLower.includes('ventas online') ||
-                nombreLower.includes('reporte falla') ||
-                nombreLower.includes('reporte pago') ||
-                nombreLower.includes('material recibido') ||
-                nombreLower.includes('material asignado') ||
-                nombreLower.includes('recuperado') ||
-                nombreLower.includes('devolución') ||
-                nombreLower.includes('devolucion')
-              ) {
-                return null;
-              }
-
-              return (
-                <View style={{ marginTop: 12, marginBottom: 20 }}>
-                  <TouchableOpacity
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingVertical: 14,
-                      paddingHorizontal: 12,
-                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                      borderRadius: 12,
-                      borderWidth: 1.5,
-                      borderColor: '#333',
-                      borderStyle: 'dashed',
-                    }}
-                    onPress={() => router.push({ pathname: '/tarjeta/nueva', params: { lista_id: item.id, lista_nombre: item.nombre } })}
-                    activeOpacity={0.6}
-                  >
-                    <Plus size={20} color="#111" strokeWidth={2} />
-                    <Text style={{ marginLeft: 8, fontWeight: '600', color: '#111', fontSize: 14, fontStyle: 'italic' }}>
-                      Añadir Tarjeta
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            }}
+            contentContainerStyle={{ paddingBottom: 16, flexGrow: 1 }}
           />
         </Animated.View>
       </Pressable>

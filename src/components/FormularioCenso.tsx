@@ -94,7 +94,10 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
           disabled={readOnly}
         />
 
-        {formData.cuentaConInternet === 'Sí' && (
+        {String(formData.cuentaConInternet || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') === 'si' && (
           <SelectDropdown
             label="Proveedor Actual"
             value={formData.proveedorActual}
@@ -120,7 +123,10 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
 
         <SelectDropdown
           label={
-            formData.cuentaConInternet === 'No'
+            String(formData.cuentaConInternet || '')
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '') === 'no'
               ? '¿Desea contratar servicio de Internet?'
               : '¿Estaría dispuesto a cambiar de proveedor?'
           }
@@ -182,6 +188,7 @@ export default function FormularioCenso({ formData, handleChange, readOnly = fal
           options={sectoresOpciones}
           placeholder="Seleccione o busque el sector..."
           searchable={true}
+          isRequired={true}
           disabled={readOnly}
         />
 

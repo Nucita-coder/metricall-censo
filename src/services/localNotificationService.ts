@@ -94,7 +94,7 @@ class LocalNotificationService {
           const options: NotificationOptions & { renotify?: boolean } = {
             body: finalCuerpo,
             icon: '/icons/icon-192.png',
-            badge: '/icons/icon-192.png',
+            badge: '/icons/badge-96.png',
             tag: `metricall-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             renotify: true,
             requireInteraction: true,

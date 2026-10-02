@@ -1,11 +1,13 @@
-const CACHE_NAME = 'metricall-pwa-v2';
+const CACHE_NAME = 'metricall-pwa-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  '/icons/maskable-icon-512.png'
+  '/icons/maskable-icon-512.png',
+  '/icons/badge-96.png',
+  '/icons/badge-192.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -138,7 +140,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body: payload.mensaje || payload.body || 'Tienes una nueva actualización en Metricall.',
     icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    badge: '/icons/badge-96.png',
     vibrate: [100, 50, 100],
     data: payload.data || payload,
   };

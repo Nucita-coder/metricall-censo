@@ -70,6 +70,9 @@ class LocalNotificationService {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (window.Notification.permission !== 'granted') return;
 
+    const finalTitulo = titulo?.trim() || 'Metricall';
+    const finalCuerpo = cuerpo?.trim() || 'Nueva notificación en el sistema';
+
     // 1. Intentar disparar vía ServiceWorker (estándar PWA indispensable en Android/Chrome)
     if ('serviceWorker' in navigator) {
       try {
@@ -89,7 +92,7 @@ class LocalNotificationService {
 
         if (registration && typeof registration.showNotification === 'function') {
           const options: NotificationOptions & { renotify?: boolean } = {
-            body: cuerpo,
+            body: finalCuerpo,
             icon: '/icons/icon-192.png',
             badge: '/icons/icon-192.png',
             tag: `metricall-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -97,7 +100,7 @@ class LocalNotificationService {
             requireInteraction: true,
             data: data || {},
           };
-          await registration.showNotification(titulo, options);
+          await registration.showNotification(finalTitulo, options);
           return;
         }
       } catch (e) {
@@ -108,8 +111,8 @@ class LocalNotificationService {
     // 2. Fallback a window.Notification (para Safari / navegadores de escritorio)
     try {
       if (typeof window.Notification === 'function') {
-        const webNotif = new window.Notification(titulo, {
-          body: cuerpo,
+        const webNotif = new window.Notification(finalTitulo, {
+          body: finalCuerpo,
           icon: '/icons/icon-192.png',
           data: data || {},
         });

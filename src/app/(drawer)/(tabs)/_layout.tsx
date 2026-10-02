@@ -1,16 +1,18 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { useWindowDimensions, Platform, View, StyleSheet } from 'react-native';
+import { useWindowDimensions, Platform, View, StyleSheet, Text } from 'react-native';
 import { Briefcase, Users, Settings, MessageSquare, BarChart3, Package, Bot, LucideIcon } from 'lucide-react-native';
 import { useAuth } from '../../../context/AuthContext';
+import { useNotificationContext } from '../../../context/NotificationContext';
 import { soundService } from '../../../services/soundService';
 
 interface TabIconProps {
   icon: LucideIcon;
   focused: boolean;
+  badgeCount?: number;
 }
 
-function TabIcon({ icon: Icon, focused }: TabIconProps) {
+function TabIcon({ icon: Icon, focused, badgeCount }: TabIconProps) {
   return (
     <View style={[styles.iconPill, focused && styles.iconPillActive]}>
       <Icon
@@ -18,13 +20,20 @@ function TabIcon({ icon: Icon, focused }: TabIconProps) {
         color={focused ? '#FFFFFF' : '#8C9BAB'}
         strokeWidth={focused ? 2.2 : 1.8}
       />
+      {Boolean(badgeCount && badgeCount > 0) && (
+        <View style={styles.tabBadge}>
+          <Text style={styles.tabBadgeText}>{badgeCount! > 9 ? '9+' : badgeCount}</Text>
+        </View>
+      )}
     </View>
   );
 }
 
 export default function TabLayout() {
   const { userRol, isDeveloper } = useAuth();
+  const { unreadChatCount } = useNotificationContext();
   const { width } = useWindowDimensions();
+
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const rolLower = (userRol || '').toLowerCase();
   const isDevUser = isDeveloper || rolLower === 'developer' || rolLower === 'desarrollador';
@@ -96,7 +105,9 @@ export default function TabLayout() {
         name="mensajes"
         options={{
           title: 'Mensajes',
-          tabBarIcon: ({ focused }) => <TabIcon icon={MessageSquare} focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon icon={MessageSquare} focused={focused} badgeCount={unreadChatCount} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -134,11 +145,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
+    position: 'relative',
   },
   iconPillActive: {
     backgroundColor: '#2C333A',
     borderWidth: 1,
     borderColor: '#384148',
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: '#2C333A',
+    borderColor: '#384148',
+    borderWidth: 1,
+    borderRadius: 6,
+    minWidth: 13,
+    height: 13,
+    paddingHorizontal: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: 'bold',
   },
 });
 

@@ -1,27 +1,26 @@
 import { useRouter, Href } from 'expo-router';
 import { Bell, HelpCircle, LogOut, MessageSquare, Search, X } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View, TextStyle } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Image, Platform, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View, TextStyle } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useGlobalUi } from '../../context/GlobalUiContext';
-import { useNotificaciones } from '../../hooks/useNotificaciones';
+import { useNotificationContext } from '../../context/NotificationContext';
 import { supabase } from '../../lib/supabase';
 import { ModalSoporteTecnico } from '../soporte/ModalSoporteTecnico';
 import { ModalCentroAyuda } from '../soporte/ModalCentroAyuda';
+import { ModalNotificaciones } from '../notificaciones/ModalNotificaciones';
 
 export function GlobalTopBar() {
-  const { nombreCompleto, userRol, session, avatarUrl } = useAuth();
+  const { nombreCompleto, session, avatarUrl } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { searchQuery, setSearchQuery, soporteTrigger } = useGlobalUi();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [showNotificaciones, setShowNotificaciones] = React.useState(false);
   const [showSoporte, setShowSoporte] = React.useState(false);
   const [showCentroAyuda, setShowCentroAyuda] = React.useState(false);
-  const { notificaciones, unreadCount, marcarComoLeida, marcarTodasComoLeidas } = useNotificaciones(session?.user?.id);
+  const { unreadCount, unreadChatCount } = useNotificationContext();
 
   React.useEffect(() => {
     if (soporteTrigger > 0) {
@@ -72,17 +71,23 @@ export function GlobalTopBar() {
         )}
 
         <View style={styles.iconGroup}>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(drawer)/(tabs)/mensajes' as Href)}>
-            <MessageSquare size={20} color="#9FADBC" />
-          </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => {
-              setShowNotificaciones(true);
-              if (unreadCount > 0) {
-                marcarTodasComoLeidas();
-              }
-            }}
+            onPress={() => router.push('/(drawer)/(tabs)/mensajes' as Href)}
+            accessibilityLabel="Mensajes"
+          >
+            <MessageSquare size={20} color="#9FADBC" />
+            {unreadChatCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadText}>{unreadChatCount > 99 ? '99+' : unreadChatCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => setShowNotificaciones(true)}
+            accessibilityLabel="Notificaciones"
           >
             <Bell size={20} color="#9FADBC" />
             {unreadCount > 0 && (
@@ -91,6 +96,7 @@ export function GlobalTopBar() {
               </View>
             )}
           </TouchableOpacity>
+
           <TouchableOpacity style={styles.iconBtn} onPress={() => setShowCentroAyuda(true)}>
             <HelpCircle size={20} color="#9FADBC" />
           </TouchableOpacity>
@@ -113,52 +119,11 @@ export function GlobalTopBar() {
         </TouchableOpacity>
       </View>
 
-      {/* MODAL DE NOTIFICACIONES */}
-      <Modal visible={showNotificaciones} transparent animationType="fade" onRequestClose={() => setShowNotificaciones(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowNotificaciones(false)}>
-          <TouchableOpacity activeOpacity={1} style={[styles.notifContainer, { width: isDesktop ? 400 : '100%', marginTop: isDesktop ? 60 : insets.top + 50, marginRight: isDesktop ? 20 : 0 }]}>
-            <View style={styles.notifHeader}>
-              <Text style={styles.notifTitle}>Notificaciones</Text>
-              {unreadCount > 0 && (
-                <TouchableOpacity onPress={marcarTodasComoLeidas}>
-                  <Text style={styles.markAllRead}>Marcar todas leídas</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            <ScrollView style={{ padding: 16 }}>
-              {notificaciones.length === 0 ? (
-                <Text style={styles.emptyNotifText}>No tienes notificaciones recientes.</Text>
-              ) : (
-                notificaciones.map((notif) => (
-                  <TouchableOpacity
-                    key={notif.id}
-                    style={[styles.notifItem, { backgroundColor: notif.leida ? 'transparent' : '#1D2125', borderColor: notif.leida ? 'transparent' : '#0C66E4' }]}
-                    onPress={async () => {
-                      marcarComoLeida(notif.id);
-                      setShowNotificaciones(false);
-                      if (notif.tarjeta_id) {
-                        try {
-                          const { data } = await supabase.from('tarjetas').select('listas (tablero_id)').eq('id', notif.tarjeta_id).single();
-                          const listasData = data?.listas as { tablero_id?: string } | Array<{ tablero_id?: string }> | null;
-                          const tableroId = Array.isArray(listasData) ? listasData[0]?.tablero_id : listasData?.tablero_id;
-                          if (tableroId) {
-                            router.push(`/tablero/${tableroId}?abrirTarjeta=${notif.tarjeta_id}` as Href);
-                          }
-                        } catch (e) {
-                          console.error('Error nav', e);
-                        }
-                      }
-                    }}
-                  >
-                    <Text style={[styles.notifMsg, { fontWeight: notif.leida ? 'normal' : 'bold' }]}>{notif.mensaje}</Text>
-                    <Text style={styles.notifTime}>{new Date(notif.created_at).toLocaleString()}</Text>
-                  </TouchableOpacity>
-                ))
-              )}
-            </ScrollView>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+      {/* MODAL MODULAR DE NOTIFICACIONES */}
+      <ModalNotificaciones
+        visible={showNotificaciones}
+        onClose={() => setShowNotificaciones(false)}
+      />
 
       {/* MODAL DE SOPORTE TÉCNICO Y CENTRO DE AYUDA */}
       <ModalSoporteTecnico visible={showSoporte} onClose={() => setShowSoporte(false)} />
@@ -210,21 +175,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 4,
+    position: 'relative',
   },
   unreadBadge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: '#E53E3E',
-    borderRadius: 10,
-    width: 18,
-    height: 18,
+    top: -2,
+    right: -4,
+    backgroundColor: '#2C333A',
+    borderColor: '#384148',
+    borderWidth: 1,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
     justifyContent: 'center',
     alignItems: 'center',
   },
   unreadText: {
-    color: '#FFF',
-    fontSize: 10,
+    color: '#FFFFFF',
+    fontSize: 9,
     fontWeight: 'bold',
   },
   searchContainerDesktop: {
@@ -255,7 +224,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#2C333A',
+    borderWidth: 1,
+    borderColor: '#384148',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
@@ -267,7 +238,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   avatarText: {
-    color: '#FFF',
+    color: '#B6C2CF',
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -282,57 +253,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 6,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-  },
-  notifContainer: {
-    maxHeight: '80%',
-    backgroundColor: '#22272B',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#384148',
-    overflow: 'hidden',
-  },
-  notifHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#384148',
-    backgroundColor: '#1D2125',
-  },
-  notifTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#B6C2CF',
-  },
-  markAllRead: {
-    color: '#0C66E4',
-    fontSize: 14,
-  },
-  emptyNotifText: {
-    color: '#8C9BAB',
-    textAlign: 'center',
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  notifItem: {
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  notifMsg: {
-    color: '#B6C2CF',
-    fontSize: 14,
-  },
-  notifTime: {
-    color: '#8C9BAB',
-    fontSize: 12,
-    marginTop: 4,
-  },
 });
+

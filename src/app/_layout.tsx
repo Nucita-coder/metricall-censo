@@ -90,6 +90,7 @@ function RootLayoutNav() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="tarjeta/nueva" options={{ presentation: 'transparentModal', animation: 'fade' }} />
         </Stack>
+        <InAppNotificationToast />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -97,17 +98,22 @@ function RootLayoutNav() {
 
 import { ErrorDiagnosticsProvider } from '../context/ErrorDiagnosticsContext';
 import { SoundPreferencesProvider } from '../context/SoundPreferencesContext';
+import { NotificationProvider } from '../context/NotificationContext';
+import { InAppNotificationToast } from '../components/notificaciones/InAppNotificationToast';
 
 export default function RootLayout() {
   return (
     <ErrorDiagnosticsProvider>
       <SoundPreferencesProvider>
         <AuthProvider>
-          <LocationProvider>
-            <RootLayoutNav />
-          </LocationProvider>
+          <NotificationProvider>
+            <LocationProvider>
+              <RootLayoutNav />
+            </LocationProvider>
+          </NotificationProvider>
         </AuthProvider>
       </SoundPreferencesProvider>
     </ErrorDiagnosticsProvider>
   );
 }
+

@@ -114,9 +114,21 @@ class SoundService {
       (config.category === 'gesture' && this.gesturesEnabled) ||
       ((config.category === 'notification' || config.category === 'action') && this.notificationsEnabled);
 
-    // Disparar háptica si está permitida (incluso si el sonido está silenciado)
-    if (this.hapticsEnabled && config.haptic && Platform.OS !== 'web') {
-      config.haptic().catch(() => {});
+    // Disparar háptica o vibración si está permitida (funciona en PWA móvil y nativo)
+    if (this.hapticsEnabled) {
+      if (Platform.OS === 'web') {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try {
+            if (config.category === 'notification') {
+              navigator.vibrate([100, 50, 100]);
+            } else {
+              navigator.vibrate(30);
+            }
+          } catch (_) {}
+        }
+      } else if (config.haptic) {
+        config.haptic().catch(() => {});
+      }
     }
 
     if (!isSoundAllowed) return;

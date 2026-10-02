@@ -1,4 +1,4 @@
-const CACHE_NAME = 'metricall-pwa-v1';
+const CACHE_NAME = 'metricall-pwa-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -88,4 +88,60 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request).catch(() => caches.match(request))
   );
+});
+
+// Manejo de eventos de Notificación PWA (Click e Interacción)
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const data = event.notification.data || {};
+  let urlToOpen = '/(drawer)';
+
+  if (data.tarjetaId && data.tableroId) {
+    urlToOpen = `/tablero/${data.tableroId}?abrirTarjeta=${data.tarjetaId}`;
+  } else if (data.tipo === 'mensaje' || data.chatUserId) {
+    urlToOpen = '/(drawer)/(tabs)/mensajes';
+  } else if (data.url) {
+    urlToOpen = data.url;
+  }
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Si la ventana ya está abierta, la enfocamos y le enviamos mensaje
+      for (const client of windowClients) {
+        if ('focus' in client) {
+          client.postMessage({ type: 'PWA_NOTIFICATION_CLICK', data });
+          return client.focus();
+        }
+      }
+      // Si no hay ventana abierta, abrimos una nueva con la ruta correspondiente
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});
+
+// Soporte para Push Events en PWA
+self.addEventListener('push', (event) => {
+  let payload = { titulo: 'Metricall', mensaje: 'Nueva actualización en Metricall', data: {} };
+  try {
+    if (event.data) {
+      payload = event.data.json();
+    }
+  } catch (_) {
+    if (event.data) {
+      payload.mensaje = event.data.text();
+    }
+  }
+
+  const title = payload.titulo || payload.title || 'Metricall';
+  const options = {
+    body: payload.mensaje || payload.body || 'Tienes una nueva actualización en Metricall.',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    vibrate: [100, 50, 100],
+    data: payload.data || payload,
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
 });

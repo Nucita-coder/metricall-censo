@@ -21,12 +21,18 @@ function RootLayoutNav() {
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
+        const registerSW = () => {
           navigator.serviceWorker
             .register('/sw.js')
             .then((reg) => console.log('[PWA] Service Worker activo:', reg.scope))
             .catch((err) => console.log('[PWA] Error en Service Worker:', err));
-        });
+        };
+
+        if (document.readyState === 'complete') {
+          registerSW();
+        } else {
+          window.addEventListener('load', registerSW);
+        }
       }
 
       if (typeof document !== 'undefined') {
